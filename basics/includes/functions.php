@@ -49,8 +49,21 @@ function basics_admin_role_label($role) {
         'admin' => 'Admin',
         'staff_orders' => 'Staff (Orders)',
         'staff_payments' => 'Staff (Payments)',
+        'staff_registration' => 'Staff (Registration)',
     ];
     return $labels[$role] ?? ucfirst($role);
+}
+
+// The three restricted staff roles that admin/super_admin manage from
+// basics/admin/staff.php. Admin and super_admin accounts themselves are only
+// ever managed from admins.php (super_admin-only), so an admin can't create
+// or edit anyone at or above their own level.
+function basics_staff_roles() {
+    return [
+        'staff_orders' => 'Handles orders, applications, products and the supplier summary.',
+        'staff_payments' => 'Handles payments, reminders, payment submissions, emergency credit, benefits and the dormancy report.',
+        'staff_registration' => 'Registers new members and views users only — cannot approve, edit credit, or see orders and payments.',
+    ];
 }
 
 // Whether an order is fully settled, shown as a "Paid" pill alongside (not

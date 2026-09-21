@@ -4,7 +4,7 @@ require __DIR__ . '/../../config/database.php';
 require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 
-require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders', 'staff_registration']);
 
 $doc_id = (int) ($_GET['doc_id'] ?? 0);
 

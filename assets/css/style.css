@@ -224,6 +224,21 @@
   box-shadow: 0 14px 34px color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
+/* Staff Management "Edit" toggle (basics/admin/staff.php) — a native
+   <details>, so it works with no JavaScript. */
+.staff-edit summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-block;
+}
+.staff-edit summary::-webkit-details-marker {
+  display: none;
+}
+.staff-edit[open] {
+  display: block;
+  margin-bottom: 8px;
+}
+
 /* Footer contact lines are centered, "Label: value" on one line, no icons
    (includes/footer.php). */
 .fci {

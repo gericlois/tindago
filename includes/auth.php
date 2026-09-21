@@ -310,13 +310,16 @@ function basics_admin_landing_url() {
             return '/basics/admin/applications.php';
         case 'staff_payments':
             return '/basics/admin/payments.php';
+        case 'staff_registration':
+            return '/basics/admin/users.php';
         default:
             return '/basics/admin/index.php';
     }
 }
 
-// staff_orders and staff_payments are restricted roles, each scoped to its
-// own slice of the admin (orders/applications vs payments/benefits).
+// staff_orders, staff_payments and staff_registration are restricted roles,
+// each scoped to its own slice of the admin (orders/applications vs
+// payments/benefits vs registering and viewing users).
 // Everything else (members, settings, etc.) is super_admin-only. Pages call
 // this instead of require_basics_admin_login() when they should be
 // off-limits to one or both staff roles.

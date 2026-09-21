@@ -5,9 +5,15 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'admin']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_registration']);
 
 $id = (int) ($_GET['id'] ?? 0);
+// Registration staff get a read-only profile + submitted documents: no credit,
+// orders, payments, messaging or status changes — and no POST at all.
+$is_view_only = basics_admin_role() === 'staff_registration';
+if ($is_view_only && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    redirect('/basics/admin/member_view.php?id=' . $id);
+}
 $email_errors = [];
 $sms_errors = [];
 $reset_errors = [];
@@ -158,7 +164,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
 ?>
 <div class="inner-hero">
   <div class="container">
-    <a href="<?= BASE_URL ?>/basics/admin/members.php" class="small">&larr; Back to Members</a>
+    <?php if ($is_view_only): ?>
+      <a href="<?= BASE_URL ?>/basics/admin/users.php" class="small">&larr; Back to Users</a>
+    <?php else: ?>
+      <a href="<?= BASE_URL ?>/basics/admin/members.php" class="small">&larr; Back to Members</a>
+    <?php endif; ?>
     <h1 class="stitle" style="font-size:2rem;"><?= sanitize($member['full_name']) ?></h1>
   </div>
 </div>
@@ -191,6 +201,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   <?php endif; ?>
 
+  <?php if (!$is_view_only): ?>
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="stat-tile"><div class="stat-num" style="font-size:1.3rem;"><?= format_price($member['weekly_credit_limit']) ?></div><div class="stat-lbl">Weekly Limit</div></div>
@@ -205,6 +216,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="stat-tile"><div class="stat-num"><?= (int) $member['consecutive_on_time_payments'] ?></div><div class="stat-lbl">On-Time Streak</div></div>
     </div>
   </div>
+  <?php endif; ?>
 
   <div class="row g-4 mb-4">
     <div class="col-12 col-md-6">
@@ -215,6 +227,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Contact #: <?= sanitize($member['contact_number']) ?></p>
         <p class="mb-1">Address: <?= $member['address'] ? sanitize($member['address']) : '—' ?></p>
         <p class="mb-1">Employer: <?= sanitize($member['employer_name']) ?></p>
+        <?php if ($is_view_only): ?>
+        <p class="mb-0">Application: <span class="pill pill-<?= ['approved' => 'approved', 'denied' => 'rejected'][$member['application_status']] ?? 'pending' ?>"><?= sanitize($member['application_status']) ?></span></p>
+        <?php else: ?>
         <p class="mb-3">Status: <span class="pill pill-<?= $member['membership_status'] === 'active' ? 'active' : ($member['membership_status'] === 'dormant' ? 'pending' : 'suspended') ?>"><?= sanitize($member['membership_status']) ?></span>
           <?php if ($member['credit_limit_frozen']): ?><span class="pill pill-rejected">Credit Frozen</span><?php endif; ?>
         </p>
@@ -239,8 +254,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Permanently terminate this membership? This cannot be undone.');">Terminate</button>
           </form>
         <?php endif; ?>
+        <?php endif; ?>
       </div>
 
+      <?php if (!$is_view_only): ?>
       <div class="panel-card">
         <h2 class="h6">Adjust Credit Line</h2>
         <form method="post">
@@ -313,6 +330,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endif; ?>
       </div>
 
+      <?php endif; ?>
+
       <div class="panel-card mt-4">
         <h2 class="h6">Submitted Documents</h2>
         <?php if ($documents->num_rows === 0): ?>
@@ -328,6 +347,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       </div>
     </div>
 
+    <?php if (!$is_view_only): ?>
     <div class="col-12 col-md-6">
       <h2 class="h6 mb-3">Recent Orders</h2>
       <div class="table-responsive mb-4">
@@ -368,6 +388,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         </table>
       </div>
     </div>
+    <?php endif; ?>
   </div>
 </div>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>

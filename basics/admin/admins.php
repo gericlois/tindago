@@ -8,7 +8,7 @@ require __DIR__ . '/../includes/functions.php';
 require_basics_admin_role(['super_admin']);
 
 $errors = [];
-$valid_roles = ['super_admin', 'admin', 'staff_orders', 'staff_payments'];
+$valid_roles = ['super_admin', 'admin', 'staff_orders', 'staff_payments', 'staff_registration'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
     $username = trim($_POST['username'] ?? '');

@@ -13,6 +13,10 @@ $sub_to_parent = [
     '/basics/admin/order_view.php'       => '/basics/admin/orders.php',
     '/basics/admin/delivery_receipt.php' => '/basics/admin/orders.php',
 ];
+// Registration staff have no Members page — their profile view hangs off Users.
+if (basics_admin_role() === 'staff_registration') {
+    $sub_to_parent['/basics/admin/member_view.php'] = '/basics/admin/users.php';
+}
 $current_path = $sub_to_parent[$current_path] ?? $current_path;
 
 $pending_basics_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'pending'")->fetch_assoc()['c'];
@@ -27,7 +31,9 @@ $nav_groups = [
     'Basics' => [
         '/basics/admin/applications.php' => ['icon' => 'fa-file-signature', 'label' => 'Applications', 'badge' => $pending_basics_count],
         '/basics/admin/members.php'      => ['icon' => 'fa-users',          'label' => 'Members'],
-        '/basics/admin/products.php'     => ['icon' => 'fa-box',            'label' => 'Manage Products'],
+        '/basics/admin/users.php'        => ['icon' => 'fa-address-book',   'label' => 'Users'],
+        '/basics/admin/register_member.php' => ['icon' => 'fa-user-plus',   'label' => 'Register Member'],
+        '/basics/admin/products.php'    => ['icon' => 'fa-box',            'label' => 'Manage Products'],
         '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders'],
         '/basics/admin/supplier_summary.php' => ['icon' => 'fa-truck-ramp-box', 'label' => 'Supplier Summary'],
         '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
@@ -46,6 +52,12 @@ $nav_groups = [
     ],
 ];
 
+// Staff Management (orders / payments / registration staff) is open to admin
+// and super_admin; the three items below it are super_admin-only.
+if (in_array(basics_admin_role(), ['super_admin', 'admin'], true)) {
+    $nav_groups['System']['/basics/admin/staff.php'] = ['icon' => 'fa-users-gear', 'label' => 'Staff Management'];
+}
+
 // Database Backup, Admin Management, and Maintenance Mode touch the whole
 // database or the admin roster itself — kept super_admin-only, unlike
 // everything else in "System" which the (lower-privilege) admin role can
@@ -56,7 +68,7 @@ if (basics_admin_role() === 'super_admin') {
     $nav_groups['System']['/basics/admin/maintenance.php'] = ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'];
 }
 
-// staff_orders and staff_payments are restricted roles (see
+// staff_orders, staff_payments and staff_registration are restricted roles (see
 // require_basics_admin_role() in includes/auth.php) — only show each the
 // pages it can actually open, so the nav doesn't dangle links that just
 // bounce back to its landing page.
@@ -69,6 +81,9 @@ $staff_role_paths = [
         '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
         '/basics/admin/payment_submissions.php', '/basics/admin/emergency_credit.php',
         '/basics/admin/benefit_requests.php', '/basics/admin/dormancy.php',
+    ],
+    'staff_registration' => [
+        '/basics/admin/users.php', '/basics/admin/register_member.php',
     ],
 ];
 if (isset($staff_role_paths[basics_admin_role()])) {
