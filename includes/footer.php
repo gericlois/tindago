@@ -19,7 +19,6 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
             <img src="<?= sanitize($module_logo_url) ?>" alt="<?= sanitize($module_name) ?>" class="brand-logo">
           </div>
           <p class="fdesc"><?= sanitize($module_footer_desc) ?></p>
-          <div class="fsoc"><a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener" aria-label="Visit our Facebook page"><i class="fab fa-facebook-f"></i></a></div>
         </div>
         <?php // Basics' navbar already covers all of these on mobile (its own
               // menu), so the footer copy just duplicates it — kept for
@@ -47,20 +46,11 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
         <?php endif; ?>
         <div class="col-lg-4">
           <div class="ftit">Get In Touch</div>
-          <div class="fci">
-            <div class="fciico"><i class="fas fa-envelope"></i></div>
-            <div class="fciinfo"><strong>Email</strong><?= sanitize(setting($conn, 'company_email', 'support@example.com')) ?></div>
-          </div>
-          <div class="fci">
-            <div class="fciico"><i class="fab fa-facebook-f"></i></div>
-            <div class="fciinfo"><strong>Facebook</strong><a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener">JMC Foodies on Facebook</a></div>
-          </div>
+          <div class="fci"><div class="fciinfo"><strong>Email:</strong> <?= sanitize(setting($conn, 'company_email', 'support@example.com')) ?></div></div>
+          <div class="fci"><div class="fciinfo"><strong>Facebook:</strong> <a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener">JMC Foodies on Facebook</a></div></div>
           <?php $company_address = setting($conn, 'company_address', ''); ?>
           <?php if ($company_address !== ''): ?>
-            <div class="fci">
-              <div class="fciico"><i class="fas fa-location-dot"></i></div>
-              <div class="fciinfo"><strong>Address</strong><?= sanitize($company_address) ?></div>
-            </div>
+            <div class="fci"><div class="fciinfo"><strong>Address:</strong> <?= sanitize($company_address) ?></div></div>
           <?php endif; ?>
         </div>
       </div>

@@ -224,15 +224,15 @@
   box-shadow: 0 14px 34px color-mix(in srgb, var(--primary) 45%, transparent);
 }
 
-/* Footer content is centered (includes/footer.php): icon stacked above its text,
-   social icons centered. */
+/* Footer contact lines are centered, "Label: value" on one line, no icons
+   (includes/footer.php). */
 .fci {
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.fsoc {
   justify-content: center;
+  margin-bottom: 8px;
+}
+.fci .fciinfo strong {
+  display: inline;
+  font-size: inherit;
 }
 .fciinfo a {
   color: inherit;
