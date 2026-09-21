@@ -44,7 +44,7 @@ $page_title = 'Settings';
 require __DIR__ . '/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">Configure</span>
     <h1 class="stitle" style="font-size:2rem;">Settings</h1>

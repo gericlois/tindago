@@ -43,6 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->begin_transaction();
         try {
             if ($payment_method === 'wallet') {
+                // Serialize concurrent wallet payments per member (see wallet.php).
+                $conn->query("SELECT id FROM users WHERE id = " . (int) $user_id . " FOR UPDATE");
                 $fresh_balance = wallet_balance($conn, $user_id);
                 if ($fresh_balance < $total) {
                     throw new Exception('Your wallet balance is not enough to cover this purchase.');
@@ -71,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/wellness/orders.php?purchased=1&method=' . $payment_method);
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }

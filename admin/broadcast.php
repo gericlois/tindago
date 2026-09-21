@@ -61,24 +61,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     }
 
     if (empty($errors)) {
+        // A big announcement can take a minute or more. Keep going even if
+        // the browser/proxy stops waiting, so it never stops half-way (and
+        // the admin doesn't resend, which would text everyone twice).
+        ignore_user_abort(true);
+        @set_time_limit(0);
+
         [$numbers, $emails] = wellness_broadcast_recipients($conn, $audience);
 
         if ($send_sms) {
             $sent_count = 0;
             // Semaphore accepts up to 1000 comma-separated numbers per call.
-            foreach (array_chunk($numbers, 1000) as $chunk) {
+            // Households often share one number — text each number once.
+            foreach (array_chunk(array_values(array_unique($numbers)), 1000) as $chunk) {
                 if (send_sms(implode(',', $chunk), $message)) {
                     $sent_count += count($chunk);
                 }
             }
+            if ($numbers && $sent_count === 0) {
+                $errors[] = 'The SMS could not be sent — check the Semaphore SMS configuration (config/sms.php) and your SMS credits.';
+            }
         }
 
         if ($send_email) {
-            $email_sent_count = 0;
-            foreach ($emails as $address) {
-                if (send_email($address, $email_subject, $message)) {
-                    $email_sent_count++;
-                }
+            $email_result = send_email_bulk($emails, $email_subject, $message);
+            $email_sent_count = $email_result['sent'];
+            if ($email_result['failed'] > 0) {
+                $errors[] = $email_result['failed'] . ' email(s) could not be sent — see the Communication Log for which ones.';
             }
         }
 
@@ -93,7 +102,7 @@ $page_title = 'Announcement Broadcast';
 require __DIR__ . '/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Wellness</span>
     <h1 class="stitle" style="font-size:2rem;">Announcement Broadcast</h1>
@@ -115,7 +124,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php endif; ?>
 
   <div class="row">
-    <div class="col-12 col-lg-7">
+    <div class="col-12">
       <div class="panel-card">
         <?php if (!defined('SEMAPHORE_API_KEY') || SEMAPHORE_API_KEY === ''): ?>
           <div class="errmsg mb-3"><p class="mb-0">SMS is not configured yet — set up your Semaphore API key first (see Settings).</p></div>

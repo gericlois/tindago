@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_payments']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
 
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
             redirect('/basics/admin/payment_submissions.php?confirmed=1');
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }
@@ -91,7 +91,7 @@ $page_title = 'Payment Submissions';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Payment Submissions</h1>
@@ -133,7 +133,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
       <?php foreach ($submissions as $s): ?>
         <tr>
-          <td><?= sanitize($s['full_name']) ?> <span class="text-muted small">(<?= sanitize($s['username']) ?>)</span></td>
+          <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $s['member_id'] ?>"><?= sanitize($s['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($s['username']) ?>)</span></td>
           <td><?= $for_labels[$s['payment_for']] ?? sanitize($s['payment_for']) ?><?= $s['order_id'] ? ' #' . (int) $s['order_id'] : '' ?><?= $s['loan_request_id'] ? ' #' . (int) $s['loan_request_id'] : '' ?></td>
           <td><?= $s['payment_method'] === 'gcash' ? 'GCash' : 'Bank' ?></td>
           <td class="small"><?= sanitize($s['destination_account']) ?></td>

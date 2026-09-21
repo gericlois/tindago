@@ -13,30 +13,38 @@ $module_register_url = $module_register_url ?? null;
 // Wellness and Basics have fully separate login sessions — this navbar is
 // shared markup for both, so it checks whichever one applies to the current
 // page instead of a single global is_logged_in().
+// Needed below for basics_cart_item_count() — not every page that includes
+// this shared navbar also happens to load basics/includes/functions.php
+// (e.g. change_password.php), so this navbar can't assume it's available.
+if ($module_name === 'JMC Foodies Basics') {
+    require_once __DIR__ . '/../basics/includes/functions.php';
+}
 $module_is_logged_in = $module_name === 'JMC Foodies Basics' ? basics_is_logged_in() : is_logged_in();
 $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login.php' : BASE_URL . '/login.php';
 $module_logout_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/logout.php' : BASE_URL . '/logout.php';
 ?>
+<?php // The top strip used to carry the company email; now it only holds the
+      // Wellness rebate tag, so other modules (Basics) don't render it at all. ?>
+<?php if ($module_name === 'JMC Foodies Wellness'): ?>
 <div id="topbar">
   <div class="container">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <div class="top-contact d-flex flex-wrap">
-        <span><i class="fas fa-envelope"></i><?= sanitize(setting($conn, 'company_email', 'support@example.com')) ?></span>
+    <div class="d-flex justify-content-end align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-3">
+        <span class="ttag"><i class="fas fa-percent me-1"></i><?= (int) ((float) setting($conn, 'personal_rebate_rate', 0.20) * 100) ?>% Personal Rebate</span>
       </div>
-      <?php if ($module_name === 'JMC Foodies Wellness'): ?>
-        <div class="d-flex align-items-center gap-3">
-          <span class="ttag"><i class="fas fa-percent me-1"></i><?= (int) ((float) setting($conn, 'personal_rebate_rate', 0.20) * 100) ?>% Personal Rebate</span>
-        </div>
-      <?php endif; ?>
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <nav class="navbar navbar-expand-lg" id="nav">
   <div class="container">
     <a class="navbar-brand" href="<?= sanitize($module_home_url) ?>">
       <img src="<?= sanitize($module_logo_url) ?>" alt="<?= sanitize($module_name) ?>" class="brand-logo">
     </a>
+    <?php if ($module_is_logged_in && !empty($page_title)): ?>
+      <span class="navbar-page-label d-lg-none"><?= sanitize($page_title) ?></span>
+    <?php endif; ?>
     <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navmenu">
       <i class="fas fa-bars" style="color:var(--primary);font-size:1.35rem;"></i>
     </button>

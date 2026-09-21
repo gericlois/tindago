@@ -17,8 +17,6 @@ $stmt->bind_param('i', $member['id']);
 $stmt->execute();
 $orders = $stmt->get_result();
 
-$pill_map = ['pending' => 'processing', 'confirmed' => 'approved', 'paid' => 'approved', 'delivered' => 'completed', 'cancelled' => 'cancelled'];
-
 $page_title = 'My Orders';
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
@@ -50,7 +48,7 @@ require __DIR__ . '/../includes/navbar.php';
           <tr>
             <td>#<?= (int) $order['id'] ?></td>
             <td><?= format_price($order['total_amount']) ?></td>
-            <td><span class="pill pill-<?= $pill_map[$order['status']] ?? 'pending' ?>"><?= sanitize($order['status']) ?></span></td>
+            <td><span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span></td>
             <td><?= date('M j, Y', strtotime($order['created_at'])) ?></td>
             <td><a href="<?= BASICS_URL ?>/order_view.php?id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">View</a></td>
           </tr>

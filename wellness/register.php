@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($contact_number === '') $errors[] = 'Contact number is required.';
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email address is required.';
     if ($username === '') $errors[] = 'Username is required.';
-    if (strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
+    if (strlen($password) < 8) $errors[] = 'Password must be at least 8 characters.';
     if ($password !== $confirm) $errors[] = 'Passwords do not match.';
 
     $referrer = null;

@@ -7,6 +7,7 @@ date_default_timezone_set('Asia/Manila');
 // and basics/includes/module.php) — SITE_NAME is only for the umbrella-level
 // bits (browser tab suffix, footer copyright, admin shell).
 define('SITE_NAME', 'JMC Digital');
+define('FACEBOOK_URL', 'https://www.facebook.com/profile.php?id=61594112565592');
 
 /*
  * BASE_URL CONFIGURATION
@@ -22,6 +23,35 @@ define('BASE_URL', $is_local ? '/jmcfoodiespremium' : '');
 
 define('WELLNESS_URL', BASE_URL . '/wellness');
 define('BASICS_URL', BASE_URL . '/basics');
+
+// ---------------------------------------------------------------
+// Security baseline, applied to every page (this file is the first thing
+// each one loads).
+//  - Never show PHP/MySQL errors to visitors on the live site: uncaught
+//    exceptions print file paths, SQL and sometimes DB host details. They're
+//    still written to the server error log.
+//  - Anti-clickjacking / MIME-sniffing / referrer-leak headers. A full
+//    Content-Security-Policy is intentionally not set: the pages rely on
+//    inline scripts and several CDNs, so a strict one would break them.
+//  - HSTS only when the request actually arrived over HTTPS.
+// ---------------------------------------------------------------
+$is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+error_reporting(E_ALL);
+if (!$is_local) {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+if (!headers_sent()) {
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    if ($is_https) {
+        header('Strict-Transport-Security: max-age=15552000');
+    }
+    header_remove('X-Powered-By');
+}
 
 define('UPLOAD_PATH', __DIR__ . '/../uploads/');
 define('UPLOAD_URL', BASE_URL . '/uploads/');

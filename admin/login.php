@@ -15,16 +15,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
+    $throttled = login_throttle_blocked($conn, 'wellness_admin', $username);
+
     $stmt = $conn->prepare("SELECT * FROM admins WHERE username = ?");
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $admin = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if (!$admin || !password_verify($password, $admin['password_hash'])) {
+    if ($throttled) {
+        $errors[] = LOGIN_THROTTLE_MESSAGE;
+    } elseif (!$admin || !password_verify($password, $admin['password_hash'])) {
         $errors[] = 'Invalid username or password.';
+        login_throttle_fail($conn, 'wellness_admin', $username);
     } else {
+        login_throttle_clear($conn, 'wellness_admin', $username);
+        session_regenerate_id(true);
         $_SESSION['admin_id'] = $admin['id'];
+        $_SESSION['admin_last_activity'] = time();
         $_SESSION['admin_name'] = $admin['name'];
         redirect('/admin/index.php');
     }

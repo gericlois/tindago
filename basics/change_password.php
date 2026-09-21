@@ -28,8 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!password_verify($current, $user['password_hash'])) {
         $errors[] = 'Current password is incorrect.';
     }
-    if (strlen($new_password) < 6) {
-        $errors[] = 'New password must be at least 6 characters.';
+    if (strlen($new_password) < 8) {
+        $errors[] = 'New password must be at least 8 characters.';
     }
     if ($new_password !== $confirm) {
         $errors[] = 'New passwords do not match.';

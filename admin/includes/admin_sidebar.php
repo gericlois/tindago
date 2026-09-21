@@ -31,16 +31,19 @@ $nav_groups = [
         '/admin/settings.php' => ['icon' => 'fa-gear', 'label' => 'Settings'],
         '/admin/activity_log.php' => ['icon' => 'fa-clock-rotate-left', 'label' => 'Activity Log'],
         '/admin/communication_log.php' => ['icon' => 'fa-comments', 'label' => 'Communication Log'],
+        '/admin/db_backup.php' => ['icon' => 'fa-database', 'label' => 'Database Backup'],
     ],
 ];
 ?>
 <div class="admin-shell">
-  <div class="offcanvas offcanvas-start offcanvas-lg admin-sidebar" tabindex="-1" id="adminSidebar">
+  <input type="checkbox" id="adminSidebarToggle" class="admin-sidebar-toggle-input">
+  <label for="adminSidebarToggle" class="admin-sidebar-backdrop"></label>
+  <div class="admin-sidebar" id="adminSidebar">
     <div class="offcanvas-header d-lg-none">
       <div class="brand-logo-box">
         <img src="<?= BASE_URL ?>/assets/img/wellness/logo.jpg" alt="JMC Foodies Wellness" class="brand-logo" style="height:30px;">
       </div>
-      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#adminSidebar" aria-label="Close"></button>
+      <label for="adminSidebarToggle" class="btn-close btn-close-white" aria-label="Close"></label>
     </div>
     <div class="offcanvas-body admin-sidebar-body">
       <a href="<?= BASE_URL ?>/admin/index.php" class="admin-sidebar-brand d-none d-lg-flex">
@@ -68,9 +71,9 @@ $nav_groups = [
 
   <div class="admin-main">
     <div class="admin-topbar d-lg-none">
-      <button type="button" class="admin-topbar-toggle" data-bs-toggle="offcanvas" data-bs-target="#adminSidebar" aria-controls="adminSidebar">
+      <label for="adminSidebarToggle" class="admin-topbar-toggle" aria-controls="adminSidebar">
         <i class="fas fa-bars"></i>
-      </button>
+      </label>
       <div class="brand-logo-box">
         <img src="<?= BASE_URL ?>/assets/img/wellness/logo.jpg" alt="JMC Foodies Wellness" class="brand-logo" style="height:28px;">
       </div>

@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -84,7 +84,7 @@ $page_title = 'Review Application';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/basics/admin/applications.php" class="small">&larr; Back to Applications</a>
     <h1 class="stitle" style="font-size:2rem;"><?= sanitize($application['full_name']) ?></h1>

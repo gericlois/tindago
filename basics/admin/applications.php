@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $valid_statuses = ['pending', 'approved', 'denied'];
 $status_filter = $_GET['status'] ?? 'pending';
@@ -21,7 +21,7 @@ $page_title = 'Basics Applications';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Membership Applications</h1>
@@ -49,7 +49,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <?php endif; ?>
       <?php while ($a = $applications->fetch_assoc()): ?>
         <tr>
-          <td><?= sanitize($a['full_name']) ?> <span class="text-muted small">(<?= sanitize($a['username']) ?>)</span></td>
+          <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $a['id'] ?>"><?= sanitize($a['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($a['username']) ?>)</span></td>
           <td><?= sanitize($a['employer_name']) ?></td>
           <td><span class="pill pill-<?= $a['application_status'] === 'approved' ? 'approved' : ($a['application_status'] === 'denied' ? 'rejected' : 'pending') ?>"><?= sanitize($a['application_status']) ?></span></td>
           <td><?= date('M j, Y', strtotime($a['applied_at'])) ?></td>

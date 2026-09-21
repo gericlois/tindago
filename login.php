@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
+    $throttled = login_throttle_blocked($conn, 'wellness', $username);
+
     $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
     $stmt->bind_param('s', $username);
     $stmt->execute();
@@ -25,11 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // "pending" account can still log in — a Basics-approved member whose
     // Wellness application hasn't been reviewed yet needs to reach Basics.
     // route_after_login() sends them to the right place either way.
-    if (!$user || !password_verify($password, $user['password_hash'])) {
+    if ($throttled) {
+        $errors[] = LOGIN_THROTTLE_MESSAGE;
+    } elseif (!$user || !password_verify($password, $user['password_hash'])) {
         $errors[] = 'Invalid username or password.';
+        login_throttle_fail($conn, 'wellness', $username);
     } elseif ($user['status'] === 'suspended') {
         $errors[] = 'Your account has been suspended. Please contact support.';
     } else {
+        login_throttle_clear($conn, 'wellness', $username);
+        session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['must_change_password'] = (bool) $user['must_change_password'];
         redirect($user['must_change_password'] ? '/change_password.php' : route_after_login($conn, $user['id']));
@@ -72,6 +79,7 @@ require __DIR__ . '/includes/navbar.php';
               <input type="password" id="loginPassword" name="password" class="fctrl" required>
               <button type="button" class="pwd-toggle" data-pwd-target="loginPassword" tabindex="-1" aria-label="Show password"><i class="fas fa-eye"></i></button>
             </div>
+            <div class="text-end mt-1"><a href="<?= BASE_URL ?>/forgot_password.php" class="small">Forgot password?</a></div>
           </div>
           <button type="submit" class="btn-red w-100 justify-content-center"><i class="fas fa-right-to-bracket"></i>Login</button>
         </form>

@@ -16,17 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
+    $throttled = login_throttle_blocked($conn, 'basics', $username);
+
     $stmt = $conn->prepare("SELECT * FROM basics_users WHERE username = ?");
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $user = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if (!$user || !password_verify($password, $user['password_hash'])) {
+    if ($throttled) {
+        $errors[] = LOGIN_THROTTLE_MESSAGE;
+    } elseif (!$user || !password_verify($password, $user['password_hash'])) {
         $errors[] = 'Invalid username or password.';
+        login_throttle_fail($conn, 'basics', $username);
     } elseif ($user['status'] === 'suspended') {
         $errors[] = 'Your account has been suspended. Please contact support.';
     } else {
+        login_throttle_clear($conn, 'basics', $username);
+        session_regenerate_id(true);
         $_SESSION['basics_user_id'] = $user['id'];
         $_SESSION['basics_must_change_password'] = (bool) $user['must_change_password'];
         redirect($user['must_change_password'] ? '/basics/change_password.php' : '/basics/dashboard.php');
@@ -69,6 +76,7 @@ require __DIR__ . '/../includes/navbar.php';
               <input type="password" id="loginPassword" name="password" class="fctrl" required>
               <button type="button" class="pwd-toggle" data-pwd-target="loginPassword" tabindex="-1" aria-label="Show password"><i class="fas fa-eye"></i></button>
             </div>
+            <div class="text-end mt-1"><a href="<?= BASICS_URL ?>/forgot_password.php" class="small">Forgot password?</a></div>
           </div>
           <button type="submit" class="btn-red w-100 justify-content-center"><i class="fas fa-right-to-bracket"></i>Login</button>
         </form>

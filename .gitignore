@@ -2,6 +2,13 @@
 # (database/referral_platform.sql is the app's schema+seed source, not a
 # live-data dump, so it's intentionally NOT excluded here.)
 /referral_platform_backup.sql
+/database/backups/
+# One-off live scripts that embed password hashes (real member/admin
+# accounts) — keep local, run in phpMyAdmin, never commit.
+/database/live_reset_basics_passwords.sql
+/database/live_add_basics_super_admin.sql
+/database/live_migrate_account_separation.sql
+/database/live_migrate_basics_admin_only.sql
 
 # Real DB credentials (local root/no-password is harmless, but this file
 # now also holds the live production password) — never track this file.

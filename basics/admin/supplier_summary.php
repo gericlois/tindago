@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $start_date = $_GET['start_date'] ?? date('Y-m-d');
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
@@ -19,8 +19,8 @@ if ($start_date > $end_date) {
     [$start_date, $end_date] = [$end_date, $start_date];
 }
 
-// Cancelled/draft orders never reach the supplier — everything else (even
-// unpaid ones) still needs to be procured and delivered on schedule.
+// Only orders still in "Checking" (pending) status — this summary is what
+// gets ordered from the supplier, so it covers orders awaiting approval.
 $stmt = $conn->prepare("SELECT p.id, p.sku, p.category, p.name, p.unit,
                                 SUM(oi.quantity) AS total_qty,
                                 SUM(oi.line_total) AS total_amount,
@@ -28,7 +28,7 @@ $stmt = $conn->prepare("SELECT p.id, p.sku, p.category, p.name, p.unit,
                          FROM basics_order_items oi
                          JOIN basics_orders o ON o.id = oi.order_id
                          JOIN basics_products p ON p.id = oi.product_id
-                         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status NOT IN ('draft', 'cancelled')
+                         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status = 'pending'
                          GROUP BY p.id
                          ORDER BY p.category ASC, p.name ASC");
 $stmt->bind_param('ss', $start_date, $end_date);
@@ -38,7 +38,7 @@ $stmt->close();
 
 $stmt = $conn->prepare("SELECT COUNT(DISTINCT o.id) AS order_count, COALESCE(SUM(o.total_amount), 0) AS grand_total
                          FROM basics_orders o
-                         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status NOT IN ('draft', 'cancelled')");
+                         WHERE DATE(o.created_at) BETWEEN ? AND ? AND o.status = 'pending'");
 $stmt->bind_param('ss', $start_date, $end_date);
 $stmt->execute();
 $totals = $stmt->get_result()->fetch_assoc();
@@ -52,7 +52,7 @@ $page_title = 'Supplier Order Summary';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Supplier Order Summary</h1>
@@ -95,7 +95,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <thead><tr><th>SKU</th><th>Category</th><th>Product</th><th>Total Qty</th><th>Unit</th><th># Orders</th></tr></thead>
         <tbody>
         <?php if (empty($rows)): ?>
-          <tr><td colspan="6" class="text-muted">No orders placed in this date range.</td></tr>
+          <tr><td colspan="6" class="text-muted">No orders in "Checking" status in this date range.</td></tr>
         <?php endif; ?>
         <?php foreach ($rows as $r): ?>
           <tr>

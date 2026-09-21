@@ -1,6 +1,120 @@
 <?php
+// ---------------------------------------------------------------
+// Session hardening: cookie can't be read by JavaScript (HttpOnly), isn't
+// sent on cross-site sub-requests (SameSite=Lax), is HTTPS-only when the
+// site is served over HTTPS, and the server refuses session IDs it didn't
+// issue (use_strict_mode). Each login also calls session_regenerate_id()
+// so a pre-login session ID can't be planted on a victim (session fixation).
+// ---------------------------------------------------------------
 if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.use_strict_mode', '1');
+    ini_set('session.use_only_cookies', '1');
+    @session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => !empty($is_https),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
+}
+
+// ---------------------------------------------------------------
+// CSRF protection for every form in the app, without touching each form:
+//  1. every POST must carry the session's token, or is rejected (403);
+//  2. the token is injected into every <form method="post"> in the page
+//     output automatically (HTML responses only — file/JSON responses that
+//     set their own Content-Type are left untouched).
+// AJAX calls that send "X-Requested-With: XMLHttpRequest" (basics cart and
+// catalog) are exempt: browsers won't let another site add that header
+// without a CORS preflight, which this app never allows.
+// ---------------------------------------------------------------
+function csrf_token() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+$csrf_page_token = csrf_token();
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $csrf_is_xhr = ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+    $csrf_sent = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+    if (!$csrf_is_xhr && !(is_string($csrf_sent) && hash_equals($csrf_page_token, $csrf_sent))) {
+        http_response_code(403);
+        exit('Your session expired or this request could not be verified. Please go back, refresh the page and try again.');
+    }
+}
+
+ob_start(function ($html) use ($csrf_page_token) {
+    foreach (headers_list() as $header) {
+        if (stripos($header, 'Content-Type:') === 0 && stripos($header, 'text/html') === false) {
+            return $html;
+        }
+    }
+    $field = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrf_page_token, ENT_QUOTES) . '">';
+    return preg_replace('/(<form\b[^>]*\bmethod\s*=\s*["\']?post["\']?[^>]*>)/i', '$1' . $field, $html);
+});
+
+// ---------------------------------------------------------------
+// Login throttling: after 8 failed attempts for one username (or 60 from
+// one IP) within 15 minutes, further attempts are refused until the window
+// passes. Tracked in login_attempts (database/live_add_login_attempts.sql).
+// Fails open if that table doesn't exist yet, so a missing migration can
+// never lock everyone out of the site.
+// ---------------------------------------------------------------
+function login_throttle_blocked($conn, $scope, $username) {
+    try {
+        $id = strtolower(substr(trim((string) $username), 0, 150));
+        $ip = substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45);
+        $stmt = $conn->prepare("SELECT
+                (SELECT COUNT(*) FROM login_attempts WHERE scope = ? AND identifier = ? AND created_at > (NOW() - INTERVAL 15 MINUTE)) AS by_user,
+                (SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND created_at > (NOW() - INTERVAL 15 MINUTE)) AS by_ip");
+        $stmt->bind_param('sss', $scope, $id, $ip);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return (int) $row['by_user'] >= 8 || (int) $row['by_ip'] >= 60;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function login_throttle_fail($conn, $scope, $username) {
+    try {
+        $id = strtolower(substr(trim((string) $username), 0, 150));
+        $ip = substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45);
+        $stmt = $conn->prepare("INSERT INTO login_attempts (scope, identifier, ip) VALUES (?, ?, ?)");
+        $stmt->bind_param('sss', $scope, $id, $ip);
+        $stmt->execute();
+        $stmt->close();
+        if (random_int(1, 50) === 1) {
+            $conn->query("DELETE FROM login_attempts WHERE created_at < (NOW() - INTERVAL 1 DAY)");
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+function login_throttle_clear($conn, $scope, $username) {
+    try {
+        $id = strtolower(substr(trim((string) $username), 0, 150));
+        $stmt = $conn->prepare("DELETE FROM login_attempts WHERE scope = ? AND identifier = ?");
+        $stmt->bind_param('ss', $scope, $id);
+        $stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+    }
+}
+
+const LOGIN_THROTTLE_MESSAGE = 'Too many failed login attempts. Please wait 15 minutes and try again.';
+
+// Admin sessions expire after 3 hours without activity.
+function admin_session_expired($activity_key) {
+    $now = time();
+    $expired = isset($_SESSION[$activity_key]) && ($now - $_SESSION[$activity_key]) > 10800;
+    $_SESSION[$activity_key] = $now;
+    return $expired;
 }
 
 // ---------------------------------------------------------------
@@ -82,6 +196,10 @@ function require_admin_login() {
     if (!is_admin_logged_in()) {
         redirect('/admin/login.php');
     }
+    if (admin_session_expired('admin_last_activity')) {
+        unset($_SESSION['admin_id'], $_SESSION['admin_name'], $_SESSION['admin_last_activity']);
+        redirect('/admin/login.php');
+    }
 }
 
 // ---------------------------------------------------------------
@@ -152,9 +270,29 @@ function basics_current_admin_id() {
     return $_SESSION['basics_admin_id'] ?? null;
 }
 
+// While Basics maintenance mode is on (basics/admin/maintenance.php), only
+// super_admin may use the admin panel — every other role is locked out at
+// login and, via require_basics_admin_login() below, kicked from any
+// session that was already open when maintenance was switched on.
+function basics_maintenance_blocks_role($role) {
+    global $conn;
+    return $role !== 'super_admin'
+        && isset($conn) && $conn instanceof mysqli
+        && function_exists('setting')
+        && setting($conn, 'basics_maintenance_enabled', '0') === '1';
+}
+
 function require_basics_admin_login() {
     if (!basics_is_admin_logged_in()) {
         redirect('/basics/admin/login.php');
+    }
+    if (admin_session_expired('basics_admin_last_activity')) {
+        unset($_SESSION['basics_admin_id'], $_SESSION['basics_admin_name'], $_SESSION['basics_admin_role'], $_SESSION['basics_admin_last_activity']);
+        redirect('/basics/admin/login.php');
+    }
+    if (basics_maintenance_blocks_role(basics_admin_role())) {
+        unset($_SESSION['basics_admin_id'], $_SESSION['basics_admin_name'], $_SESSION['basics_admin_role']);
+        redirect('/basics/admin/login.php?maintenance=1');
     }
 }
 

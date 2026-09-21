@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             redirect('/basics/benefits.php?submitted=1');
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }
@@ -136,6 +136,10 @@ require __DIR__ . '/../includes/navbar.php';
             <div class="mb-3">
               <label class="flbl">Deceased's Address</label>
               <input type="text" name="deceased_address" class="fctrl">
+            </div>
+            <div class="mb-3">
+              <label class="flbl">Death Certificate</label>
+              <input type="file" name="death_certificate" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
             </div>
           </div>
 

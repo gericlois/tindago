@@ -28,6 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'casho
     if (empty($errors)) {
         $conn->begin_transaction();
         try {
+            // Lock this member's row first so two simultaneous requests can't
+            // both read the same balance and both pay out (double-spend).
+            $conn->query("SELECT id FROM users WHERE id = " . (int) $user_id . " FOR UPDATE");
             $balance = wallet_balance($conn, $user_id);
             if ($amount > $balance) {
                 throw new Exception('You cannot cash out more than your current wallet balance (' . format_price($balance) . ').');
@@ -53,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'casho
             $success = 'Cashout request submitted. You will receive ' . format_price($net_amount) . ' after the ' . (int) ($fee_rate * 100) . '% processing fee. It will be processed once an admin approves it.';
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }

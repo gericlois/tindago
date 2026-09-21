@@ -4,7 +4,7 @@ require __DIR__ . '/../../config/database.php';
 require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 
-require_basics_admin_role(['super_admin']);
+require_basics_admin_role(['super_admin', 'admin']);
 
 $admins = $conn->query("SELECT id, name FROM basics_admins ORDER BY name ASC");
 $admin_list = [];
@@ -25,7 +25,7 @@ $page_title = 'Activity Log';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Activity Log</h1>

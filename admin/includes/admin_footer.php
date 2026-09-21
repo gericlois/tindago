@@ -4,7 +4,7 @@
 </div>
 <?php endif; ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="<?= BASE_URL ?>/assets/js/main.js"></script>
+  <script src="<?= BASE_URL ?>/assets/js/main.js?v=<?= @filemtime(__DIR__ . '/../../assets/js/main.js') ?>"></script>
 <?php if (!empty($is_basics_admin_page)): ?>
   <!-- DataTables (search/sort) + Buttons (print) — every table on the Basics admin side. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>

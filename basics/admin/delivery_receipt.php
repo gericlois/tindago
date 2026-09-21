@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -13,7 +13,7 @@ $stmt = $conn->prepare("SELECT o.*, u.full_name, u.username, u.contact_number, u
                          FROM basics_orders o
                          JOIN basics_members bm ON bm.id = o.member_id
                          JOIN basics_users u ON u.id = bm.user_id
-                         WHERE o.id = ? AND o.status IN ('paid', 'delivered')");
+                         WHERE o.id = ? AND o.status IN ('confirmed', 'out_for_delivery', 'delivered')");
 $stmt->bind_param('i', $id);
 $stmt->execute();
 $order = $stmt->get_result()->fetch_assoc();
@@ -30,11 +30,13 @@ $stmt->bind_param('i', $id);
 $stmt->execute();
 $items = $stmt->get_result();
 
+$amount_paid = (float) $conn->query("SELECT COALESCE(SUM(amount_paid),0) AS s FROM basics_payments WHERE order_id = " . (int) $id)->fetch_assoc()['s'];
+
 $page_title = 'Delivery Receipt #' . $order['id'];
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $order['id'] ?>" class="small">&larr; Back to Order</a>
     <h1 class="stitle" style="font-size:2rem;">Delivery Receipt</h1>
@@ -46,7 +48,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <button type="button" class="btn-outline-theme" onclick="window.print()"><i class="fas fa-print"></i> Print Receipt</button>
   </div>
 
-  <div class="panel-card" style="max-width:760px;margin:0 auto;">
+  <div class="panel-card">
     <div class="d-flex justify-content-between align-items-start mb-4">
       <div>
         <h2 class="h6 mb-1">JMC Foodies Basics</h2>
@@ -60,12 +62,13 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
     <div class="row g-3 mb-4">
       <div class="col-12 col-md-6">
-        <p class="mb-1"><strong>Member:</strong> <?= sanitize($order['full_name']) ?> (<?= sanitize($order['username']) ?>)</p>
+        <p class="mb-1"><strong>Member:</strong> <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
         <p class="mb-1"><strong>Contact #:</strong> <?= sanitize($order['contact_number']) ?></p>
         <p class="mb-0"><strong>Address:</strong> <?= sanitize($order['address']) ?></p>
       </div>
       <div class="col-12 col-md-6 text-md-end">
-        <p class="mb-0"><strong>Payment Status:</strong> Paid in full</p>
+        <p class="mb-1"><strong>Order Status:</strong> <?= basics_order_status_label($order['status']) ?></p>
+        <p class="mb-0"><strong>Payment Status:</strong> <?= $amount_paid >= $order['total_amount'] ? 'Paid in full' : 'Balance due: ' . format_price($order['total_amount'] - $amount_paid) ?></p>
       </div>
     </div>
 

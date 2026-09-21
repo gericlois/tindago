@@ -9,6 +9,13 @@ require __DIR__ . '/includes/functions.php';
 require_basics_access($conn);
 
 $member = basics_get_member($conn, basics_current_user_id());
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'claim_birthday_gift') {
+    basics_claim_birthday_gift($conn, $member);
+    redirect('/basics/dashboard.php');
+}
+
+$birthday = basics_birthday_gift_status($conn, $member);
 $outstanding = basics_outstanding_balance($conn, $member['id']);
 $available = basics_credit_available($conn, $member);
 
@@ -32,6 +39,24 @@ require __DIR__ . '/../includes/navbar.php';
 </div>
 
 <div class="container py-5">
+  <?php if ($birthday): ?>
+    <div class="panel-card mb-4 text-center" style="border-left:6px solid var(--secondary);">
+      <i class="fas fa-cake-candles mb-2" style="font-size:2.4rem;color:var(--primary);"></i>
+      <h2 class="h4 mb-2">Happy Birthday, <?= sanitize(basics_birthday_first_name($member)) ?>!</h2>
+      <?php if ($birthday['claimed_at']): ?>
+        <p class="mb-0">Your Birthday Grocery Gift was claimed on <?= date('M j, Y', strtotime($birthday['claimed_at'])) ?>. Thank you for being part of JMC Foodies Basics &mdash; our team will be in touch about your gift.</p>
+      <?php else: ?>
+        <p class="mb-3">
+          <?= $birthday['is_today'] ? 'Everyone at JMC Foodies Basics is celebrating with you today.' : 'We hope you had a wonderful birthday.' ?>
+          Your <strong>Birthday Grocery Gift</strong> is waiting for you<?= $birthday['is_today'] ? '' : ' &mdash; claim it by ' . date('M j, Y', strtotime($birthday['claim_by'])) ?>.
+        </p>
+        <form method="post">
+          <input type="hidden" name="action" value="claim_birthday_gift">
+          <button type="submit" class="btn-red justify-content-center" onclick="return confirm('Claim your Birthday Grocery Gift?');"><i class="fas fa-gift"></i>Claim My Birthday Gift</button>
+        </form>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
   <?php if ($member['credit_limit_frozen']): ?>
     <div class="errmsg mb-4">
       <p class="mb-0"><i class="fas fa-triangle-exclamation me-1"></i>Your credit limit is currently frozen due to a late payment. It will unfreeze once your payment performance improves.</p>
@@ -42,7 +67,7 @@ require __DIR__ . '/../includes/navbar.php';
   <?php endif; ?>
 
   <div class="row g-4">
-    <!-- Sidebar: credit summary + quick actions -->
+    <!-- Sidebar: credit summary -->
     <div class="col-12 col-lg-4">
       <div class="row g-3 mb-3">
         <div class="col-6 col-lg-12">
@@ -71,17 +96,6 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
       </div>
 
-      <div class="panel-card">
-        <h2 class="h6 mb-3">Quick Actions</h2>
-        <div class="d-grid gap-2">
-          <a href="<?= BASICS_URL ?>/catalog.php" class="btn-red justify-content-center"><i class="fas fa-basket-shopping"></i>Browse Catalog</a>
-          <a href="<?= BASICS_URL ?>/cart.php" class="btn-outline-theme justify-content-center"><i class="fas fa-cart-shopping"></i>Go to Cart</a>
-          <a href="<?= BASICS_URL ?>/payments.php" class="btn-outline-theme justify-content-center"><i class="fas fa-receipt"></i>Payment History</a>
-          <a href="<?= BASICS_URL ?>/emergency_credit.php" class="btn-outline-theme justify-content-center"><i class="fas fa-hand-holding-dollar"></i>Emergency Cash Credit</a>
-          <a href="<?= BASICS_URL ?>/benefits.php" class="btn-outline-theme justify-content-center"><i class="fas fa-hand-holding-heart"></i>Member Benefits</a>
-          <a href="<?= BASICS_URL ?>/change_password.php" class="btn-outline-theme justify-content-center"><i class="fas fa-key"></i>Change Password</a>
-        </div>
-      </div>
     </div>
 
     <!-- Main content: recent orders, benefits -->
@@ -99,8 +113,7 @@ require __DIR__ . '/../includes/navbar.php';
               <tr>
                 <td>#<?= (int) $o['id'] ?></td>
                 <td><?= format_price($o['total_amount']) ?></td>
-                <?php $pill_map = ['draft' => 'pending', 'pending' => 'processing', 'paid' => 'approved', 'delivered' => 'completed', 'cancelled' => 'cancelled']; ?>
-                <td><span class="pill pill-<?= $pill_map[$o['status']] ?? 'pending' ?>"><?= sanitize($o['status']) ?></span></td>
+                <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
                 <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
               </tr>
             <?php endwhile; ?>

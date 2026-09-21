@@ -48,8 +48,6 @@ $stmt->bind_param('i', $id);
 $stmt->execute();
 $payments = $stmt->get_result();
 
-$pill_map = ['pending' => 'processing', 'confirmed' => 'approved', 'paid' => 'approved', 'delivered' => 'completed', 'cancelled' => 'cancelled'];
-
 $page_title = 'Order #' . $order['id'];
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
@@ -76,7 +74,7 @@ require __DIR__ . '/../includes/navbar.php';
         <?php else: ?>
           <p class="mb-1 text-muted">Payment Due: 7 days after delivery</p>
         <?php endif; ?>
-        <p class="mb-2">Status: <span class="pill pill-<?= $pill_map[$order['status']] ?? 'pending' ?>"><?= sanitize($order['status']) ?></span></p>
+        <p class="mb-2">Status: <span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span></p>
         <?php if ($order['status'] === 'pending'): ?>
           <form method="post">
             <input type="hidden" name="action" value="cancel">

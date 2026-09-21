@@ -12,11 +12,10 @@ $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Reachable two ways: forced (must_change_password=1, e.g. right after
-// registration) or voluntary (member chooses to update their password from
-// the dashboard). $forced only changes the copy shown below — both paths
-// use the same form/logic.
-$forced = (bool) $user['must_change_password'];
+// Already changed? No need to be here.
+if (!$user['must_change_password']) {
+    redirect(route_after_login($conn, $_SESSION['user_id']));
+}
 
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $confirm = $_POST['confirm_password'] ?? '';
 
     if (!password_verify($current, $user['password_hash'])) {
-        $errors[] = 'Current password is incorrect.';
+        $errors[] = 'Current (temporary) password is incorrect.';
     }
     if (strlen($new_password) < 6) {
         $errors[] = 'New password must be at least 6 characters.';
@@ -34,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'New passwords do not match.';
     }
     if ($new_password === $current) {
-        $errors[] = 'New password must be different from your current password.';
+        $errors[] = 'New password must be different from the temporary password.';
     }
 
     if (empty($errors)) {
@@ -66,11 +65,9 @@ require __DIR__ . '/includes/navbar.php';
   <div class="row justify-content-center">
     <div class="col-12 col-md-6 col-lg-5">
       <div class="panel-card">
-        <?php if ($forced): ?>
-          <div class="errmsg mb-3">
-            <p><i class="fas fa-shield-halved me-1"></i>For your security, you must set a new password before you can use your account.</p>
-          </div>
-        <?php endif; ?>
+        <div class="errmsg mb-3">
+          <p><i class="fas fa-shield-halved me-1"></i>For your security, you must set a new password before you can use your account.</p>
+        </div>
 
         <?php if ($errors): ?>
           <div class="errmsg">
@@ -82,7 +79,7 @@ require __DIR__ . '/includes/navbar.php';
 
         <form method="post" novalidate>
           <div class="mb-3">
-            <label class="flbl"><?= $forced ? 'Current (Temporary) Password' : 'Current Password' ?></label>
+            <label class="flbl">Current (Temporary) Password</label>
             <div class="pwd-field">
               <input type="password" id="curPassword" name="current_password" class="fctrl" required autofocus>
               <button type="button" class="pwd-toggle" data-pwd-target="curPassword" tabindex="-1" aria-label="Show password"><i class="fas fa-eye"></i></button>

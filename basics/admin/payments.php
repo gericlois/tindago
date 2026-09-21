@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_payments']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
 
@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
             redirect('/basics/admin/order_view.php?id=' . $order_id . '&recorded=1');
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }
@@ -37,7 +37,7 @@ $stmt = $conn->prepare("SELECT o.*, u.full_name, u.username,
                          FROM basics_orders o
                          JOIN basics_members bm ON bm.id = o.member_id
                          JOIN basics_users u ON u.id = bm.user_id
-                         WHERE o.status IN ('confirmed', 'delivered')
+                         WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered')
                          HAVING amount_paid < o.total_amount
                          ORDER BY (o.delivered_at IS NULL), o.delivered_at ASC");
 $stmt->execute();
@@ -47,7 +47,7 @@ $page_title = 'Record Payment';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Record Payment</h1>
@@ -75,7 +75,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php $remaining = $o['total_amount'] - $o['amount_paid']; ?>
         <tr>
           <td>#<?= (int) $o['id'] ?></td>
-          <td><?= sanitize($o['full_name']) ?> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
+          <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
           <td><?= format_price($remaining) ?></td>
           <td><?= format_price($o['total_amount']) ?></td>
           <td><?= format_price($o['amount_paid']) ?></td>

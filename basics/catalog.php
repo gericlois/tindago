@@ -99,6 +99,8 @@ if (in_array($category_filter, $valid_categories, true)) {
 $sql .= " ORDER BY name ASC";
 $products = $conn->query($sql);
 
+$cart_count = basics_cart_item_count($conn, basics_current_user_id());
+
 $page_title = 'Catalog';
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
@@ -136,7 +138,7 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
       </div>
 
-      <div class="d-flex flex-wrap gap-2 mb-4">
+      <div class="filter-pill-scroll mb-4">
         <a href="<?= BASICS_URL ?>/catalog.php" class="filter-pill <?= $category_filter === '' ? 'active' : '' ?>">All</a>
         <?php foreach ($valid_categories as $cat): ?>
           <a href="<?= BASICS_URL ?>/catalog.php?category=<?= urlencode($cat) ?>" class="filter-pill <?= $category_filter === $cat ? 'active' : '' ?>"><?= sanitize($cat) ?></a>
@@ -182,6 +184,12 @@ require __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
+<a href="<?= BASICS_URL ?>/cart.php" class="cartfl" id="basicsFloatingCart" style="<?= $cart_count > 0 ? '' : 'display:none;' ?>">
+  <i class="fas fa-cart-shopping"></i>
+  <span>Cart</span>
+  <span class="ccount" id="basicsFloatingCartCount"><?= $cart_count ?></span>
+</a>
+
 <script>
   var catalogSearch = document.getElementById('catalogSearch');
   var catalogItems = document.querySelectorAll('.catalog-item');
@@ -216,18 +224,26 @@ require __DIR__ . '/../includes/navbar.php';
 
   function updateCartBadge(count) {
     var link = document.getElementById('basicsCartLink');
-    if (!link) return;
-    var badge = document.getElementById('basicsCartBadge');
-    if (count > 0) {
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.id = 'basicsCartBadge';
-        badge.className = 'nav-cart-badge';
-        link.appendChild(badge);
+    if (link) {
+      var badge = document.getElementById('basicsCartBadge');
+      if (count > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.id = 'basicsCartBadge';
+          badge.className = 'nav-cart-badge';
+          link.appendChild(badge);
+        }
+        badge.textContent = count;
+      } else if (badge) {
+        badge.remove();
       }
-      badge.textContent = count;
-    } else if (badge) {
-      badge.remove();
+    }
+
+    var floatingCart = document.getElementById('basicsFloatingCart');
+    if (floatingCart) {
+      floatingCart.style.display = count > 0 ? '' : 'none';
+      var floatingCount = document.getElementById('basicsFloatingCartCount');
+      if (floatingCount) floatingCount.textContent = count;
     }
   }
 

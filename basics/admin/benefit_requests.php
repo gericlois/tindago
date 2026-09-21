@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_payments']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
 $type_labels = basics_benefit_type_labels();
@@ -94,7 +94,7 @@ $page_title = 'Member Benefits';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Member Benefit Requests</h1>
@@ -150,7 +150,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             $doc_type_labels = basics_benefit_doc_requirements($r['benefit_type']);
           ?>
           <tr>
-            <td><?= sanitize($r['full_name']) ?> <span class="text-muted small">(<?= sanitize($r['username']) ?>)</span></td>
+            <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $r['member_id'] ?>"><?= sanitize($r['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($r['username']) ?>)</span></td>
             <td><?= sanitize($type_labels[$r['benefit_type']] ?? $r['benefit_type']) ?>
               <?php if ($r['benefit_type'] === 'burial_assistance'): ?>
                 <div class="small text-muted"><?= sanitize($r['relationship_to_deceased']) ?> &mdash; <?= sanitize($r['deceased_address']) ?></div>

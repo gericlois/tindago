@@ -150,6 +150,7 @@ require __DIR__ . '/../includes/navbar.php';
 
 <div class="inner-hero">
   <div class="container">
+    <a href="<?= BASICS_URL ?>/catalog.php" class="small" style="color:inherit;">&larr; Back to Catalog</a>
     <span class="slbl">Your Order</span>
     <h1 class="stitle">Your <span>Cart</span></h1>
     <div class="sline"></div>
@@ -208,6 +209,24 @@ require __DIR__ . '/../includes/navbar.php';
       <p class="small text-muted mt-2 mb-0" id="exceedsCreditMsg" style="<?= $order['total_amount'] > $available ? '' : 'display:none;' ?>">This order exceeds your available credit.</p>
     </div>
   <?php endif; ?>
+</div>
+
+<div class="modal fade" id="removeItemModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Remove Item</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Remove this item from your cart?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-chip btn-chip-primary" id="confirmRemoveBtn"><i class="fas fa-trash"></i> Remove</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -275,23 +294,34 @@ document.addEventListener('DOMContentLoaded', function () {
         row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
       });
     } else if (e.target.closest('.remove-item-btn')) {
-      if (!confirm('Remove this item from your cart?')) return;
-      var body = new URLSearchParams({ action: 'remove_item', item_id: itemId });
-      row.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
-
-      postCart(body).then(function (data) {
-        if (data.success) {
-          if (data.item_count === 0) {
-            window.location.reload();
-            return;
-          }
-          row.remove();
-          applyOrderState(data);
-        }
-      }).finally(function () {
-        row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
-      });
+      pendingRemoveRow = row;
+      new bootstrap.Modal(document.getElementById('removeItemModal')).show();
     }
+  });
+
+  var pendingRemoveRow = null;
+  document.getElementById('confirmRemoveBtn').addEventListener('click', function () {
+    var modalEl = document.getElementById('removeItemModal');
+    bootstrap.Modal.getInstance(modalEl).hide();
+    if (!pendingRemoveRow) return;
+    var row = pendingRemoveRow;
+    pendingRemoveRow = null;
+    var itemId = row.dataset.itemId;
+    var body = new URLSearchParams({ action: 'remove_item', item_id: itemId });
+    row.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+
+    postCart(body).then(function (data) {
+      if (data.success) {
+        if (data.item_count === 0) {
+          window.location.reload();
+          return;
+        }
+        row.remove();
+        applyOrderState(data);
+      }
+    }).finally(function () {
+      row.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+    });
   });
 });
 </script>

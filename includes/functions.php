@@ -1,9 +1,30 @@
 <?php
 require_once __DIR__ . '/../config/sms.php';
 require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/birthday.php';
 
 function format_price($amount) {
     return '₱' . number_format((float) $amount, 2);
+}
+
+// ---------------------------------------------------------------
+// Generates a random temporary password for admin-initiated resets
+// (admin/user_view.php, basics/admin/member_view.php). Passwords are
+// stored as bcrypt hashes only (see password_hash() in change_password.php
+// / apply.php) — there is no way to recover a user's current password, so
+// "send the user their password" is implemented as "reset to a new
+// temporary one and send that", paired with must_change_password = 1 so
+// the user is forced to pick their own on next login.
+// Excludes visually ambiguous characters (0/O, 1/l/I) since this gets
+// read off an email/SMS and typed back in by hand.
+// ---------------------------------------------------------------
+function generate_temp_password($length = 10) {
+    $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    $password = '';
+    for ($i = 0; $i < $length; $i++) {
+        $password .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $password;
 }
 
 // ---------------------------------------------------------------
@@ -55,11 +76,21 @@ function log_communication($channel, $recipient, $subject, $message, $status) {
         }
     }
 
-    $stmt = $conn->prepare("INSERT INTO communication_log (channel, module, recipient, subject, message, status, admin_id, admin_type, admin_name)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param('ssssssiss', $channel, $module, $recipient, $subject, $message, $status, $admin_id, $admin_type, $admin_name);
-    $stmt->execute();
-    $stmt->close();
+    // The log is a record, not a gate: it must never stop a message from being
+    // sent or crash the page that sent it. (It once did — a bulk SMS to 90+
+    // numbers overflowed the 190-char recipient column and threw a fatal
+    // error right after Semaphore had already accepted the messages.)
+    try {
+        $recipient = function_exists("mb_substr") ? mb_substr((string) $recipient, 0, 190) : substr((string) $recipient, 0, 190);
+        $subject = $subject === null ? null : (function_exists("mb_substr") ? mb_substr((string) $subject, 0, 255) : substr((string) $subject, 0, 255));
+        $stmt = $conn->prepare("INSERT INTO communication_log (channel, module, recipient, subject, message, status, admin_id, admin_type, admin_name)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param('ssssssiss', $channel, $module, $recipient, $subject, $message, $status, $admin_id, $admin_type, $admin_name);
+        $stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+        error_log('communication_log write failed: ' . $e->getMessage());
+    }
 }
 
 // ---------------------------------------------------------------
@@ -74,8 +105,11 @@ function send_sms($to, $message) {
     if (trim((string) $to) === '') {
         return false;
     }
+    // A comma-separated list means a bulk send (announcements): log it as one
+    // line like "92 recipients (bulk)" instead of dumping every number.
+    $log_to = strpos($to, ',') !== false ? (substr_count($to, ',') + 1) . ' recipients (bulk)' : $to;
     if (SEMAPHORE_API_KEY === '') {
-        log_communication('sms', $to, null, $message, 'failed');
+        log_communication('sms', $log_to, null, $message, 'failed');
         return false;
     }
 
@@ -98,7 +132,7 @@ function send_sms($to, $message) {
     curl_close($ch);
 
     $success = $response !== false && $http_code >= 200 && $http_code < 300;
-    log_communication('sms', $to, null, $message, $success ? 'sent' : 'failed');
+    log_communication('sms', $log_to, null, $message, $success ? 'sent' : 'failed');
     return $success;
 }
 
@@ -126,7 +160,12 @@ function smtp_read_response($socket) {
 }
 
 function send_email($to, $subject, $body) {
-    if (trim((string) $to) === '') {
+    // Strip CR/LF so a recipient or subject can never smuggle extra SMTP
+    // commands or mail headers (header injection), and refuse anything that
+    // isn't a plain valid address.
+    $to = trim(str_replace(["\r", "\n"], '', (string) $to));
+    $subject = str_replace(["\r", "\n"], ' ', (string) $subject);
+    if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
         return false;
     }
     if (GMAIL_SMTP_USERNAME === '') {
@@ -134,16 +173,34 @@ function send_email($to, $subject, $body) {
         return false;
     }
 
-    // Appended to every notification email sent through this function, so
-    // callers don't each need to remember to add it.
-    $full_body = $body . "\r\n\r\nFor questions and concerns please call +63 917 323 8153.";
-
-    $socket = @stream_socket_client('ssl://smtp.gmail.com:465', $errno, $errstr, 10);
+    $socket = smtp_open();
     if (!$socket) {
         log_communication('email', $to, $subject, $body, 'failed');
         return false;
     }
-    stream_set_timeout($socket, 10);
+    $success = smtp_deliver($socket, $to, $subject, $body) === true;
+    fwrite($socket, "QUIT\r\n");
+    fclose($socket);
+
+    log_communication('email', $to, $subject, $body, $success ? 'sent' : 'failed');
+    return $success;
+}
+
+// Opens ONE authenticated SMTP session. Split out of send_email() so a bulk
+// send can log in once and push every message through the same connection —
+// logging in to Gmail again for each of 90+ recipients is slow and gets
+// throttled ("too many login attempts"). SMTP_ENDPOINT can be defined to
+// point at a different server (used for testing without sending real mail).
+function smtp_open() {
+    if (GMAIL_SMTP_USERNAME === '') {
+        return false;
+    }
+    $endpoint = defined('SMTP_ENDPOINT') ? SMTP_ENDPOINT : 'ssl://smtp.gmail.com:465';
+    $socket = @stream_socket_client($endpoint, $errno, $errstr, 10);
+    if (!$socket) {
+        return false;
+    }
+    stream_set_timeout($socket, 20);
 
     smtp_read_response($socket); // 220 greeting
 
@@ -158,40 +215,189 @@ function send_email($to, $subject, $body) {
     $auth_response = smtp_read_response($socket);
     if (substr($auth_response, 0, 3) !== '235') {
         fclose($socket);
-        log_communication('email', $to, $subject, $body, 'failed');
         return false;
     }
+    return $socket;
+}
 
-    fwrite($socket, 'MAIL FROM:<' . GMAIL_SMTP_USERNAME . ">\r\n");
+// Sends one message over an already-open session.
+//   true  = server accepted it (250 after DATA)
+//   false = server refused this message/recipient (e.g. 550 no such user) —
+//           the session is still healthy and can be reused
+//   null  = the connection itself is dead (no reply) — caller should reconnect
+// $to/$subject must already be cleaned.
+function smtp_deliver($socket, $to, $subject, $body) {
+    // Appended to every notification email, so callers don't each need to
+    // remember to add it.
+    $full_body = $body . "\r\n\r\nFor questions and concerns please call +63 917 323 8153.";
+
+    @fwrite($socket, 'MAIL FROM:<' . GMAIL_SMTP_USERNAME . ">\r\n");
     smtp_read_response($socket);
-    fwrite($socket, 'RCPT TO:<' . $to . ">\r\n");
+    @fwrite($socket, 'RCPT TO:<' . $to . ">\r\n");
     $rcpt_response = smtp_read_response($socket);
+    if ($rcpt_response === '') {
+        return null;
+    }
     if (substr($rcpt_response, 0, 3) !== '250') {
-        fclose($socket);
-        log_communication('email', $to, $subject, $body, 'failed');
+        @fwrite($socket, "RSET\r\n");
+        smtp_read_response($socket);
         return false;
     }
 
-    fwrite($socket, "DATA\r\n");
-    smtp_read_response($socket);
+    @fwrite($socket, "DATA\r\n");
+    $data_ready = smtp_read_response($socket);
+    if ($data_ready === '') {
+        return null;
+    }
+    if (substr($data_ready, 0, 3) !== '354') {
+        @fwrite($socket, "RSET\r\n");
+        smtp_read_response($socket);
+        return false;
+    }
 
+    // A non-ASCII subject (e.g. an em dash or peso sign) must be MIME-encoded
+    // or mail clients show it garbled.
+    $encoded_subject = preg_match('/[^\x20-\x7E]/', $subject)
+        ? '=?UTF-8?B?' . base64_encode($subject) . '?='
+        : $subject;
     $headers = 'From: ' . GMAIL_SMTP_FROM_NAME . ' <' . GMAIL_SMTP_USERNAME . ">\r\n"
         . 'To: <' . $to . ">\r\n"
-        . 'Subject: ' . $subject . "\r\n"
+        . 'Subject: ' . $encoded_subject . "\r\n"
         . "MIME-Version: 1.0\r\n"
         . "Content-Type: text/plain; charset=UTF-8\r\n";
     // Per RFC 5321, a lone "." on a line marks end-of-data — escape any line
     // in the body that starts with one so it isn't mistaken for the terminator.
     $escaped_body = preg_replace('/^\./m', '..', $full_body);
-    fwrite($socket, $headers . "\r\n" . $escaped_body . "\r\n.\r\n");
+    @fwrite($socket, $headers . "\r\n" . $escaped_body . "\r\n.\r\n");
     $data_response = smtp_read_response($socket);
+    if ($data_response === '') {
+        return null;
+    }
 
-    fwrite($socket, "QUIT\r\n");
-    fclose($socket);
+    return substr($data_response, 0, 3) === '250';
+}
 
-    $success = substr($data_response, 0, 3) === '250';
-    log_communication('email', $to, $subject, $body, $success ? 'sent' : 'failed');
-    return $success;
+// Announcement / bulk email: every recipient gets their own individual
+// message (nobody sees anyone else's address), all through one SMTP login.
+// Duplicate and invalid addresses are skipped, the session is refreshed every
+// 40 messages, and if the connection drops it reconnects once instead of
+// failing the rest of the list. Each attempt is logged like a normal send.
+// Returns ['sent' => n, 'failed' => n].
+function send_email_bulk(array $addresses, $subject, $body) {
+    $subject = str_replace(["\r", "\n"], ' ', (string) $subject);
+    $seen = [];
+    $queue = [];
+    foreach ($addresses as $address) {
+        $address = trim(str_replace(["\r", "\n"], '', (string) $address));
+        $key = strtolower($address);
+        if ($address === '' || isset($seen[$key]) || !filter_var($address, FILTER_VALIDATE_EMAIL)) {
+            continue;
+        }
+        $seen[$key] = true;
+        $queue[] = $address;
+    }
+
+    $sent = 0;
+    $failed = 0;
+    $socket = null;
+    $on_this_session = 0;
+    $connect_failed = false;
+
+    foreach ($queue as $address) {
+        if ($socket && $on_this_session >= 40) {
+            fwrite($socket, "QUIT\r\n");
+            fclose($socket);
+            $socket = null;
+        }
+        if (!$socket && !$connect_failed) {
+            $socket = smtp_open();
+            $on_this_session = 0;
+            if (!$socket) {
+                $connect_failed = true; // don't wait out a 10s timeout per remaining recipient
+            }
+        }
+
+        $ok = false;
+        if ($socket) {
+            $result = smtp_deliver($socket, $address, $subject, $body);
+            if ($result === null) {
+                // The connection died (no reply). Reconnect once and retry this
+                // recipient. A plain refusal (false, e.g. "no such user") does
+                // NOT trigger this — the session is fine, just move on.
+                @fclose($socket);
+                $socket = smtp_open();
+                $on_this_session = 0;
+                $result = $socket ? smtp_deliver($socket, $address, $subject, $body) : null;
+            }
+            $ok = $result === true;
+            $on_this_session++;
+        }
+
+        log_communication('email', $address, $subject, $body, $ok ? 'sent' : 'failed');
+        $ok ? $sent++ : $failed++;
+    }
+
+    if ($socket) {
+        fwrite($socket, "QUIT\r\n");
+        fclose($socket);
+    }
+    return ['sent' => $sent, 'failed' => $failed];
+}
+
+// ---------------------------------------------------------------
+// Resets a member's password to a fresh temporary one (must_change_password
+// = 1) and sends it by email AND SMS, to whichever the account has on file.
+// Shared by the self-service "Forgot Password" pages and the admin "Reset
+// Password" buttons, for both Wellness ($table 'users') and Basics
+// ($table 'basics_users'). If neither message could be delivered the old
+// password is put back, so a failed send never locks the member out.
+// Returns ['email' => bool, 'sms' => bool] — both false means nothing was
+// delivered and the password is unchanged.
+// ---------------------------------------------------------------
+function password_reset_sms_prefix($module_name) {
+    return $module_name . ': Your password has been reset.';
+}
+
+function reset_member_password($conn, $table, $user_id, $module_name, $full_name, $email, $contact_number, $self_service) {
+    if (!in_array($table, ['users', 'basics_users'], true)) {
+        throw new InvalidArgumentException('Unsupported account table.');
+    }
+
+    $stmt = $conn->prepare("SELECT password_hash, must_change_password FROM $table WHERE id = ?");
+    $stmt->bind_param('i', $user_id);
+    $stmt->execute();
+    $old = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$old) {
+        return ['email' => false, 'sms' => false];
+    }
+
+    $new_password = generate_temp_password();
+    $hash = password_hash($new_password, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("UPDATE $table SET password_hash = ?, must_change_password = 1 WHERE id = ?");
+    $stmt->bind_param('si', $hash, $user_id);
+    $stmt->execute();
+    $stmt->close();
+
+    $reason = $self_service ? 'A password reset was requested for your account.' : 'Your password has been reset by an administrator.';
+    $warning = $self_service ? " If you didn't request this, please contact support immediately." : '';
+    $email_body = "Hi {$full_name},\r\n\r\n{$reason}\r\n\r\nYour new temporary password is: {$new_password}\r\n\r\n"
+        . "Please log in and change it right away.{$warning}\r\n\r\n— {$module_name} Team";
+    $sms_body = password_reset_sms_prefix($module_name) . " Temporary password: {$new_password} - log in and change it right away."
+        . ($self_service ? " Didn't request this? Contact support." : '');
+
+    $sent = [
+        'email' => send_email($email, "Your {$module_name} password has been reset", $email_body),
+        'sms' => send_sms($contact_number, $sms_body),
+    ];
+
+    if (!$sent['email'] && !$sent['sms']) {
+        $stmt = $conn->prepare("UPDATE $table SET password_hash = ?, must_change_password = ? WHERE id = ?");
+        $stmt->bind_param('sii', $old['password_hash'], $old['must_change_password'], $user_id);
+        $stmt->execute();
+        $stmt->close();
+    }
+    return $sent;
 }
 
 function payment_method_label($method) {
@@ -205,6 +411,29 @@ function payment_method_label($method) {
 
 function sanitize($value) {
     return htmlspecialchars(trim($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
+
+// For putting a value INSIDE a JavaScript string in an HTML attribute, e.g.
+// onclick="return confirm( echo js_str('Delete ' . $name . '?') );"
+// (never write the PHP closing tag inside a comment - it ends PHP mode).
+// sanitize() is NOT enough there: it turns ' into &#039;, which the browser
+// decodes back to ' before the JavaScript runs, so a member whose name is
+// `');alert(1);//` would execute script in an admin's browser. This emits a
+// properly escaped JS string literal (quotes included) that is also safe in
+// an HTML attribute.
+function js_str($value) {
+    return htmlspecialchars(json_encode((string) $value, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8');
+}
+
+// Exception text is only safe to show visitors when we threw it ourselves
+// ("Your wallet balance is not enough..."). Database exceptions carry SQL,
+// table and column names — log those, show a generic message.
+function safe_error_message($e) {
+    if ($e instanceof mysqli_sql_exception) {
+        error_log('Database error: ' . $e->getMessage());
+        return 'Something went wrong while saving. Please try again, and contact support if it keeps happening.';
+    }
+    return $e->getMessage();
 }
 
 function redirect($path) {
@@ -273,6 +502,102 @@ function log_activity($conn, $action, $description) {
     $stmt->bind_param('isssss', $admin_id, $admin_type, $admin_name, $action, $description, $ip);
     $stmt->execute();
     $stmt->close();
+}
+
+// ---------------------------------------------------------------
+// Full-database SQL dump, generated in pure PHP rather than shelling out to
+// mysqldump — InfinityFree's shared hosting gives no SSH/shell access, so
+// this is the only way to script a backup there. Used by the automated
+// backup below (write_database_backup()). Every table's schema (SHOW
+// CREATE TABLE) and data (as INSERT statements) is included, so restoring
+// is a single paste into phpMyAdmin's SQL tab.
+// ---------------------------------------------------------------
+function generate_database_sql_dump(mysqli $conn) {
+    $sql = "-- JMC Digital database backup\n-- Generated: " . date('Y-m-d H:i:s') . "\n\n";
+    $sql .= "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\n\n";
+
+    $tables = [];
+    $result = $conn->query('SHOW TABLES');
+    while ($row = $result->fetch_row()) {
+        $tables[] = $row[0];
+    }
+
+    foreach ($tables as $table) {
+        $sql .= "-- ----------------------------\n-- Table: `{$table}`\n-- ----------------------------\n";
+        $sql .= "DROP TABLE IF EXISTS `{$table}`;\n";
+        $create_row = $conn->query("SHOW CREATE TABLE `{$table}`")->fetch_assoc();
+        $sql .= $create_row['Create Table'] . ";\n\n";
+
+        $data = $conn->query("SELECT * FROM `{$table}`");
+        if ($data && $data->num_rows > 0) {
+            $columns = array_map(function ($field) { return "`{$field->name}`"; }, $data->fetch_fields());
+            $sql .= "INSERT INTO `{$table}` (" . implode(', ', $columns) . ") VALUES\n";
+            $value_rows = [];
+            while ($row = $data->fetch_row()) {
+                $escaped = array_map(function ($value) use ($conn) {
+                    return $value === null ? 'NULL' : "'" . $conn->real_escape_string($value) . "'";
+                }, $row);
+                $value_rows[] = '(' . implode(', ', $escaped) . ')';
+            }
+            $sql .= implode(",\n", $value_rows) . ";\n\n";
+        } else {
+            $sql .= "\n";
+        }
+    }
+
+    $sql .= "SET FOREIGN_KEY_CHECKS = 1;\n";
+    return $sql;
+}
+
+// ---------------------------------------------------------------
+// Writes a fresh database backup to database/backups/latest.sql,
+// overwriting whatever was there each time (never accumulates), and
+// records the outcome in database/backups/last_run.txt. Shared by the
+// traffic-driven scheduler (maybe_run_scheduled_backup(), just below) and
+// the "Run Backup Now" button on admin/db_backup.php.
+// ---------------------------------------------------------------
+function write_database_backup($conn) {
+    $backup_dir = __DIR__ . '/../database/backups';
+    if (!is_dir($backup_dir)) {
+        mkdir($backup_dir, 0755, true);
+    }
+    $log_path = $backup_dir . '/last_run.txt';
+
+    try {
+        $sql = generate_database_sql_dump($conn);
+        $tmp_path = $backup_dir . '/latest.sql.tmp';
+        $final_path = $backup_dir . '/latest.sql';
+        if (file_put_contents($tmp_path, $sql, LOCK_EX) === false) {
+            throw new Exception('Could not write backup file — check folder permissions.');
+        }
+        // Write-then-rename so a concurrent download never reads a half-written file.
+        rename($tmp_path, $final_path);
+        file_put_contents($log_path, date('Y-m-d H:i:s') . ' OK (' . strlen($sql) . " bytes)\n", LOCK_EX);
+        return true;
+    } catch (Throwable $e) {
+        file_put_contents($log_path, date('Y-m-d H:i:s') . ' FAILED: ' . $e->getMessage() . "\n", LOCK_EX);
+        return false;
+    }
+}
+
+// ---------------------------------------------------------------
+// "Poor man's cron" for the DB backup: InfinityFree's free plan has no
+// cron/SSH access, so there's no way to run this on a real timer. Instead
+// it piggybacks on ordinary site traffic — this file is required by every
+// single page right after config/database.php, so it's guaranteed to run
+// often enough to catch the 3-hour mark on whichever page loads next.
+// The "claim the slot" save_setting() happens before the (slower) dump
+// itself so two requests landing in the same moment don't both trigger a
+// redundant backup.
+// ---------------------------------------------------------------
+function maybe_run_scheduled_backup($conn) {
+    $interval_seconds = 3 * 3600;
+    $last_run = setting($conn, 'db_backup_last_run_at');
+    if ($last_run !== null && (time() - strtotime($last_run)) < $interval_seconds) {
+        return;
+    }
+    save_setting($conn, 'db_backup_last_run_at', date('Y-m-d H:i:s'));
+    write_database_backup($conn);
 }
 
 // ---------------------------------------------------------------
@@ -581,4 +906,15 @@ function cancel_order($conn, $order_id) {
     $stmt->close();
 
     log_activity($conn, 'cancel_order', 'Cancelled Wellness order #' . $order_id);
+}
+
+// ---------------------------------------------------------------
+// Every page in the app requires this file right after config/database.php
+// (which is where $conn comes from), so this is the one place guaranteed
+// to run on every request — see maybe_run_scheduled_backup() above for why
+// that's exactly what the traffic-driven backup scheduler needs.
+// ---------------------------------------------------------------
+if (isset($conn) && $conn instanceof mysqli) {
+    maybe_run_scheduled_backup($conn);
+    maybe_run_birthday_greetings($conn);
 }

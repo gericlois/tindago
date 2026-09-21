@@ -13,13 +13,18 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
 ?>
   <footer>
     <div class="container">
-      <div class="row g-5">
+      <div class="row g-5 justify-content-center text-center">
         <div class="col-lg-4">
           <div class="brand-logo-box mb-3">
             <img src="<?= sanitize($module_logo_url) ?>" alt="<?= sanitize($module_name) ?>" class="brand-logo">
           </div>
           <p class="fdesc"><?= sanitize($module_footer_desc) ?></p>
+          <div class="fsoc"><a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener" aria-label="Visit our Facebook page"><i class="fab fa-facebook-f"></i></a></div>
         </div>
+        <?php // Basics' navbar already covers all of these on mobile (its own
+              // menu), so the footer copy just duplicates it — kept for
+              // Wellness/hub pages, hidden for Basics. ?>
+        <?php if ($module_name !== 'JMC Foodies Basics'): ?>
         <div class="col-sm-6 col-lg-4">
           <div class="ftit">Quick Links</div>
           <ul class="flinks ps-0">
@@ -39,11 +44,16 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
             <?php endif; ?>
           </ul>
         </div>
+        <?php endif; ?>
         <div class="col-lg-4">
           <div class="ftit">Get In Touch</div>
           <div class="fci">
             <div class="fciico"><i class="fas fa-envelope"></i></div>
             <div class="fciinfo"><strong>Email</strong><?= sanitize(setting($conn, 'company_email', 'support@example.com')) ?></div>
+          </div>
+          <div class="fci">
+            <div class="fciico"><i class="fab fa-facebook-f"></i></div>
+            <div class="fciinfo"><strong>Facebook</strong><a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener">JMC Foodies on Facebook</a></div>
           </div>
           <?php $company_address = setting($conn, 'company_address', ''); ?>
           <?php if ($company_address !== ''): ?>
@@ -57,7 +67,7 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
     </div>
     <div class="fbot">
       <div class="container">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="d-flex justify-content-center align-items-center flex-wrap gap-2">
           <p>&copy; <?= date('Y') ?> <span><?= SITE_NAME ?></span>. All rights reserved.</p>
         </div>
       </div>
@@ -66,7 +76,7 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
   <button id="btt" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i class="fas fa-chevron-up"></i></button>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="<?= BASE_URL ?>/assets/js/main.js"></script>
+  <script src="<?= BASE_URL ?>/assets/js/main.js?v=<?= @filemtime(__DIR__ . '/../assets/js/main.js') ?>"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {

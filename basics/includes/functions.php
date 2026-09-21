@@ -2,6 +2,66 @@
 // JMC Foodies Basics business logic: continuous ordering, revolving
 // credit-line checks, and the tiered late-payment penalty engine.
 
+// Order fulfillment pipeline is admin-driven and fully decoupled from
+// payment: Checking (pending) -> Preparing (confirmed) -> In Transit
+// (out_for_delivery) -> Delivered. Cancelled is the only exit branch, only
+// reachable from Checking/Preparing. There is no "paid" stage — payment
+// completion is tracked separately via basics_payments regardless of where
+// an order sits in this pipeline.
+function basics_order_status_label($status) {
+    $labels = [
+        'draft' => 'Draft',
+        'pending' => 'Checking',
+        'confirmed' => 'Preparing',
+        'out_for_delivery' => 'In Transit',
+        'delivered' => 'Delivered',
+        'cancelled' => 'Cancelled',
+    ];
+    return $labels[$status] ?? ucfirst($status);
+}
+
+// Maps a basics_orders.status to one of the shared .pill-* CSS classes
+// (assets/css/theme.css) used across both admin panels.
+function basics_order_status_pill($status) {
+    $pills = [
+        'draft' => 'pending',
+        'pending' => 'processing',
+        'confirmed' => 'approved',
+        'out_for_delivery' => 'approved',
+        'delivered' => 'completed',
+        'cancelled' => 'cancelled',
+    ];
+    return $pills[$status] ?? 'pending';
+}
+
+// ---------------------------------------------------------------
+// Admin account management (basics/admin/admins.php). Guards against
+// locking the panel out of super_admin access entirely — role edits and
+// deletes both check this before removing the last one.
+// ---------------------------------------------------------------
+function basics_super_admin_count($conn) {
+    return (int) $conn->query("SELECT COUNT(*) AS c FROM basics_admins WHERE role = 'super_admin'")->fetch_assoc()['c'];
+}
+
+function basics_admin_role_label($role) {
+    $labels = [
+        'super_admin' => 'Super Admin',
+        'admin' => 'Admin',
+        'staff_orders' => 'Staff (Orders)',
+        'staff_payments' => 'Staff (Payments)',
+    ];
+    return $labels[$role] ?? ucfirst($role);
+}
+
+// Whether an order is fully settled, shown as a "Paid" pill alongside (not
+// instead of) the status pill above — deliberately kept out of the status
+// enum itself after 7eab20d/309635d showed a single 'paid' status value
+// can't represent an order that's e.g. delivered-but-unpaid or
+// paid-before-delivery.
+function basics_order_is_paid($total_amount, $amount_paid) {
+    return (float) $total_amount > 0 && (float) $amount_paid >= (float) $total_amount;
+}
+
 // Thin wrapper around send_sms() (includes/functions.php) — every Basics
 // SMS trigger has a $member array (from basics_get_member() or a JOIN
 // selecting u.contact_number) on hand already, so this saves repeating the
@@ -76,7 +136,9 @@ function basics_member_by_id($conn, $member_id) {
 
 
 function basics_get_member($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT bm.*, u.full_name, u.username, u.email, u.contact_number
+    $stmt = $conn->prepare("SELECT bm.*, u.full_name, u.first_name, u.middle_name, u.last_name,
+                                    u.username, u.email, u.contact_number, u.birthdate,
+                                    u.address, u.address_line, u.barangay, u.city, u.province
                              FROM basics_members bm JOIN basics_users u ON u.id = bm.user_id
                              WHERE bm.user_id = ?");
     $stmt->bind_param('i', $user_id);
@@ -86,10 +148,25 @@ function basics_get_member($conn, $user_id) {
     return $member ?: null;
 }
 
-// Total quantity across the member's current draft cart — powers the badge
-// on the navbar Cart link (includes/navbar.php).
+// full_name/address stay the authoritative columns every existing display,
+// SMS, email, and receipt already reads — these just keep them in sync
+// whenever the structured parts (first/middle/last, address_line/barangay/
+// city/province) are entered or edited, so nothing else in the app needs
+// to change. Empty parts are simply skipped rather than leaving stray
+// double-spaces/commas.
+function basics_compose_full_name($first, $middle, $last) {
+    $parts = array_filter([trim((string) $first), trim((string) $middle), trim((string) $last)], fn($p) => $p !== '');
+    return implode(' ', $parts);
+}
+function basics_compose_address($line, $barangay, $city, $province) {
+    $parts = array_filter([trim((string) $line), trim((string) $barangay), trim((string) $city), trim((string) $province)], fn($p) => $p !== '');
+    return implode(', ', $parts);
+}
+
+// Number of distinct products (not summed quantity) in the member's current
+// draft cart — powers the badge on the navbar Cart link (includes/navbar.php).
 function basics_cart_item_count($conn, $user_id) {
-    $stmt = $conn->prepare("SELECT COALESCE(SUM(oi.quantity), 0) AS c
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c
                              FROM basics_orders o
                              JOIN basics_order_items oi ON oi.order_id = o.id
                              JOIN basics_members bm ON bm.id = o.member_id
@@ -99,14 +176,19 @@ function basics_cart_item_count($conn, $user_id) {
     return (int) $stmt->get_result()->fetch_assoc()['c'];
 }
 
-// Sum of `pending` (checked out, not yet fully paid) orders — status flips
-// to 'paid' automatically once payments cover the total, so a plain status
-// filter is enough. A revolving ceiling, not a per-cycle reset — a member
-// who hasn't paid down prior weeks simply can't order more.
+// Unpaid balance across every order still in the fulfillment pipeline
+// (Checking/Preparing/In Transit/Delivered) — total_amount minus whatever's
+// already been paid on each. A revolving ceiling, not a per-cycle reset: an
+// order keeps counting against the limit until it's actually paid off,
+// regardless of how far along delivery it is — approving or delivering an
+// order does not free up credit, only payment does.
 function basics_outstanding_balance($conn, $member_id) {
-    $stmt = $conn->prepare("SELECT COALESCE(SUM(o.total_amount), 0) AS outstanding
+    // GREATEST(...,0) per order — an overpaid order (e.g. a payment recorded
+    // twice by mistake) must never create "negative debt" that inflates a
+    // member's available credit above their actual limit.
+    $stmt = $conn->prepare("SELECT COALESCE(SUM(GREATEST(o.total_amount - IFNULL((SELECT SUM(amount_paid) FROM basics_payments p WHERE p.order_id = o.id), 0), 0)), 0) AS outstanding
                              FROM basics_orders o
-                             WHERE o.member_id = ? AND o.status = 'pending'");
+                             WHERE o.member_id = ? AND o.status IN ('pending', 'confirmed', 'out_for_delivery', 'delivered')");
     $stmt->bind_param('i', $member_id);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
@@ -226,7 +308,7 @@ function basics_member_awaiting_orders($conn, $member_id) {
     $stmt = $conn->prepare("SELECT o.*,
                                     (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
                              FROM basics_orders o
-                             WHERE o.member_id = ? AND o.status IN ('confirmed', 'delivered')
+                             WHERE o.member_id = ? AND o.status IN ('confirmed', 'out_for_delivery', 'delivered')
                              HAVING amount_paid < o.total_amount
                              ORDER BY o.created_at DESC");
     $stmt->bind_param('i', $member_id);
@@ -248,7 +330,7 @@ function basics_payment_due_date($order) {
 // penalty tier + credit-line/suspension escalation in one transaction.
 // Returns ['is_late' => bool, 'penalty_amount' => float, 'membership_status' => string].
 function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_id, $notes = null) {
-    $stmt = $conn->prepare("SELECT * FROM basics_orders WHERE id = ? AND status IN ('confirmed', 'delivered') FOR UPDATE");
+    $stmt = $conn->prepare("SELECT * FROM basics_orders WHERE id = ? AND status IN ('confirmed', 'out_for_delivery', 'delivered') FOR UPDATE");
     $stmt->bind_param('i', $order_id);
     $stmt->execute();
     $order = $stmt->get_result()->fetch_assoc();
@@ -307,14 +389,6 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
         $offense_number, $is_late_int, $paid_at, $admin_id, $notes);
     $stmt->execute();
     $stmt->close();
-
-    $total_paid = (float) $conn->query("SELECT COALESCE(SUM(amount_paid),0) AS s FROM basics_payments WHERE order_id = " . (int) $order_id)->fetch_assoc()['s'];
-    if ($total_paid >= $amount_due) {
-        $stmt = $conn->prepare("UPDATE basics_orders SET status = 'paid' WHERE id = ? AND status = 'confirmed'");
-        $stmt->bind_param('i', $order_id);
-        $stmt->execute();
-        $stmt->close();
-    }
 
     $stmt = $conn->prepare("UPDATE basics_members SET
         offense_count = ?, consecutive_on_time_payments = ?, credit_limit_frozen = ?,

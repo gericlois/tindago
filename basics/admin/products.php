@@ -4,7 +4,7 @@ require __DIR__ . '/../../config/database.php';
 require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete') {
     $id = (int) $_POST['id'];
@@ -45,7 +45,7 @@ $page_title = 'Basics Products';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Products</h1>

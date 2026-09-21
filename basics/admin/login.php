@@ -10,10 +10,17 @@ if (basics_is_admin_logged_in()) {
 
 $errors = [];
 $username = '';
+$maintenance_message = 'Basics is under maintenance. Only super admins can log in right now.';
+
+if (isset($_GET['maintenance'])) {
+    $errors[] = $maintenance_message;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
+
+    $throttled = login_throttle_blocked($conn, 'basics_admin', $username);
 
     $stmt = $conn->prepare("SELECT * FROM basics_admins WHERE username = ?");
     $stmt->bind_param('s', $username);
@@ -21,9 +28,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $admin = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if (!$admin || !password_verify($password, $admin['password_hash'])) {
+    if ($throttled) {
+        $errors[] = LOGIN_THROTTLE_MESSAGE;
+    } elseif (!$admin || !password_verify($password, $admin['password_hash'])) {
         $errors[] = 'Invalid username or password.';
+        login_throttle_fail($conn, 'basics_admin', $username);
+    } elseif (basics_maintenance_blocks_role($admin['role'])) {
+        $errors[] = $maintenance_message;
     } else {
+        login_throttle_clear($conn, 'basics_admin', $username);
+        session_regenerate_id(true);
+        $_SESSION['basics_admin_last_activity'] = time();
         $_SESSION['basics_admin_id'] = $admin['id'];
         $_SESSION['basics_admin_name'] = $admin['name'];
         $_SESSION['basics_admin_role'] = $admin['role'];

@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm') {
     $id = (int) ($_POST['id'] ?? 0);
@@ -22,11 +22,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         }
     }
     redirect('/basics/admin/orders.php');
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'out_for_delivery') {
+    $id = (int) ($_POST['id'] ?? 0);
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'out_for_delivery', out_for_delivery_at = NOW() WHERE id = ? AND status = 'confirmed'");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $moved = $stmt->affected_rows > 0;
+    $stmt->close();
+    if ($moved) {
+        log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $id . ' as out for delivery');
+        $member = basics_member_by_order_id($conn, $id);
+        if ($member) {
+            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} is out for delivery! - JMC Foodies Basics");
+        }
+    }
+    redirect('/basics/admin/orders.php');
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
     $id = (int) ($_POST['id'] ?? 0);
     // Delivery no longer waits on payment — members get their groceries on
     // schedule regardless, and settle by the (much later) payment due date.
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ? AND status IN ('confirmed', 'paid')");
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ? AND status = 'out_for_delivery'");
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $delivered = $stmt->affected_rows > 0;
@@ -68,8 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     redirect('/basics/admin/orders.php' . (($_GET['view'] ?? '') === 'archived' ? '?view=archived' : ''));
 }
 
-$valid_statuses = ['pending', 'confirmed', 'paid', 'delivered', 'cancelled'];
-$pill_map = ['pending' => 'processing', 'confirmed' => 'approved', 'paid' => 'approved', 'delivered' => 'completed', 'cancelled' => 'cancelled'];
+$valid_statuses = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
 $status_filter = $_GET['status'] ?? '';
 $view = ($_GET['view'] ?? '') === 'archived' ? 'archived' : 'active';
 
@@ -79,7 +93,11 @@ $sql = "SELECT o.*, u.full_name, u.username,
         JOIN basics_members bm ON bm.id = o.member_id
         JOIN basics_users u ON u.id = bm.user_id
         WHERE o.status != 'draft' AND o.archived_at IS " . ($view === 'archived' ? 'NOT NULL' : 'NULL');
-if (in_array($status_filter, $valid_statuses, true)) {
+if ($status_filter === 'paid') {
+    // Not a real basics_orders.status value (see basics_order_is_paid()) —
+    // filters on the computed amount_paid alias instead of o.status.
+    $sql .= " HAVING o.total_amount > 0 AND amount_paid >= o.total_amount";
+} elseif (in_array($status_filter, $valid_statuses, true)) {
     $sql .= " AND o.status = '" . $conn->real_escape_string($status_filter) . "'";
 }
 $sql .= " ORDER BY o.created_at DESC";
@@ -89,7 +107,7 @@ $page_title = 'Basics Orders';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Orders</h1>
@@ -109,24 +127,27 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <a href="<?= BASE_URL ?>/basics/admin/orders.php<?= $view === 'archived' ? '?view=archived' : '' ?>" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
     <?php foreach ($valid_statuses as $status): ?>
       <a href="<?= BASE_URL ?>/basics/admin/orders.php?status=<?= $status ?><?= $view === 'archived' ? '&view=archived' : '' ?>"
-         class="filter-pill text-capitalize <?= $status_filter === $status ? 'active' : '' ?>"><?= $status ?></a>
+         class="filter-pill <?= $status_filter === $status ? 'active' : '' ?>"><?= basics_order_status_label($status) ?></a>
     <?php endforeach; ?>
+    <a href="<?= BASE_URL ?>/basics/admin/orders.php?status=paid<?= $view === 'archived' ? '&view=archived' : '' ?>"
+       class="filter-pill <?= $status_filter === 'paid' ? 'active' : '' ?>">Paid</a>
   </div>
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Order #</th><th>Member</th><th>Total</th><th>Paid</th><th>Status</th><th>Date</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Order #</th><th>Member</th><th>Total</th><th>Amount Paid</th><th>Payment</th><th>Status</th><th>Date</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if ($orders->num_rows === 0): ?>
-        <tr><td colspan="7" class="text-muted">No <?= $view === 'archived' ? 'archived' : '' ?> orders found.</td></tr>
+        <tr><td colspan="8" class="text-muted">No <?= $view === 'archived' ? 'archived' : '' ?> orders found.</td></tr>
       <?php endif; ?>
       <?php while ($o = $orders->fetch_assoc()): ?>
         <tr>
           <td>#<?= (int) $o['id'] ?></td>
-          <td><?= sanitize($o['full_name']) ?> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
+          <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
           <td><?= format_price($o['total_amount']) ?></td>
           <td><?= format_price($o['amount_paid']) ?></td>
-          <td><span class="pill pill-<?= $pill_map[$o['status']] ?? 'pending' ?>"><?= sanitize($o['status']) ?></span></td>
+          <td><?php if (basics_order_is_paid($o['total_amount'], $o['amount_paid'])): ?><span class="pill pill-paid">Paid</span><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
           <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
           <td class="no-print">
             <a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">View</a>
@@ -134,7 +155,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <form method="post" class="d-inline">
                 <input type="hidden" name="action" value="confirm">
                 <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this order?');">Approve</button>
+                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this order? Review the items on the order page first if anything is out of stock.');">Approve</button>
               </form>
               <form method="post" class="d-inline">
                 <input type="hidden" name="action" value="cancel">
@@ -143,9 +164,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
               </form>
             <?php elseif ($o['status'] === 'confirmed'): ?>
               <form method="post" class="d-inline">
-                <input type="hidden" name="action" value="deliver">
+                <input type="hidden" name="action" value="out_for_delivery">
                 <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered? Payment can still be recorded later.');">Deliver</button>
+                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as out for delivery?');">For Delivery</button>
               </form>
               <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
               <form method="post" class="d-inline">
@@ -153,12 +174,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
                 <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel</button>
               </form>
-            <?php elseif ($o['status'] === 'paid'): ?>
+            <?php elseif ($o['status'] === 'out_for_delivery'): ?>
               <form method="post" class="d-inline">
                 <input type="hidden" name="action" value="deliver">
                 <input type="hidden" name="id" value="<?= (int) $o['id'] ?>">
-                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered?');">Deliver</button>
+                <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered?');">Delivered</button>
               </form>
+              <?php if ($o['amount_paid'] < $o['total_amount']): ?>
+                <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
+              <?php endif; ?>
             <?php elseif ($o['status'] === 'delivered' && $o['amount_paid'] < $o['total_amount']): ?>
               <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-success">Record Payment</a>
             <?php endif; ?>

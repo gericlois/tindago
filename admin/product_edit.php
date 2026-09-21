@@ -102,7 +102,7 @@ $page_title = $id ? 'Edit Product' : 'Add Product';
 require __DIR__ . '/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/admin/products.php" class="small">&larr; Back to Products</a>
     <h1 class="stitle" style="font-size:2rem;"><?= $id ? 'Edit Product' : 'Add Product' ?></h1>

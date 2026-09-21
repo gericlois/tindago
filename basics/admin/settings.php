@@ -5,14 +5,14 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin']);
+require_basics_admin_role(['super_admin', 'admin']);
 
 $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $basics_gcash_name = trim($_POST['basics_gcash_name'] ?? '');
     $basics_gcash_number = trim($_POST['basics_gcash_number'] ?? '');
-    $basics_chinabank_account_name = trim($_POST['basics_chinabank_account_name'] ?? '');
-    $basics_chinabank_account_number = trim($_POST['basics_chinabank_account_number'] ?? '');
+    $basics_pnb_account_name = trim($_POST['basics_pnb_account_name'] ?? '');
+    $basics_pnb_account_number = trim($_POST['basics_pnb_account_number'] ?? '');
     $basics_eastwest_account_name = trim($_POST['basics_eastwest_account_name'] ?? '');
     $basics_eastwest_account_number = trim($_POST['basics_eastwest_account_number'] ?? '');
     $basics_late_penalty_tier1 = (float) ($_POST['basics_late_penalty_tier1'] ?? 0);
@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         save_setting($conn, 'basics_gcash_name', $basics_gcash_name);
         save_setting($conn, 'basics_gcash_number', $basics_gcash_number);
-        save_setting($conn, 'basics_chinabank_account_name', $basics_chinabank_account_name);
-        save_setting($conn, 'basics_chinabank_account_number', $basics_chinabank_account_number);
+        save_setting($conn, 'basics_pnb_account_name', $basics_pnb_account_name);
+        save_setting($conn, 'basics_pnb_account_number', $basics_pnb_account_number);
         save_setting($conn, 'basics_eastwest_account_name', $basics_eastwest_account_name);
         save_setting($conn, 'basics_eastwest_account_number', $basics_eastwest_account_number);
         save_setting($conn, 'basics_late_penalty_tier1', (string) round($basics_late_penalty_tier1 / 100, 4));
@@ -46,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $basics_gcash_name_val = setting($conn, 'basics_gcash_name', 'JMC Foodies Basics');
 $basics_gcash_number_val = setting($conn, 'basics_gcash_number', '');
-$basics_chinabank_account_name_val = setting($conn, 'basics_chinabank_account_name', 'JMC Foodies Basics');
-$basics_chinabank_account_number_val = setting($conn, 'basics_chinabank_account_number', '');
+$basics_pnb_account_name_val = setting($conn, 'basics_pnb_account_name', 'JMC Foodies Basics');
+$basics_pnb_account_number_val = setting($conn, 'basics_pnb_account_number', '');
 $basics_eastwest_account_name_val = setting($conn, 'basics_eastwest_account_name', 'JMC Foodies Basics');
 $basics_eastwest_account_number_val = setting($conn, 'basics_eastwest_account_number', '');
 $tier1_val = (float) setting($conn, 'basics_late_penalty_tier1', 0.03) * 100;
@@ -60,7 +60,7 @@ $page_title = 'Settings';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Settings</h1>
@@ -95,12 +95,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </div>
           <div class="row">
             <div class="col-sm-6 mb-3">
-              <label class="flbl">Chinabank Account Name</label>
-              <input type="text" name="basics_chinabank_account_name" class="fctrl" value="<?= sanitize($basics_chinabank_account_name_val) ?>">
+              <label class="flbl">PNB Account Name</label>
+              <input type="text" name="basics_pnb_account_name" class="fctrl" value="<?= sanitize($basics_pnb_account_name_val) ?>">
             </div>
             <div class="col-sm-6 mb-3">
-              <label class="flbl">Chinabank Account Number</label>
-              <input type="text" name="basics_chinabank_account_number" class="fctrl" value="<?= sanitize($basics_chinabank_account_number_val) ?>">
+              <label class="flbl">PNB Account Number</label>
+              <input type="text" name="basics_pnb_account_number" class="fctrl" value="<?= sanitize($basics_pnb_account_number_val) ?>">
             </div>
           </div>
           <div class="row">
@@ -113,7 +113,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <input type="text" name="basics_eastwest_account_number" class="fctrl" value="<?= sanitize($basics_eastwest_account_number_val) ?>">
             </div>
           </div>
-          <div class="form-text mb-3">QR codes shown to members are static images (<code>assets/img/basics/qr_chinabank.jpg</code> / <code>qr_eastwest.jpg</code>) — replace those files directly to update the QR image itself.</div>
+          <div class="form-text mb-3">QR codes shown to members are static images (<code>assets/img/basics/qr_pnb.jpg</code> / <code>qr_eastwest.jpg</code>) — replace those files directly to update the QR image itself.</div>
 
           <h2 class="h6 mb-3 mt-4">Late Payment Policy</h2>
           <div class="row">

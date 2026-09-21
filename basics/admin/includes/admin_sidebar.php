@@ -36,6 +36,7 @@ $nav_groups = [
         '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
         '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
         '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
+        '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
         '/basics/admin/broadcast.php'    => ['icon' => 'fa-comment-sms',    'label' => 'Announcement'],
     ],
     'System' => [
@@ -44,6 +45,16 @@ $nav_groups = [
         '/basics/admin/communication_log.php' => ['icon' => 'fa-comments', 'label' => 'Communication Log'],
     ],
 ];
+
+// Database Backup, Admin Management, and Maintenance Mode touch the whole
+// database or the admin roster itself — kept super_admin-only, unlike
+// everything else in "System" which the (lower-privilege) admin role can
+// also see.
+if (basics_admin_role() === 'super_admin') {
+    $nav_groups['System']['/basics/admin/db_backup.php'] = ['icon' => 'fa-database', 'label' => 'Database Backup'];
+    $nav_groups['System']['/basics/admin/admins.php'] = ['icon' => 'fa-user-shield', 'label' => 'Admin Management'];
+    $nav_groups['System']['/basics/admin/maintenance.php'] = ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'];
+}
 
 // staff_orders and staff_payments are restricted roles (see
 // require_basics_admin_role() in includes/auth.php) — only show each the
@@ -75,12 +86,14 @@ if (isset($staff_role_paths[basics_admin_role()])) {
 $basics_dashboard_url = basics_admin_landing_url();
 ?>
 <div class="admin-shell">
-  <div class="offcanvas offcanvas-start offcanvas-lg admin-sidebar" tabindex="-1" id="adminSidebar">
+  <input type="checkbox" id="adminSidebarToggle" class="admin-sidebar-toggle-input">
+  <label for="adminSidebarToggle" class="admin-sidebar-backdrop"></label>
+  <div class="admin-sidebar" id="adminSidebar">
     <div class="offcanvas-header d-lg-none">
       <div class="brand-logo-box">
         <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:30px;">
       </div>
-      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#adminSidebar" aria-label="Close"></button>
+      <label for="adminSidebarToggle" class="btn-close btn-close-white" aria-label="Close"></label>
     </div>
     <div class="offcanvas-body admin-sidebar-body">
       <a href="<?= BASE_URL . $basics_dashboard_url ?>" class="admin-sidebar-brand d-none d-lg-flex">
@@ -108,9 +121,9 @@ $basics_dashboard_url = basics_admin_landing_url();
 
   <div class="admin-main">
     <div class="admin-topbar d-lg-none">
-      <button type="button" class="admin-topbar-toggle" data-bs-toggle="offcanvas" data-bs-target="#adminSidebar" aria-controls="adminSidebar">
+      <label for="adminSidebarToggle" class="admin-topbar-toggle" aria-controls="adminSidebar">
         <i class="fas fa-bars"></i>
-      </button>
+      </label>
       <div class="brand-logo-box">
         <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:28px;">
       </div>

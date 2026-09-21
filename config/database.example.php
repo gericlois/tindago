@@ -26,9 +26,15 @@ if ($is_local) {
     $db_name = '';
 }
 
-$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
-if ($conn->connect_error) {
-    die('Database connection failed: ' . $conn->connect_error);
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+// Don't echo the exception (it contains the DB host and user).
+try {
+    $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+} catch (mysqli_sql_exception $e) {
+    error_log('Database connection failed: ' . $e->getMessage());
+    http_response_code(503);
+    die('The site is temporarily unavailable. Please try again in a few minutes.');
 }
 $conn->set_charset('utf8mb4');
 $conn->query("SET time_zone = '+08:00'");

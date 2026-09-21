@@ -137,6 +137,24 @@
   margin-bottom: 0;
 }
 
+/* Admin page-header banner: eyebrow + title on one line instead of stacked,
+   so this compact utility header doesn't carry the storefront hero's height.
+   Scoped to .admin-content so the public-facing hero (login, register, menu,
+   etc.) keeps its stacked look. */
+.admin-content .inner-hero {
+  padding: 20px 0;
+}
+.admin-content .inner-hero .container {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-content .inner-hero .slbl {
+  margin-bottom: 0;
+}
+
 /* Error message box, same shape as the template's .sucmsg but red */
 .errmsg {
   text-align: left;
@@ -204,6 +222,21 @@
 .btn-red:hover,
 #btt:hover {
   box-shadow: 0 14px 34px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* Footer content is centered (includes/footer.php): icon stacked above its text,
+   social icons centered. */
+.fci {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.fsoc {
+  justify-content: center;
+}
+.fciinfo a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 /* Basics navbar Cart item-count badge (includes/navbar.php) */
@@ -344,45 +377,67 @@
 .pill-rejected { background: var(--primary); }
 .pill-suspended { background: #999; }
 .pill-active { background: var(--green); }
+.pill-paid { background: var(--secondary); }
 
 .amount-credit { color: var(--green); font-weight: 600; }
 .amount-debit { color: var(--primary); font-weight: 600; }
 
 /* Admin left sidebar layout (template has no admin UI, so this reuses the
    same brand variables in a dark vertical nav instead of the site's own
-   horizontal navbar). Sidebar is a Bootstrap "offcanvas-lg": a normal
-   static column at >=992px, a slide-in panel below that — no custom JS
-   needed, Bootstrap's own offcanvas component handles both. */
+   horizontal navbar). A normal static column at >=992px, a slide-in panel
+   below that.
+   Pure CSS "checkbox hack" — a hidden checkbox (#adminSidebarToggle) plus
+   <label for="adminSidebarToggle"> elements standing in for open/close
+   buttons — deliberately NOT JavaScript. Bootstrap's offcanvas JS was
+   silently no-opping in the field, and it turned out no script on the page
+   was executing at all (an extension/shield blocking every <script>, with
+   zero console errors) — so this works even with JS fully disabled. */
 .admin-shell {
   display: flex;
   min-height: 100vh;
   align-items: stretch;
+  position: relative;
 }
-.admin-sidebar.offcanvas-lg {
-  --bs-offcanvas-width: 250px;
+.admin-sidebar-toggle-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.admin-sidebar {
+  width: 250px;
   background: var(--dark);
   border-right: none;
 }
-/* Bootstrap only auto-converts offcanvas-lg into a static sidebar at
-   >=992px when it's nested inside a .navbar-expand-lg wrapper (that's the
-   only selector its own CSS ships to reset position/visibility/transform).
-   Our sidebar isn't a navbar, so without this it stays visibility:hidden;
-   transform:translateX(-100%) — i.e. invisible — at every screen width,
-   including desktop. This replicates that reset for our own markup. */
-@media (min-width: 992px) {
-  .admin-sidebar.offcanvas-lg {
-    position: static !important;
-    z-index: auto !important;
-    visibility: visible !important;
-    transform: none !important;
-    height: auto !important;
-    /* Bootstrap's own >=992px override forces offcanvas-lg's background to
-       transparent!important (meant for the navbar-nested use case, where the
-       navbar itself supplies the background) — restate dark here so it wins. */
-    background-color: var(--dark) !important;
+@media (max-width: 991.98px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1045;
+    transform: translateX(-100%);
+    overflow-y: auto;
+    visibility: hidden;
+    transition: transform 0.3s ease-in-out, visibility 0.3s;
   }
-  .admin-sidebar.offcanvas-lg .offcanvas-body {
-    background-color: var(--dark) !important;
+  .admin-sidebar-toggle-input:checked ~ .admin-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .admin-sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1044;
+  }
+  .admin-sidebar-toggle-input:checked ~ .admin-sidebar-backdrop {
+    display: block;
+  }
+}
+@media (min-width: 992px) {
+  .admin-sidebar-backdrop {
+    display: none !important;
   }
 }
 .admin-sidebar-body {
@@ -468,6 +523,12 @@
   color: #fff;
   font-size: 1.2rem;
   padding: 4px 8px;
+  cursor: pointer;
+  display: inline-flex;
+}
+.admin-sidebar-backdrop,
+.offcanvas-header .btn-close {
+  cursor: pointer;
 }
 
 /* Small pill buttons for table row actions (admin lists) */
@@ -491,6 +552,42 @@
 .btn-chip-success:hover { opacity: 0.88; color: #fff; }
 .btn-chip-outline { background: #fff; color: var(--dark); border: 2px solid #eee; }
 .btn-chip-outline:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Solid, opaque background on the mobile hamburger menu (Bootstrap's
+   .navbar-collapse doesn't set one of its own — it just inherits #nav's,
+   which is fine at rest, but during the expand/collapse animation content
+   underneath could show through at the edges without an explicit fill and
+   shadow of its own). */
+@media (max-width: 991.98px) {
+  .navbar-collapse.show,
+  .navbar-collapse.collapsing {
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    border-radius: 0 0 14px 14px;
+  }
+}
+
+/* Shows the current page name next to the logo on mobile, where the nav
+   links are hidden behind the hamburger until opened (includes/navbar.php). */
+.navbar-page-label {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--dark);
+}
+
+/* Single-row, horizontally-swipeable category pills (catalog.php) instead
+   of wrapping to multiple lines on mobile. */
+.filter-pill-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.filter-pill-scroll::-webkit-scrollbar { display: none; }
+.filter-pill-scroll .filter-pill { flex: 0 0 auto; }
 
 /* Quantity +/- stepper (catalog product cards, cart line items) */
 .qty-stepper {

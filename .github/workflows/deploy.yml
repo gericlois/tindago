@@ -1,0 +1,62 @@
+name: Deploy to InfinityFree
+
+# Pushes to main deploy automatically. Run it by hand from the Actions tab
+# ("Run workflow") to deploy any branch — manual runs default to a dry run,
+# which only lists what WOULD be uploaded.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (list changes without uploading)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-infinityfree
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      # Never ship a syntax error to the live site.
+      - name: Lint PHP files
+        run: |
+          find . -name '*.php' -not -path './theme/*' -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+
+      - name: Upload changed files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: /htdocs/
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          # Setting `exclude` replaces the action's defaults, so those are repeated first.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .claude/**
+            theme/**
+            database/**
+            *.sql
+            *.md
+            config/database.php
+            config/sms.php
+            config/email.php
+            config/*.example.php
+            uploads/products/**
+            uploads/basics_products/**

@@ -27,7 +27,29 @@ $module_nav_items = [
     'Payments'          => BASICS_URL . '/payments.php',
     'Emergency Credit'  => BASICS_URL . '/emergency_credit.php',
     'Benefits'          => BASICS_URL . '/benefits.php',
+    'My Account'        => BASICS_URL . '/account.php',
 ];
 $module_guest_nav_items = [
     'Home' => BASICS_URL . '/index.php',
 ];
+
+// Maintenance mode toggle (basics/admin/maintenance.php). This file is
+// required by every Basics member-facing page but no basics/admin/*.php
+// page, so gating here blocks members site-wide while leaving the admin
+// panel (including the toggle itself) and all of Wellness untouched.
+if (isset($conn) && $conn instanceof mysqli && setting($conn, 'basics_maintenance_enabled', '0') === '1') {
+    http_response_code(503);
+    $page_title = 'Under Maintenance';
+    require __DIR__ . '/../../includes/header.php';
+    ?>
+    <div class="container py-5 text-center" style="min-height:50vh;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      <i class="fas fa-screwdriver-wrench mb-3" style="font-size:3rem;color:var(--primary);"></i>
+      <h1 class="stitle">We'll be right back</h1>
+      <p class="sdesc mb-3">JMC Foodies Basics is temporarily down for maintenance. Please check back soon.</p>
+      <p class="mb-0 small">For questions, email <a href="mailto:jmcdigital2026@gmail.com">jmcdigital2026@gmail.com</a></p>
+    </div>
+    </body>
+    </html>
+    <?php
+    exit;
+}

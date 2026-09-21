@@ -9,6 +9,7 @@ require_admin_login();
 $id = (int) ($_GET['id'] ?? 0);
 $email_errors = [];
 $sms_errors = [];
+$reset_errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle_status') {
     update_user_status($conn, $id, $_POST['new_status'] ?? '');
@@ -72,6 +73,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset_password') {
+    if (empty($user['email']) && empty($user['contact_number'])) {
+        $reset_errors[] = 'This member has no email address or contact number on file.';
+    }
+
+    if (empty($reset_errors)) {
+        $sent = reset_member_password($conn, 'users', $id, 'JMC Foodies Wellness', $user['full_name'], (string) $user['email'], (string) $user['contact_number'], false);
+        if ($sent['email'] || $sent['sms']) {
+            $via = $sent['email'] && $sent['sms'] ? 'email and SMS' : ($sent['email'] ? 'email' : 'SMS');
+            log_activity($conn, 'reset_wellness_user_password', 'Reset password for Wellness user "' . $user['full_name'] . '" and sent the new temporary password by ' . $via);
+            redirect('/admin/user_view.php?id=' . $id . '&password_reset=' . ($sent['email'] && $sent['sms'] ? 'both' : ($sent['email'] ? 'email' : 'sms')));
+        } else {
+            $reset_errors[] = 'Nothing was sent, so the password was left unchanged — check the Gmail SMTP (config/email.php) and Semaphore SMS (config/sms.php) configuration.';
+        }
+    }
+}
+
 $total_rebates = wallet_sum_by_type($conn, $id, 'personal_rebate');
 $total_overrides = wallet_sum_by_type($conn, $id, 'referral_override');
 $balance = wallet_balance($conn, $id);
@@ -95,7 +113,7 @@ $page_title = $user['full_name'];
 require __DIR__ . '/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/admin/users.php" class="small">&larr; Back to Users</a>
     <h1 class="stitle" style="font-size:2rem;"><?= sanitize($user['full_name']) ?></h1>
@@ -124,6 +142,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if (isset($_GET['sms_sent'])): ?>
     <div class="sucmsg is-visible mb-4"><p>Text sent to <?= sanitize($user['contact_number']) ?>.</p></div>
   <?php endif; ?>
+  <?php if (isset($_GET['password_reset'])): ?>
+    <?php $pr = $_GET['password_reset']; ?>
+    <div class="sucmsg is-visible mb-4"><p>Password reset. New temporary password sent
+      <?= $pr === 'both' ? 'by email to ' . sanitize($user['email']) . ' and by SMS to ' . sanitize($user['contact_number']) : ($pr === 'sms' ? 'by SMS to ' . sanitize($user['contact_number']) : 'by email to ' . sanitize($user['email'])) ?>.</p></div>
+  <?php endif; ?>
   <?php if ($email_errors): ?>
     <div class="errmsg mb-4">
       <ul class="mb-0"><?php foreach ($email_errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
@@ -132,6 +155,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if ($sms_errors): ?>
     <div class="errmsg mb-4">
       <ul class="mb-0"><?php foreach ($sms_errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
+    </div>
+  <?php endif; ?>
+  <?php if ($reset_errors): ?>
+    <div class="errmsg mb-4">
+      <ul class="mb-0"><?php foreach ($reset_errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
     </div>
   <?php endif; ?>
 
@@ -188,7 +216,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <label class="flbl">Message</label>
               <textarea name="email_message" class="fctrl" rows="4" required></textarea>
             </div>
-            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Send this email to <?= sanitize($user['email']) ?>?');"><i class="fas fa-paper-plane"></i> Send Email</button>
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm(<?= js_str('Send this email to ' . $user['email'] . '?') ?>);"><i class="fas fa-paper-plane"></i> Send Email</button>
           </form>
         <?php endif; ?>
       </div>
@@ -205,7 +233,20 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <textarea name="sms_message" class="fctrl" rows="3" maxlength="480" required></textarea>
               <div class="form-text">Max 480 characters (~3 SMS segments).</div>
             </div>
-            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Send this SMS to <?= sanitize($user['contact_number']) ?>? This will use real SMS credits.');"><i class="fas fa-comment-sms"></i> Send SMS</button>
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm(<?= js_str('Send this SMS to ' . $user['contact_number'] . '? This will use real SMS credits.') ?>);"><i class="fas fa-comment-sms"></i> Send SMS</button>
+          </form>
+        <?php endif; ?>
+      </div>
+
+      <div class="panel-card mt-4">
+        <h2 class="h6">Reset Password</h2>
+        <p class="text-muted small">Passwords are stored as one-way hashes and can't be recovered — this generates a new temporary password, sends it to the member by email and SMS, and requires them to change it on next login.</p>
+        <?php if (empty($user['email']) && empty($user['contact_number'])): ?>
+          <p class="text-muted small mb-0">This member has no email address or contact number on file.</p>
+        <?php else: ?>
+          <form method="post">
+            <input type="hidden" name="action" value="reset_password">
+            <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm(<?= js_str('Reset the password for ' . $user['full_name'] . ' and send them a new temporary password by email and SMS?') ?>);"><i class="fas fa-key"></i> Reset &amp; Send New Password</button>
           </form>
         <?php endif; ?>
       </div>

@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_orders']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $id = (int) ($_GET['id'] ?? 0);
 
@@ -23,10 +23,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'out_for_delivery') {
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'out_for_delivery', out_for_delivery_at = NOW() WHERE id = ? AND status = 'confirmed'");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $moved = $stmt->affected_rows > 0;
+    $stmt->close();
+    if ($moved) {
+        log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $id . ' as out for delivery');
+        $member = basics_member_by_order_id($conn, $id);
+        if ($member) {
+            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} is out for delivery! - JMC Foodies Basics");
+        }
+    }
+    redirect('/basics/admin/order_view.php?id=' . $id);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_item') {
+    // Only while Checking — admin adjusts quantities/removes out-of-stock
+    // items before approving, matching the member's own cart editing.
+    $item_id = (int) ($_POST['item_id'] ?? 0);
+    $new_qty = max(0, (int) ($_POST['quantity'] ?? 0));
+    $stmt = $conn->prepare("SELECT oi.* FROM basics_order_items oi JOIN basics_orders o ON o.id = oi.order_id
+                             WHERE oi.id = ? AND oi.order_id = ? AND o.status = 'pending'");
+    $stmt->bind_param('ii', $item_id, $id);
+    $stmt->execute();
+    $item = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($item) {
+        if ($new_qty <= 0) {
+            $stmt = $conn->prepare("DELETE FROM basics_order_items WHERE id = ?");
+            $stmt->bind_param('i', $item_id);
+        } else {
+            $line_total = round($item['unit_price'] * $new_qty, 2);
+            $stmt = $conn->prepare("UPDATE basics_order_items SET quantity = ?, line_total = ? WHERE id = ?");
+            $stmt->bind_param('idi', $new_qty, $line_total, $item_id);
+        }
+        $stmt->execute();
+        $stmt->close();
+        $stmt = $conn->prepare("UPDATE basics_orders SET total_amount = (SELECT COALESCE(SUM(line_total),0) FROM basics_order_items WHERE order_id = ?) WHERE id = ?");
+        $stmt->bind_param('ii', $id, $id);
+        $stmt->execute();
+        $stmt->close();
+        log_activity($conn, 'update_basics_order_item', 'Adjusted item on Basics order #' . $id . ' (checking stage)');
+    }
+    redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
     // Delivery no longer waits on payment — members get their groceries on
     // schedule regardless, and settle by the (much later) payment due date.
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ? AND status IN ('confirmed', 'paid')");
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ? AND status = 'out_for_delivery'");
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $delivered = $stmt->affected_rows > 0;
@@ -102,7 +145,7 @@ $page_title = 'Order #' . $order['id'];
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/basics/admin/orders.php" class="small">&larr; Back to Orders</a>
     <h1 class="stitle" style="font-size:2rem;">Order #<?= (int) $order['id'] ?></h1>
@@ -114,16 +157,17 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <div class="col-12 col-md-7">
       <div class="panel-card mb-4">
         <h2 class="h6">Order Details</h2>
-        <p class="mb-1">Member: <?= sanitize($order['full_name']) ?> (<?= sanitize($order['username']) ?>)</p>
+        <p class="mb-1">Member: <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
         <?php if ($order['delivered_at']): ?>
           <p class="mb-1">Delivered: <?= date('M j, Y', strtotime($order['delivered_at'])) ?></p>
           <p class="mb-1">Payment Due: <?= date('M j, Y', strtotime($payment_due_date)) ?></p>
         <?php else: ?>
           <p class="mb-1 text-muted">Payment Due: 7 days after delivery</p>
         <?php endif; ?>
-        <?php $pill_map = ['pending' => 'processing', 'confirmed' => 'approved', 'paid' => 'approved', 'delivered' => 'completed', 'cancelled' => 'cancelled']; ?>
-        <p class="mb-2">Status: <span class="pill pill-<?= $pill_map[$order['status']] ?? 'pending' ?>"><?= sanitize($order['status']) ?></span></p>
-        <?php if (in_array($order['status'], ['paid', 'delivered'], true)): ?>
+        <p class="mb-2">Status: <span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span>
+          <?php if (basics_order_is_paid($order['total_amount'], $amount_paid)): ?><span class="pill pill-paid">Paid</span><?php endif; ?>
+        </p>
+        <?php if (in_array($order['status'], ['confirmed', 'out_for_delivery', 'delivered'], true)): ?>
           <a href="<?= BASE_URL ?>/basics/admin/delivery_receipt.php?id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline"><i class="fas fa-receipt"></i> Delivery Receipt</a>
         <?php endif; ?>
         <?php if (in_array($order['status'], ['delivered', 'cancelled'], true)): ?>
@@ -136,19 +180,45 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endif; ?>
       </div>
 
+      <?php $is_editable = $order['status'] === 'pending'; ?>
+      <?php if ($is_editable): ?>
+        <p class="small text-muted mb-2">Still Checking &mdash; adjust quantities or remove out-of-stock items before approving.</p>
+      <?php endif; ?>
       <div class="table-responsive">
         <table class="table-theme no-datatable">
-          <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+          <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Line Total</th><?php if ($is_editable): ?><th></th><?php endif; ?></tr></thead>
           <tbody>
           <?php while ($item = $items->fetch_assoc()): ?>
             <tr>
               <td><?= sanitize($item['name']) ?> <span class="text-muted small">(<?= sanitize($item['sku']) ?>)</span></td>
-              <td><?= (int) $item['quantity'] ?> <?= sanitize($item['unit']) ?></td>
+              <td>
+                <?php if ($is_editable): ?>
+                  <form method="post" class="d-inline-flex align-items-center gap-1">
+                    <input type="hidden" name="action" value="update_item">
+                    <input type="hidden" name="item_id" value="<?= (int) $item['id'] ?>">
+                    <input type="number" name="quantity" value="<?= (int) $item['quantity'] ?>" min="0" class="fctrl" style="width:70px;display:inline-block;">
+                    <button type="submit" class="btn-chip btn-chip-outline">Update</button>
+                  </form>
+                <?php else: ?>
+                  <?= (int) $item['quantity'] ?>
+                <?php endif; ?>
+                <?= sanitize($item['unit']) ?>
+              </td>
               <td><?= format_price($item['unit_price']) ?></td>
               <td><?= format_price($item['line_total']) ?></td>
+              <?php if ($is_editable): ?>
+                <td>
+                  <form method="post" class="d-inline">
+                    <input type="hidden" name="action" value="update_item">
+                    <input type="hidden" name="item_id" value="<?= (int) $item['id'] ?>">
+                    <input type="hidden" name="quantity" value="0">
+                    <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Remove this item (out of stock)?');"><i class="fas fa-trash"></i></button>
+                  </form>
+                </td>
+              <?php endif; ?>
             </tr>
           <?php endwhile; ?>
-          <tr><td colspan="3" class="text-end fw-bold">Total</td><td class="fw-bold"><?= format_price($order['total_amount']) ?></td></tr>
+          <tr><td colspan="3" class="text-end fw-bold">Total</td><td class="fw-bold"><?= format_price($order['total_amount']) ?></td><?php if ($is_editable): ?><td></td><?php endif; ?></tr>
           </tbody>
         </table>
       </div>
@@ -162,7 +232,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php if ($order['status'] === 'pending'): ?>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="confirm">
-            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this order?');">Approve Order</button>
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this order? Review the items above first if anything is out of stock.');">Approve Order</button>
           </form>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="cancel">
@@ -170,19 +240,22 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </form>
         <?php elseif ($order['status'] === 'confirmed'): ?>
           <form method="post" class="d-inline">
-            <input type="hidden" name="action" value="deliver">
-            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered? Payment can still be recorded later.');">Mark Delivered</button>
+            <input type="hidden" name="action" value="out_for_delivery">
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as out for delivery?');">Mark For Delivery</button>
           </form>
           <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="cancel">
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel Order</button>
           </form>
-        <?php elseif ($order['status'] === 'paid'): ?>
-          <form method="post">
+        <?php elseif ($order['status'] === 'out_for_delivery'): ?>
+          <form method="post" class="d-inline">
             <input type="hidden" name="action" value="deliver">
             <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered?');">Mark Delivered</button>
           </form>
+          <?php if ($amount_paid < $order['total_amount']): ?>
+            <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
+          <?php endif; ?>
         <?php elseif ($order['status'] === 'delivered' && $amount_paid < $order['total_amount']): ?>
           <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-success">Record Payment</a>
         <?php endif; ?>

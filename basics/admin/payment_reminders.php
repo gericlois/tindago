@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'staff_payments']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 // No cron on this hosting — due-date reminders are manual, admin-initiated
 // actions (same pattern as the Dormancy Report), not scheduled jobs.
@@ -16,7 +16,7 @@ $sent = 0;
 // cycle date, so "due today/tomorrow" is computed in PHP against each
 // delivered order's own due date instead of a SQL column comparison.
 function basics_orders_due_on($conn, $target_date) {
-    $stmt = $conn->prepare("SELECT o.id AS order_id, o.total_amount, o.delivered_at, u.full_name, u.username, u.contact_number, u.email,
+    $stmt = $conn->prepare("SELECT o.id AS order_id, bm.id AS member_id, o.total_amount, o.delivered_at, u.full_name, u.username, u.contact_number, u.email,
                                     (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
                              FROM basics_orders o
                              JOIN basics_members bm ON bm.id = o.member_id
@@ -78,7 +78,7 @@ $page_title = 'Payment Reminders';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
-<div class="inner-hero" style="padding:36px 0;">
+<div class="inner-hero">
   <div class="container">
     <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Payment Reminders</h1>
@@ -114,7 +114,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php foreach ($due_tomorrow as $o): ?>
           <tr>
             <td>#<?= (int) $o['order_id'] ?></td>
-            <td><?= sanitize($o['full_name']) ?> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
+            <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
             <td><?= format_price($o['total_amount'] - $o['amount_paid']) ?></td>
             <td><?= date('M j, Y', strtotime($o['payment_due_date'])) ?></td>
           </tr>
@@ -145,7 +145,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php foreach ($due_today as $o): ?>
           <tr>
             <td>#<?= (int) $o['order_id'] ?></td>
-            <td><?= sanitize($o['full_name']) ?> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
+            <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
             <td><?= format_price($o['total_amount'] - $o['amount_paid']) ?></td>
             <td><?= date('M j, Y', strtotime($o['payment_due_date'])) ?></td>
           </tr>

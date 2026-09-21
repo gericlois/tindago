@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
     if (!in_array($payment_method, ['gcash', 'bank'], true)) {
         $errors[] = 'Choose a payment method.';
     }
-    if ($payment_method === 'bank' && !in_array($bank_choice, ['chinabank', 'eastwest'], true)) {
+    if ($payment_method === 'bank' && !in_array($bank_choice, ['pnb', 'eastwest'], true)) {
         $errors[] = 'Choose which bank you transferred to.';
     }
     if ($amount <= 0) {
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
         if ($order_id <= 0) {
             $errors[] = 'Choose which order this payment is for.';
         } else {
-            $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND member_id = ? AND status IN ('confirmed', 'delivered')");
+            $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND member_id = ? AND status IN ('confirmed', 'out_for_delivery', 'delivered')");
             $stmt->bind_param('ii', $order_id, $member['id']);
             $stmt->execute();
             if (!$stmt->get_result()->fetch_assoc()) {
@@ -77,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
 
     if ($payment_method === 'gcash') {
         $destination_account = 'GCash — ' . setting($conn, 'basics_gcash_number', '(not yet configured)') . ' (' . setting($conn, 'basics_gcash_name', 'JMC Foodies Basics') . ')';
-    } elseif ($payment_method === 'bank' && $bank_choice === 'chinabank') {
-        $destination_account = 'Chinabank — ' . setting($conn, 'basics_chinabank_account_number', '(not yet configured)') . ' (' . setting($conn, 'basics_chinabank_account_name', 'JMC Foodies Basics') . ')';
+    } elseif ($payment_method === 'bank' && $bank_choice === 'pnb') {
+        $destination_account = 'PNB — ' . setting($conn, 'basics_pnb_account_number', '(not yet configured)') . ' (' . setting($conn, 'basics_pnb_account_name', 'JMC Foodies Basics') . ')';
     } elseif ($payment_method === 'bank' && $bank_choice === 'eastwest') {
         $destination_account = 'EastWest — ' . setting($conn, 'basics_eastwest_account_number', '(not yet configured)') . ' (' . setting($conn, 'basics_eastwest_account_name', 'JMC Foodies Basics') . ')';
     } else {
@@ -123,7 +123,9 @@ while ($row = $outstanding_loans->fetch_assoc()) {
     $outstanding_loans_list[] = $row;
 }
 
-$stmt = $conn->prepare("SELECT s.*, o.status AS order_status FROM basics_payment_submissions s
+$stmt = $conn->prepare("SELECT s.*, o.status AS order_status, o.total_amount AS order_total,
+                                (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS order_amount_paid
+                         FROM basics_payment_submissions s
                          LEFT JOIN basics_orders o ON o.id = s.order_id
                          WHERE s.member_id = ? ORDER BY s.created_at DESC");
 $stmt->bind_param('i', $member['id']);
@@ -132,8 +134,8 @@ $submissions = $stmt->get_result();
 
 $gcash_number = setting($conn, 'basics_gcash_number', '');
 $gcash_name = setting($conn, 'basics_gcash_name', 'JMC Foodies Basics');
-$chinabank_account_number = setting($conn, 'basics_chinabank_account_number', '');
-$chinabank_account_name = setting($conn, 'basics_chinabank_account_name', 'JMC Foodies Basics');
+$pnb_account_number = setting($conn, 'basics_pnb_account_number', '');
+$pnb_account_name = setting($conn, 'basics_pnb_account_name', 'JMC Foodies Basics');
 $eastwest_account_number = setting($conn, 'basics_eastwest_account_number', '');
 $eastwest_account_name = setting($conn, 'basics_eastwest_account_name', 'JMC Foodies Basics');
 
@@ -173,10 +175,13 @@ require __DIR__ . '/../includes/navbar.php';
         <div class="stat-lbl">Consecutive On-Time</div>
       </div>
     </div>
-    <div class="col-12 col-md-6 d-flex align-items-center gap-2 justify-content-md-end">
+    <div class="col-12 col-md-6 d-flex align-items-center justify-content-md-end">
       <button type="button" class="btn-outline-theme" data-bs-toggle="collapse" data-bs-target="#policyInfo"><i class="fas fa-circle-info"></i>Payment &amp; Late Payment Policy</button>
-      <button type="button" class="btn-red" data-bs-toggle="collapse" data-bs-target="#payForm"><i class="fas fa-money-bill-wave"></i>Pay!</button>
     </div>
+  </div>
+
+  <div class="d-flex justify-content-end mb-4">
+    <button type="button" class="btn-red" data-bs-toggle="collapse" data-bs-target="#payForm"><i class="fas fa-money-bill-wave"></i>Pay!</button>
   </div>
 
   <div class="collapse mb-4" id="policyInfo">
@@ -277,14 +282,14 @@ require __DIR__ . '/../includes/navbar.php';
           <label class="flbl">Which bank did you transfer to?</label>
           <select name="bank_choice" id="bank_choice" class="fctrl">
             <option value="">Select...</option>
-            <option value="chinabank">Chinabank</option>
+            <option value="pnb">PNB</option>
             <option value="eastwest">EastWest</option>
           </select>
         </div>
 
-        <div class="mb-3 errmsg text-center" id="bank-info-chinabank" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
-          <img src="<?= BASE_URL ?>/assets/img/basics/qr_chinabank.jpg" alt="Chinabank QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
-          <p class="mb-0 mt-2">Send payment to Chinabank, account <strong><?= sanitize($chinabank_account_number ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($chinabank_account_name) ?>).</p>
+        <div class="mb-3 errmsg text-center" id="bank-info-pnb" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
+          <img src="<?= BASE_URL ?>/assets/img/basics/qr_pnb.jpg" alt="PNB QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
+          <p class="mb-0 mt-2">Send payment to PNB, account <strong><?= sanitize($pnb_account_number ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($pnb_account_name) ?>).</p>
         </div>
         <div class="mb-3 errmsg text-center" id="bank-info-eastwest" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
           <img src="<?= BASE_URL ?>/assets/img/basics/qr_eastwest.jpg" alt="EastWest QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
@@ -330,7 +335,7 @@ require __DIR__ . '/../includes/navbar.php';
         <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
         <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
         <?php while ($s = $submissions->fetch_assoc()): ?>
-          <?php $is_order_paid = $s['order_status'] === 'paid' || $s['order_status'] === 'delivered'; ?>
+          <?php $is_order_paid = $s['order_id'] && $s['order_amount_paid'] >= $s['order_total']; ?>
           <tr>
             <td><?= $for_labels[$s['payment_for']] ?? sanitize($s['payment_for']) ?><?= $s['order_id'] ? ' #' . (int) $s['order_id'] : '' ?><?= $s['loan_request_id'] ? ' #' . (int) $s['loan_request_id'] : '' ?></td>
             <td><?= format_price($s['amount']) ?></td>
@@ -380,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var gcashInfo = document.getElementById('gcash-info');
   var bankField = document.getElementById('bank-field');
   var bankChoice = document.getElementById('bank_choice');
-  var bankInfoChinabank = document.getElementById('bank-info-chinabank');
+  var bankInfoPnb = document.getElementById('bank-info-pnb');
   var bankInfoEastwest = document.getElementById('bank-info-eastwest');
 
   paymentFor.addEventListener('change', function () {
@@ -389,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   function updateBankInfo() {
-    bankInfoChinabank.style.display = bankChoice.value === 'chinabank' ? '' : 'none';
+    bankInfoPnb.style.display = bankChoice.value === 'pnb' ? '' : 'none';
     bankInfoEastwest.style.display = bankChoice.value === 'eastwest' ? '' : 'none';
   }
 

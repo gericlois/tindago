@@ -14,8 +14,13 @@ if (basics_is_logged_in()) {
 }
 
 $errors = [];
-$full_name = '';
-$address = '';
+$first_name = '';
+$middle_name = '';
+$last_name = '';
+$address_line = '';
+$barangay = '';
+$city = '';
+$province = '';
 $birthdate = '';
 $contact_number = '';
 $email = '';
@@ -25,8 +30,13 @@ $employer_contact = '';
 $position = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $full_name = trim($_POST['full_name'] ?? '');
-    $address = trim($_POST['address'] ?? '');
+    $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $address_line = trim($_POST['address_line'] ?? '');
+    $barangay = trim($_POST['barangay'] ?? '');
+    $city = trim($_POST['city'] ?? '');
+    $province = trim($_POST['province'] ?? '');
     $birthdate = trim($_POST['birthdate'] ?? '');
     $contact_number = trim($_POST['contact_number'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -37,13 +47,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employer_contact = trim($_POST['employer_contact'] ?? '');
     $position = trim($_POST['position'] ?? '');
 
-    if ($full_name === '') $errors[] = 'Full name is required.';
-    if ($address === '') $errors[] = 'Address is required.';
+    if ($first_name === '') $errors[] = 'First name is required.';
+    if ($last_name === '') $errors[] = 'Last name is required.';
+    if ($address_line === '') $errors[] = 'House #/Street is required.';
+    if ($barangay === '') $errors[] = 'Barangay is required.';
+    if ($city === '') $errors[] = 'City/Municipality is required.';
+    if ($province === '') $errors[] = 'Province is required.';
     if ($birthdate === '' || !DateTime::createFromFormat('Y-m-d', $birthdate)) $errors[] = 'A valid birthdate is required.';
     if ($contact_number === '') $errors[] = 'Contact number is required.';
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email address is required.';
+    // Email is optional — only validated for format when the applicant
+    // actually provides one.
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look valid.';
     if ($username === '') $errors[] = 'Username is required.';
-    if (strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
+    if (strlen($password) < 8) $errors[] = 'Password must be at least 8 characters.';
     if ($password !== $confirm) $errors[] = 'Passwords do not match.';
     if ($employer_name === '') $errors[] = 'Employer name is required.';
     if ($employer_contact === '') $errors[] = 'Employer contact is required.';
@@ -56,12 +72,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->get_result()->fetch_assoc()) $errors[] = 'That username is already taken.';
         $stmt->close();
 
-        $stmt = $conn->prepare("SELECT id FROM basics_users WHERE email = ?");
-        $stmt->bind_param('s', $email);
-        $stmt->execute();
-        if ($stmt->get_result()->fetch_assoc()) $errors[] = 'That email address is already registered.';
-        $stmt->close();
+        if ($email !== '') {
+            $stmt = $conn->prepare("SELECT id FROM basics_users WHERE email = ?");
+            $stmt->bind_param('s', $email);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) $errors[] = 'That email address is already registered.';
+            $stmt->close();
+        }
     }
+
+    // Stored as NULL (not '') so the unique index on basics_users.email
+    // doesn't collide between multiple applicants who skip it — MySQL treats
+    // every NULL as distinct, but two empty strings would violate UNIQUE.
+    $email_to_store = $email !== '' ? $email : null;
 
     $doc_fields = [
         'valid_id_1' => 'First valid ID',
@@ -81,10 +104,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->begin_transaction();
         try {
             $hash = password_hash($password, PASSWORD_DEFAULT);
+            $full_name = basics_compose_full_name($first_name, $middle_name, $last_name);
+            $address = basics_compose_address($address_line, $barangay, $city, $province);
             $stmt = $conn->prepare("INSERT INTO basics_users
-                (full_name, address, birthdate, contact_number, email, username, password_hash, must_change_password, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'active')");
-            $stmt->bind_param('sssssss', $full_name, $address, $birthdate, $contact_number, $email, $username, $hash);
+                (full_name, first_name, middle_name, last_name, address, address_line, barangay, city, province,
+                 birthdate, contact_number, email, username, password_hash, must_change_password, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'active')");
+            $stmt->bind_param('ssssssssssssss', $full_name, $first_name, $middle_name, $last_name,
+                $address, $address_line, $barangay, $city, $province,
+                $birthdate, $contact_number, $email_to_store, $username, $hash);
             $stmt->execute();
             $user_id = $stmt->insert_id;
             $stmt->close();
@@ -110,12 +138,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             send_sms($contact_number, "Hi $full_name, we've received your JMC Foodies Basics membership application. It's now under review for processing and approval. - JMC Foodies Basics");
 
+            session_regenerate_id(true);
             $_SESSION['basics_user_id'] = $user_id;
             $_SESSION['basics_must_change_password'] = true;
             redirect('/basics/pending.php?submitted=1');
         } catch (Exception $e) {
             $conn->rollback();
-            $errors[] = $e->getMessage();
+            $errors[] = safe_error_message($e);
         }
     }
 }
@@ -145,15 +174,39 @@ require __DIR__ . '/../includes/navbar.php';
           </div>
         <?php endif; ?>
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" id="applyForm">
           <h2 class="h6 mb-3">Your Account</h2>
-          <div class="mb-3">
-            <label class="flbl">Full Name</label>
-            <input type="text" name="full_name" class="fctrl" value="<?= sanitize($full_name) ?>" required>
+          <div class="row">
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">First Name</label>
+              <input type="text" name="first_name" class="fctrl" value="<?= sanitize($first_name) ?>" required>
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Middle Name</label>
+              <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($middle_name) ?>">
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Surname</label>
+              <input type="text" name="last_name" class="fctrl" value="<?= sanitize($last_name) ?>" required>
+            </div>
           </div>
           <div class="mb-3">
-            <label class="flbl">Address</label>
-            <textarea name="address" class="fctrl" rows="2" required><?= sanitize($address) ?></textarea>
+            <label class="flbl">House #/Street</label>
+            <input type="text" name="address_line" class="fctrl" value="<?= sanitize($address_line) ?>" required>
+          </div>
+          <div class="row">
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Barangay</label>
+              <input type="text" name="barangay" class="fctrl" value="<?= sanitize($barangay) ?>" required>
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">City/Municipality</label>
+              <input type="text" name="city" class="fctrl" value="<?= sanitize($city) ?>" required>
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Province</label>
+              <input type="text" name="province" class="fctrl" value="<?= sanitize($province) ?>" required>
+            </div>
           </div>
           <div class="row">
             <div class="col-sm-6 mb-3">
@@ -166,8 +219,8 @@ require __DIR__ . '/../includes/navbar.php';
             </div>
           </div>
           <div class="mb-3">
-            <label class="flbl">Email Address</label>
-            <input type="email" name="email" class="fctrl" value="<?= sanitize($email) ?>" required>
+            <label class="flbl">Email Address (optional)</label>
+            <input type="email" name="email" class="fctrl" value="<?= sanitize($email) ?>">
           </div>
           <div class="mb-3">
             <label class="flbl">Username</label>
@@ -240,5 +293,38 @@ require __DIR__ . '/../includes/navbar.php';
     </div>
   </div>
 </div>
+
+<script>
+// Restores text-field input if the browser is refreshed mid-form — never
+// saves the password fields or file uploads (can't be restored anyway).
+(function () {
+  var form = document.getElementById('applyForm');
+  if (!form) return;
+  var storageKey = 'basicsApplyDraft';
+  var fields = ['first_name', 'middle_name', 'last_name', 'address_line', 'barangay', 'city', 'province',
+                'birthdate', 'contact_number', 'email', 'username',
+                'employer_name', 'employer_contact', 'position'];
+
+  var draft = {};
+  try { draft = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (e) { draft = {}; }
+
+  fields.forEach(function (name) {
+    var el = form.elements[name];
+    if (el && !el.value && draft[name]) {
+      el.value = draft[name];
+    }
+    if (el) {
+      el.addEventListener('input', function () {
+        draft[name] = el.value;
+        try { localStorage.setItem(storageKey, JSON.stringify(draft)); } catch (e) {}
+      });
+    }
+  });
+
+  form.addEventListener('submit', function () {
+    try { localStorage.removeItem(storageKey); } catch (e) {}
+  });
+})();
+</script>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>
