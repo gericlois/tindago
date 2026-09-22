@@ -339,6 +339,15 @@ function basics_payment_due_date($order) {
     return date('Y-m-d', strtotime($order['delivered_at'] . ' +7 days'));
 }
 
+// Shared by basics_record_payment() (actual penalty) and the Record Payment
+// list (a "what would this cost right now" projection for overdue orders,
+// shown before anyone clicks Record Payment) — one place for the tier rates
+// so the two can never drift apart.
+function basics_late_penalty_rate($conn, $offense_number) {
+    $tier = min($offense_number, 3);
+    return (float) setting($conn, 'basics_late_penalty_tier' . $tier, $tier === 1 ? 0.03 : 0.05);
+}
+
 // Records a payment against a pending order, applying the late-payment
 // penalty tier + credit-line/suspension escalation in one transaction.
 // Returns ['is_late' => bool, 'penalty_amount' => float, 'membership_status' => string].
@@ -375,8 +384,7 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
 
     if ($is_late) {
         $offense_number = (int) $member['offense_count'] + 1;
-        $tier = min($offense_number, 3);
-        $penalty_rate = (float) setting($conn, 'basics_late_penalty_tier' . $tier, $tier === 1 ? 0.03 : 0.05);
+        $penalty_rate = basics_late_penalty_rate($conn, $offense_number);
         $penalty_amount = round($amount_due * $penalty_rate, 2);
 
         $new_offense_count = $offense_number;

@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
 
 $order_id_prefill = (int) ($_GET['order_id'] ?? 0);
 
-$stmt = $conn->prepare("SELECT o.*, u.full_name, u.username,
+$stmt = $conn->prepare("SELECT o.*, u.full_name, u.username, bm.offense_count,
                                 (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
                          FROM basics_orders o
                          JOIN basics_members bm ON bm.id = o.member_id
@@ -79,12 +79,22 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= format_price($remaining) ?></td>
           <td><?= format_price($o['total_amount']) ?></td>
           <td><?= format_price($o['amount_paid']) ?></td>
-          <?php $due_date = basics_payment_due_date($o); ?>
+          <?php $due_date = basics_payment_due_date($o); $is_overdue = $due_date !== null && date('Y-m-d') > $due_date; ?>
           <td>
             <?php if ($due_date === null): ?>
               <span class="text-muted">Due 7 days after delivery</span>
             <?php else: ?>
-              <?= date('M j, Y', strtotime($due_date)) ?><?= date('Y-m-d') > $due_date ? ' <span class="pill pill-rejected">Overdue</span>' : '' ?>
+              <?= date('M j, Y', strtotime($due_date)) ?>
+              <?php if ($is_overdue):
+                $projected_offense = (int) $o['offense_count'] + 1;
+                $projected_rate = basics_late_penalty_rate($conn, $projected_offense);
+                $projected_penalty = round($o['total_amount'] * $projected_rate, 2);
+                $projected_impact = $projected_offense === 1 ? 'credit freeze'
+                    : ($projected_offense === 2 ? '1-month suspension' : 'termination');
+              ?>
+                <span class="pill pill-rejected">Overdue</span>
+                <div class="text-muted small">+<?= format_price($projected_penalty) ?> (<?= (int) round($projected_rate * 100) ?>%) penalty + <?= $projected_impact ?> if paid now</div>
+              <?php endif; ?>
             <?php endif; ?>
           </td>
           <td class="no-print">
