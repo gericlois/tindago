@@ -105,8 +105,11 @@ $basics_dashboard_url = basics_admin_landing_url();
   <label for="adminSidebarToggle" class="admin-sidebar-backdrop"></label>
   <div class="admin-sidebar" id="adminSidebar">
     <div class="offcanvas-header d-lg-none">
-      <div class="brand-logo-box">
-        <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:30px;">
+      <div class="d-flex align-items-center gap-2">
+        <div class="brand-logo-box">
+          <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:30px;">
+        </div>
+        <span class="admin-sidebar-brand-name">JMC Foodies Basics</span>
       </div>
       <label for="adminSidebarToggle" class="btn-close btn-close-white" aria-label="Close"></label>
     </div>
@@ -115,6 +118,7 @@ $basics_dashboard_url = basics_admin_landing_url();
         <div class="brand-logo-box">
           <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:34px;">
         </div>
+        <span class="admin-sidebar-brand-name">JMC Foodies Basics</span>
       </a>
       <nav class="admin-sidebar-nav">
         <?php foreach ($nav_groups as $group_label => $group_items): ?>

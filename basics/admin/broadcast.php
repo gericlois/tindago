@@ -113,7 +113,6 @@ require __DIR__ . '/includes/admin_sidebar.php';
 ?>
 <div class="inner-hero">
   <div class="container">
-    <span class="slbl">JMC Foodies Basics</span>
     <h1 class="stitle" style="font-size:2rem;">Announcement Broadcast</h1>
   </div>
 </div>

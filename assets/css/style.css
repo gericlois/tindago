@@ -512,6 +512,17 @@
 .admin-sidebar-brand {
   padding: 22px 20px;
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+/* Module name moved here from the page header (basics/admin/*.php hero) —
+   shown once per page load in the sidebar instead of repeated on every page. */
+.admin-sidebar-brand-name {
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.25;
 }
 .admin-sidebar-nav {
   flex: 1 1 auto;

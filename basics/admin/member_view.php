@@ -133,7 +133,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
 
 $outstanding = basics_outstanding_balance($conn, $member['id']);
 
-$stmt = $conn->prepare("SELECT o.* FROM basics_orders o
+$stmt = $conn->prepare("SELECT o.*,
+                                (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
+                         FROM basics_orders o
                          WHERE o.member_id = ? AND o.status != 'draft' ORDER BY o.created_at DESC LIMIT 10");
 $stmt->bind_param('i', $id);
 $stmt->execute();
@@ -352,16 +354,30 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <h2 class="h6 mb-3">Recent Orders</h2>
       <div class="table-responsive mb-4">
         <table class="table-theme">
-          <thead><tr><th>Date</th><th>Total</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead>
           <tbody>
           <?php if ($orders->num_rows === 0): ?>
-            <tr><td colspan="3" class="text-muted">No orders yet.</td></tr>
+            <tr><td colspan="4" class="text-muted">No orders yet.</td></tr>
           <?php endif; ?>
           <?php while ($o = $orders->fetch_assoc()): ?>
+            <?php
+              $order_is_paid = basics_order_is_paid($o['total_amount'], $o['amount_paid']);
+              $order_projection = $order_is_paid ? null : basics_projected_penalty($conn, $o, $member['offense_count']);
+            ?>
             <tr>
               <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
               <td><?= format_price($o['total_amount']) ?></td>
               <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
+              <td>
+                <?php if ($order_is_paid): ?>
+                  <span class="pill pill-paid">Paid</span>
+                <?php elseif ($order_projection): ?>
+                  <span class="pill pill-rejected">Overdue</span>
+                  <div class="text-muted small"><?= format_price($order_projection['amount']) ?> (<?= (int) round($order_projection['rate'] * 100) ?>%) penalty + <?= $order_projection['impact'] ?> if paid now</div>
+                <?php else: ?>
+                  <span class="pill pill-pending">Unpaid</span>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endwhile; ?>
           </tbody>
