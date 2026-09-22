@@ -14,6 +14,10 @@ $basics_orders_awaiting_payment = $conn->query("SELECT COUNT(*) AS c FROM basics
     AND o.total_amount > (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id)")->fetch_assoc()['c'];
 $basics_outstanding_total = (float) $conn->query("SELECT COALESCE(SUM(GREATEST(o.total_amount - IFNULL((SELECT SUM(amount_paid) FROM basics_payments p WHERE p.order_id = o.id), 0), 0)), 0) AS s
     FROM basics_orders o WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered')")->fetch_assoc()['s'];
+$basics_revenue_this_month = (float) $conn->query("SELECT COALESCE(SUM(amount_paid), 0) AS s FROM basics_payments
+    WHERE paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01')")->fetch_assoc()['s'];
+$pending_basics_benefit_requests = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
+$pending_basics_emergency_credit = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
 
 $recent_basics_applications = $conn->query("SELECT bm.*, u.full_name, u.username FROM basics_members bm
     JOIN basics_users u ON u.id = bm.user_id WHERE bm.application_status = 'pending' ORDER BY bm.applied_at DESC LIMIT 5");
@@ -117,6 +121,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
     <div class="col-6 col-md-3">
       <div class="stat-tile"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_outstanding_total) ?></div><div class="stat-lbl">Outstanding Balance</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-tile"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_revenue_this_month) ?></div><div class="stat-lbl">Revenue This Month</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-tile"><div class="stat-num<?= $pending_basics_benefit_requests > 0 ? ' accent' : '' ?>"><?= $pending_basics_benefit_requests ?></div><div class="stat-lbl">Pending Benefit Requests</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-tile"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Credit</div></div>
     </div>
   </div>
 
