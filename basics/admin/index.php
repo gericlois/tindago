@@ -61,19 +61,43 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
 <div class="container-fluid py-4">
   <?php if ($due_payments_count > 0 || $birthdays_today_count > 0 || $pending_basics_applications > 0 || $pending_basics_payment_submissions > 0): ?>
-    <div class="panel-card mb-4">
-      <h2 class="h6 mb-3">Needs Attention</h2>
+    <h2 class="h6 mb-3">Needs Attention</h2>
+    <div class="row g-3 mb-4">
       <?php if ($pending_basics_applications > 0): ?>
-        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/applications.php" class="btn-chip btn-chip-outline"><i class="fas fa-file-signature"></i> <?= (int) $pending_basics_applications ?> pending application<?= $pending_basics_applications === 1 ? '' : 's' ?></a></p>
+        <div class="col-6 col-md-3">
+          <a href="<?= BASE_URL ?>/basics/admin/applications.php" class="attention-card">
+            <div class="attention-card-icon"><i class="fas fa-file-signature"></i></div>
+            <div class="attention-card-num"><?= (int) $pending_basics_applications ?></div>
+            <div class="attention-card-lbl">Pending Application<?= $pending_basics_applications === 1 ? '' : 's' ?></div>
+          </a>
+        </div>
       <?php endif; ?>
       <?php if ($due_payments_count > 0): ?>
-        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/payments.php" class="btn-chip btn-chip-outline"><i class="fas fa-money-bill-wave"></i> <?= (int) $due_payments_count ?> payment<?= $due_payments_count === 1 ? '' : 's' ?> due or overdue</a></p>
+        <div class="col-6 col-md-3">
+          <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="attention-card">
+            <div class="attention-card-icon"><i class="fas fa-money-bill-wave"></i></div>
+            <div class="attention-card-num"><?= (int) $due_payments_count ?></div>
+            <div class="attention-card-lbl">Payment<?= $due_payments_count === 1 ? '' : 's' ?> Due/Overdue</div>
+          </a>
+        </div>
       <?php endif; ?>
       <?php if ($pending_basics_payment_submissions > 0): ?>
-        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/payment_submissions.php" class="btn-chip btn-chip-outline"><i class="fas fa-receipt"></i> <?= (int) $pending_basics_payment_submissions ?> payment submission<?= $pending_basics_payment_submissions === 1 ? '' : 's' ?> to review</a></p>
+        <div class="col-6 col-md-3">
+          <a href="<?= BASE_URL ?>/basics/admin/payment_submissions.php" class="attention-card">
+            <div class="attention-card-icon"><i class="fas fa-receipt"></i></div>
+            <div class="attention-card-num"><?= (int) $pending_basics_payment_submissions ?></div>
+            <div class="attention-card-lbl">Payment Submission<?= $pending_basics_payment_submissions === 1 ? '' : 's' ?></div>
+          </a>
+        </div>
       <?php endif; ?>
       <?php if ($birthdays_today_count > 0): ?>
-        <p class="mb-0"><a href="<?= BASE_URL ?>/basics/admin/birthdays.php" class="btn-chip btn-chip-outline"><i class="fas fa-cake-candles"></i> <?= (int) $birthdays_today_count ?> birthday<?= $birthdays_today_count === 1 ? '' : 's' ?> today</a></p>
+        <div class="col-6 col-md-3">
+          <a href="<?= BASE_URL ?>/basics/admin/birthdays.php" class="attention-card">
+            <div class="attention-card-icon"><i class="fas fa-cake-candles"></i></div>
+            <div class="attention-card-num"><?= (int) $birthdays_today_count ?></div>
+            <div class="attention-card-lbl">Birthday<?= $birthdays_today_count === 1 ? '' : 's' ?> Today</div>
+          </a>
+        </div>
       <?php endif; ?>
     </div>
   <?php endif; ?>
