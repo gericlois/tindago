@@ -348,6 +348,24 @@ function basics_late_penalty_rate($conn, $offense_number) {
     return (float) setting($conn, 'basics_late_penalty_tier' . $tier, $tier === 1 ? 0.03 : 0.05);
 }
 
+// "What would recording this payment cost right now" for one order awaiting
+// payment — used by the Record Payment list (basics/admin/payments.php) to
+// show the real total (order + penalty) before anyone clicks in, and to
+// prefill that total in the Record Payment modal. Returns null when the
+// order isn't overdue yet (nothing projected — this mirrors is_late in
+// basics_record_payment(), which also only applies a penalty once overdue).
+function basics_projected_penalty($conn, $order, $offense_count) {
+    $due_date = basics_payment_due_date($order);
+    if ($due_date === null || date('Y-m-d') <= $due_date) {
+        return null;
+    }
+    $offense_number = (int) $offense_count + 1;
+    $rate = basics_late_penalty_rate($conn, $offense_number);
+    $amount = round((float) $order['total_amount'] * $rate, 2);
+    $impact = $offense_number === 1 ? 'credit freeze' : ($offense_number === 2 ? '1-month suspension' : 'termination');
+    return ['rate' => $rate, 'amount' => $amount, 'impact' => $impact];
+}
+
 // Records a payment against a pending order, applying the late-payment
 // penalty tier + credit-line/suspension escalation in one transaction.
 // Returns ['is_late' => bool, 'penalty_amount' => float, 'membership_status' => string].

@@ -44,13 +44,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
         if ($order_id <= 0) {
             $errors[] = 'Choose which order this payment is for.';
         } else {
-            $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND member_id = ? AND status IN ('confirmed', 'out_for_delivery', 'delivered')");
+            $stmt = $conn->prepare("SELECT o.id, o.total_amount, o.delivered_at,
+                                            (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
+                                     FROM basics_orders o
+                                     WHERE o.id = ? AND o.member_id = ? AND o.status IN ('confirmed', 'out_for_delivery', 'delivered')");
             $stmt->bind_param('ii', $order_id, $member['id']);
             $stmt->execute();
-            if (!$stmt->get_result()->fetch_assoc()) {
-                $errors[] = 'That order was not found or is not awaiting payment.';
-            }
+            $selected_order = $stmt->get_result()->fetch_assoc();
             $stmt->close();
+
+            if (!$selected_order) {
+                $errors[] = 'That order was not found or is not awaiting payment.';
+            } else {
+                // Same "order total + overdue penalty, minus what's already paid"
+                // figure shown to admins on the Record Payment page — a grocery
+                // payment must cover it in full, no partial payments.
+                $projection = basics_projected_penalty($conn, $selected_order, $member['offense_count']);
+                $amount_due = round((float) $selected_order['total_amount'] + ($projection['amount'] ?? 0) - (float) $selected_order['amount_paid'], 2);
+                if ($amount_due <= 0) {
+                    $errors[] = 'That order is already fully paid.';
+                } elseif ($amount > 0 && $amount < $amount_due) {
+                    $errors[] = 'Your payment of ' . format_price($amount) . ' is less than the amount due (' . format_price($amount_due) . ') for order #' . $order_id . '. Partial payments are not accepted — please pay the full amount due.';
+                }
+            }
         }
     } else {
         $order_id = null;
@@ -241,12 +257,14 @@ require __DIR__ . '/../includes/navbar.php';
             <option value="">Select an order...</option>
             <?php foreach ($awaiting_list as $o): ?>
               <?php
-                $remaining = $o['total_amount'] - $o['amount_paid'];
                 $due_date = basics_payment_due_date($o);
                 $due_label = $due_date ? ('Due ' . date('M j', strtotime($due_date))) : 'awaiting delivery';
+                $projection = basics_projected_penalty($conn, $o, $member['offense_count']);
+                $remaining = round($o['total_amount'] + ($projection['amount'] ?? 0) - $o['amount_paid'], 2);
+                $penalty_note = $projection ? ' incl. ' . (int) round($projection['rate'] * 100) . '% overdue penalty' : '';
               ?>
               <option value="<?= (int) $o['id'] ?>" data-remaining="<?= sanitize($remaining) ?>">
-                #<?= (int) $o['id'] ?> — <?= format_price($remaining) ?> remaining (<?= $due_label ?>)
+                #<?= (int) $o['id'] ?> — <?= format_price($remaining) ?> due<?= $penalty_note ?> (<?= $due_label ?>)
               </option>
             <?php endforeach; ?>
           </select>
@@ -387,10 +405,26 @@ document.addEventListener('DOMContentLoaded', function () {
   var bankChoice = document.getElementById('bank_choice');
   var bankInfoPnb = document.getElementById('bank-info-pnb');
   var bankInfoEastwest = document.getElementById('bank-info-eastwest');
+  var orderSelect = orderField.querySelector('select[name="order_id"]');
+  var amountInput = document.getElementById('amount');
 
   paymentFor.addEventListener('change', function () {
     orderField.style.display = paymentFor.value === 'grocery' ? '' : 'none';
     loanField.style.display = paymentFor.value === 'loan' ? '' : 'none';
+  });
+
+  // Grocery payments must cover the full amount due (no partial payments) —
+  // prefill it and set a floor so the field guides the member to the right
+  // number instead of just rejecting a lower one after they submit.
+  orderSelect.addEventListener('change', function () {
+    var opt = orderSelect.options[orderSelect.selectedIndex];
+    var due = opt ? opt.dataset.remaining : '';
+    if (due) {
+      amountInput.value = due;
+      amountInput.min = due;
+    } else {
+      amountInput.removeAttribute('min');
+    }
   });
 
   function updateBankInfo() {

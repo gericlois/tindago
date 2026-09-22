@@ -72,28 +72,31 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <tr><td colspan="7" class="text-muted">No orders currently awaiting payment.</td></tr>
       <?php endif; ?>
       <?php foreach ($awaiting as $o): ?>
-        <?php $remaining = $o['total_amount'] - $o['amount_paid']; ?>
+        <?php
+          $due_date = basics_payment_due_date($o);
+          $projection = basics_projected_penalty($conn, $o, $o['offense_count']);
+          $effective_total = $o['total_amount'] + ($projection['amount'] ?? 0);
+          $remaining = $effective_total - $o['amount_paid'];
+        ?>
         <tr>
           <td>#<?= (int) $o['id'] ?></td>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
           <td><?= format_price($remaining) ?></td>
-          <td><?= format_price($o['total_amount']) ?></td>
+          <td>
+            <?= format_price($effective_total) ?>
+            <?php if ($projection): ?>
+              <div class="text-muted small"><?= format_price($o['total_amount']) ?> order + <?= format_price($projection['amount']) ?> (<?= (int) round($projection['rate'] * 100) ?>%) penalty</div>
+            <?php endif; ?>
+          </td>
           <td><?= format_price($o['amount_paid']) ?></td>
-          <?php $due_date = basics_payment_due_date($o); $is_overdue = $due_date !== null && date('Y-m-d') > $due_date; ?>
           <td>
             <?php if ($due_date === null): ?>
               <span class="text-muted">Due 7 days after delivery</span>
             <?php else: ?>
               <?= date('M j, Y', strtotime($due_date)) ?>
-              <?php if ($is_overdue):
-                $projected_offense = (int) $o['offense_count'] + 1;
-                $projected_rate = basics_late_penalty_rate($conn, $projected_offense);
-                $projected_penalty = round($o['total_amount'] * $projected_rate, 2);
-                $projected_impact = $projected_offense === 1 ? 'credit freeze'
-                    : ($projected_offense === 2 ? '1-month suspension' : 'termination');
-              ?>
+              <?php if ($projection): ?>
                 <span class="pill pill-rejected">Overdue</span>
-                <div class="text-muted small">+<?= format_price($projected_penalty) ?> (<?= (int) round($projected_rate * 100) ?>%) penalty + <?= $projected_impact ?> if paid now</div>
+                <div class="text-muted small">Paying now triggers <?= $projection['impact'] ?></div>
               <?php endif; ?>
             <?php endif; ?>
           </td>
@@ -108,7 +111,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <?php foreach ($awaiting as $o): ?>
-  <?php $remaining = $o['total_amount'] - $o['amount_paid']; ?>
+  <?php
+    $projection = basics_projected_penalty($conn, $o, $o['offense_count']);
+    $remaining = $o['total_amount'] + ($projection['amount'] ?? 0) - $o['amount_paid'];
+  ?>
   <div class="modal fade" id="payModal-<?= (int) $o['id'] ?>" tabindex="-1" aria-hidden="true" <?= $order_id_prefill === (int) $o['id'] ? 'data-autoshow="1"' : '' ?>>
     <div class="modal-dialog">
       <div class="modal-content">
@@ -120,6 +126,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <div class="modal-body">
             <input type="hidden" name="action" value="record_payment">
             <input type="hidden" name="order_id" value="<?= (int) $o['id'] ?>">
+            <?php if ($projection): ?>
+              <div class="form-text mb-2">Overdue — amount below already includes the <?= format_price($projection['amount']) ?> (<?= (int) round($projection['rate'] * 100) ?>%) late penalty.</div>
+            <?php endif; ?>
             <div class="mb-2">
               <label class="flbl">Amount Paid</label>
               <input type="number" step="0.01" min="0.01" name="amount_paid" class="fctrl" value="<?= sanitize($remaining) ?>" required>

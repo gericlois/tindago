@@ -18,6 +18,32 @@ $basics_outstanding_total = (float) $conn->query("SELECT COALESCE(SUM(GREATEST(o
 $recent_basics_applications = $conn->query("SELECT bm.*, u.full_name, u.username FROM basics_members bm
     JOIN basics_users u ON u.id = bm.user_id WHERE bm.application_status = 'pending' ORDER BY bm.applied_at DESC LIMIT 5");
 
+// "Needs Attention" — things due right now, not just awaiting eventually
+// (unlike the "Orders Awaiting Payment" stat tile above, which counts every
+// unpaid order regardless of due date). Delivered is the only status with a
+// due date at all (basics_payment_due_date() returns null otherwise), so
+// only those need checking here.
+$due_orders_raw = $conn->query("SELECT o.id, o.total_amount, o.delivered_at,
+        (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
+    FROM basics_orders o WHERE o.status = 'delivered'
+    HAVING amount_paid < o.total_amount")->fetch_all(MYSQLI_ASSOC);
+$due_payments_count = 0;
+foreach ($due_orders_raw as $due_order) {
+    $order_due_date = basics_payment_due_date($due_order);
+    if ($order_due_date !== null && $order_due_date <= date('Y-m-d')) {
+        $due_payments_count++;
+    }
+}
+
+$birthdays_today_count = 0;
+foreach (basics_birthday_entries($conn, 0, 0) as $birthday_entry) {
+    if ($birthday_entry['days_away'] === 0) {
+        $birthdays_today_count++;
+    }
+}
+
+$pending_basics_payment_submissions = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending'")->fetch_assoc()['c'];
+
 $recent_orders = $conn->query("SELECT o.*, u.full_name FROM basics_orders o
     JOIN basics_members bm ON bm.id = o.member_id JOIN basics_users u ON u.id = bm.user_id
     WHERE o.status != 'draft' ORDER BY o.created_at DESC LIMIT 5");
@@ -34,6 +60,24 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
+  <?php if ($due_payments_count > 0 || $birthdays_today_count > 0 || $pending_basics_applications > 0 || $pending_basics_payment_submissions > 0): ?>
+    <div class="panel-card mb-4">
+      <h2 class="h6 mb-3">Needs Attention</h2>
+      <?php if ($pending_basics_applications > 0): ?>
+        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/applications.php" class="btn-chip btn-chip-outline"><i class="fas fa-file-signature"></i> <?= (int) $pending_basics_applications ?> pending application<?= $pending_basics_applications === 1 ? '' : 's' ?></a></p>
+      <?php endif; ?>
+      <?php if ($due_payments_count > 0): ?>
+        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/payments.php" class="btn-chip btn-chip-outline"><i class="fas fa-money-bill-wave"></i> <?= (int) $due_payments_count ?> payment<?= $due_payments_count === 1 ? '' : 's' ?> due or overdue</a></p>
+      <?php endif; ?>
+      <?php if ($pending_basics_payment_submissions > 0): ?>
+        <p class="mb-2"><a href="<?= BASE_URL ?>/basics/admin/payment_submissions.php" class="btn-chip btn-chip-outline"><i class="fas fa-receipt"></i> <?= (int) $pending_basics_payment_submissions ?> payment submission<?= $pending_basics_payment_submissions === 1 ? '' : 's' ?> to review</a></p>
+      <?php endif; ?>
+      <?php if ($birthdays_today_count > 0): ?>
+        <p class="mb-0"><a href="<?= BASE_URL ?>/basics/admin/birthdays.php" class="btn-chip btn-chip-outline"><i class="fas fa-cake-candles"></i> <?= (int) $birthdays_today_count ?> birthday<?= $birthdays_today_count === 1 ? '' : 's' ?> today</a></p>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
       <div class="stat-tile"><div class="stat-num<?= $pending_basics_applications > 0 ? ' accent' : '' ?>"><?= (int) $pending_basics_applications ?></div><div class="stat-lbl">Pending Applications</div></div>
