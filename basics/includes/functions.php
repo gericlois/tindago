@@ -283,12 +283,10 @@ function handle_kyc_document_upload($file_key) {
     return [$new_filename, null];
 }
 
-// Optional receipt/screenshot attached to a member's payment submission.
-// Unlike handle_kyc_document_upload(), a missing file is not an error —
-// proof is a nice-to-have, the reference number is the primary evidence.
+// Receipt/screenshot attached to a member's payment submission — required.
 function handle_payment_proof_upload($file_key) {
     if (empty($_FILES[$file_key]['name'])) {
-        return [null, null];
+        return [null, 'Proof of payment is required.'];
     }
     if ($_FILES[$file_key]['error'] !== UPLOAD_ERR_OK) {
         return [null, 'Upload failed.'];

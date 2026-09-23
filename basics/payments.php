@@ -331,8 +331,8 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
 
         <div class="mb-3">
-          <label class="flbl">Proof of Payment (optional)</label>
-          <input type="file" name="proof_image" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
+          <label class="flbl">Proof of Payment</label>
+          <input type="file" name="proof_image" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
           <div class="form-text">Screenshot of the GCash/bank receipt, JPG/PNG/WEBP/PDF, max 5MB.</div>
         </div>
 
