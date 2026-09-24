@@ -290,6 +290,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="row g-4 mb-4">
     <div class="col-12 col-md-6">
+      <?php if ($is_view_only): ?>
       <div class="panel-card mb-4">
         <h2 class="h6">Profile</h2>
         <p class="mb-1">Username: <?= sanitize($member['username']) ?></p>
@@ -298,10 +299,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Address: <?= $member['address'] ? sanitize($member['address']) : '—' ?></p>
         <p class="mb-1">Birthday: <?= $member['birthdate'] ? date('M j, Y', strtotime($member['birthdate'])) : '—' ?></p>
         <p class="mb-1">Employer: <?= sanitize($member['employer_name']) ?></p>
-        <?php if ($is_view_only): ?>
         <p class="mb-0">Application: <span class="pill pill-<?= ['approved' => 'approved', 'denied' => 'rejected'][$member['application_status']] ?? 'pending' ?>"><?= sanitize($member['application_status']) ?></span></p>
-        <?php endif; ?>
       </div>
+      <?php endif; ?>
 
       <?php if (!$is_view_only): ?>
       <div class="panel-card">
