@@ -54,7 +54,10 @@ function birthday_table($rows, $show_claim, $empty_text) {
             <?php if ($show_claim): ?>
               <td><?= $e['greeted_at'] ? '<span class="text-muted small">Sent ' . date('g:i A', strtotime($e['greeted_at'])) . '</span>' : '<span class="text-muted">&mdash;</span>' ?></td>
               <td>
-                <?php if ($e['claimed_at']): ?>
+                <?php if (!empty($e['order_id'])): ?>
+                  <a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $e['order_id'] ?>" class="pill pill-<?= basics_order_status_pill($e['order_status']) ?>"><?= basics_order_status_label($e['order_status']) ?></a>
+                  <span class="text-muted small"><?= date('M j, g:i A', strtotime($e['claimed_at'])) ?></span>
+                <?php elseif ($e['claimed_at']): ?>
                   <span class="pill pill-approved">Claimed</span> <span class="text-muted small"><?= date('M j, g:i A', strtotime($e['claimed_at'])) ?></span>
                 <?php else: ?>
                   <span class="pill pill-pending">Not claimed</span>

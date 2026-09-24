@@ -10,6 +10,17 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 $id = (int) ($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm') {
+    // A gift order with no items yet has nothing to actually deliver — block
+    // approval until the admin has picked what goes in the package.
+    $stmt = $conn->prepare("SELECT is_gift, (SELECT COUNT(*) FROM basics_order_items WHERE order_id = basics_orders.id) AS item_count FROM basics_orders WHERE id = ? AND status = 'pending'");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $gift_check = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($gift_check && $gift_check['is_gift'] && (int) $gift_check['item_count'] === 0) {
+        redirect('/basics/admin/order_view.php?id=' . $id . '&error=empty_gift');
+    }
+
     $stmt = $conn->prepare("UPDATE basics_orders SET status = 'confirmed', confirmed_at = NOW() WHERE id = ? AND status = 'pending'");
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -42,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     // items before approving, matching the member's own cart editing.
     $item_id = (int) ($_POST['item_id'] ?? 0);
     $new_qty = max(0, (int) ($_POST['quantity'] ?? 0));
-    $stmt = $conn->prepare("SELECT oi.* FROM basics_order_items oi JOIN basics_orders o ON o.id = oi.order_id
+    $stmt = $conn->prepare("SELECT oi.*, o.is_gift FROM basics_order_items oi JOIN basics_orders o ON o.id = oi.order_id
                              WHERE oi.id = ? AND oi.order_id = ? AND o.status = 'pending'");
     $stmt->bind_param('ii', $item_id, $id);
     $stmt->execute();
@@ -59,11 +70,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         }
         $stmt->execute();
         $stmt->close();
-        $stmt = $conn->prepare("UPDATE basics_orders SET total_amount = (SELECT COALESCE(SUM(line_total),0) FROM basics_order_items WHERE order_id = ?) WHERE id = ?");
-        $stmt->bind_param('ii', $id, $id);
-        $stmt->execute();
-        $stmt->close();
+        // Gift orders stay pinned at total_amount=0 — see basics_gift_pill().
+        if (!$item['is_gift']) {
+            $stmt = $conn->prepare("UPDATE basics_orders SET total_amount = (SELECT COALESCE(SUM(line_total),0) FROM basics_order_items WHERE order_id = ?) WHERE id = ?");
+            $stmt->bind_param('ii', $id, $id);
+            $stmt->execute();
+            $stmt->close();
+        }
         log_activity($conn, 'update_basics_order_item', 'Adjusted item on Basics order #' . $id . ' (checking stage)');
+    }
+    redirect('/basics/admin/order_view.php?id=' . $id);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_item') {
+    // Gift orders only — regular orders are built by the member's own cart;
+    // there is no "add item" action for those, by design. The exact package
+    // contents aren't fixed, so the admin picks products while still
+    // Checking, same product/price source as basics/catalog.php's cart add.
+    $product_id = (int) ($_POST['product_id'] ?? 0);
+    $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
+
+    $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND status = 'pending' AND is_gift = 1");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $is_open_gift_order = (bool) $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($is_open_gift_order) {
+        $stmt = $conn->prepare("SELECT * FROM basics_products WHERE id = ? AND status = 'active'");
+        $stmt->bind_param('i', $product_id);
+        $stmt->execute();
+        $product = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($product) {
+            $line_total = round($product['srp'] * $quantity, 2);
+            $stmt = $conn->prepare("INSERT INTO basics_order_items (order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param('iiidd', $id, $product_id, $quantity, $product['srp'], $line_total);
+            $stmt->execute();
+            $stmt->close();
+            // Deliberately NOT recomputing total_amount — gift orders stay at 0.
+            log_activity($conn, 'add_basics_gift_order_item', 'Added ' . $quantity . ' x product #' . $product_id . ' to gift order #' . $id);
+        }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
@@ -148,11 +194,14 @@ require __DIR__ . '/includes/admin_sidebar.php';
 <div class="inner-hero">
   <div class="container">
     <a href="<?= BASE_URL ?>/basics/admin/orders.php" class="small">&larr; Back to Orders</a>
-    <h1 class="stitle" style="font-size:2rem;">Order #<?= (int) $order['id'] ?></h1>
+    <h1 class="stitle" style="font-size:2rem;">Order #<?= (int) $order['id'] ?><?php if ($order['is_gift']): ?> <?= basics_gift_pill() ?><?php endif; ?></h1>
   </div>
 </div>
 
 <div class="container-fluid py-4">
+  <?php if (($_GET['error'] ?? '') === 'empty_gift'): ?>
+    <div class="errmsg mb-4"><p class="mb-0">Add at least one item before approving a gift order.</p></div>
+  <?php endif; ?>
   <div class="row g-4">
     <div class="col-12 col-md-7">
       <div class="panel-card mb-4">
@@ -160,12 +209,16 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Member: <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
         <?php if ($order['delivered_at']): ?>
           <p class="mb-1">Delivered: <?= date('M j, Y', strtotime($order['delivered_at'])) ?></p>
+        <?php endif; ?>
+        <?php if ($order['is_gift']): ?>
+          <p class="mb-1 text-muted">No payment required &mdash; Birthday Grocery Gift.</p>
+        <?php elseif ($order['delivered_at']): ?>
           <p class="mb-1">Payment Due: <?= date('M j, Y', strtotime($payment_due_date)) ?></p>
         <?php else: ?>
           <p class="mb-1 text-muted">Payment Due: 7 days after delivery</p>
         <?php endif; ?>
         <p class="mb-2">Status: <span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span>
-          <?php if (basics_order_is_paid($order['total_amount'], $amount_paid)): ?><span class="pill pill-paid">Paid</span><?php endif; ?>
+          <?php if (!$order['is_gift'] && basics_order_is_paid($order['total_amount'], $amount_paid)): ?><span class="pill pill-paid">Paid</span><?php endif; ?>
         </p>
         <?php if (in_array($order['status'], ['confirmed', 'out_for_delivery', 'delivered'], true)): ?>
           <a href="<?= BASE_URL ?>/basics/admin/delivery_receipt.php?id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline"><i class="fas fa-receipt"></i> Delivery Receipt</a>
@@ -222,13 +275,34 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </tbody>
         </table>
       </div>
+      <?php if ($is_editable && $order['is_gift']): ?>
+        <div class="panel-card mt-3">
+          <h2 class="h6">Add Item to Gift Package</h2>
+          <p class="small text-muted mb-2">Pick whatever products make up this member's gift &mdash; there's no fixed list.</p>
+          <form method="post" class="d-flex flex-wrap gap-2">
+            <input type="hidden" name="action" value="add_item">
+            <select name="product_id" class="fctrl" style="flex:1 1 240px;" required>
+              <?php $gift_products = $conn->query("SELECT id, name, sku, unit FROM basics_products WHERE status = 'active' ORDER BY name ASC"); ?>
+              <?php while ($gp = $gift_products->fetch_assoc()): ?>
+                <option value="<?= (int) $gp['id'] ?>"><?= sanitize($gp['name']) ?> (<?= sanitize($gp['sku']) ?>)</option>
+              <?php endwhile; ?>
+            </select>
+            <input type="number" name="quantity" value="1" min="1" class="fctrl" style="width:80px;">
+            <button type="submit" class="btn-chip btn-chip-success">Add Item</button>
+          </form>
+        </div>
+      <?php endif; ?>
     </div>
 
     <div class="col-12 col-md-5">
       <div class="panel-card mb-4">
         <h2 class="h6">Payment</h2>
-        <p class="mb-1">Amount Due: <?= format_price($order['total_amount']) ?></p>
-        <p class="mb-3">Amount Paid: <span class="fw-bold"><?= format_price($amount_paid) ?></span></p>
+        <?php if ($order['is_gift']): ?>
+          <p class="mb-3"><?= basics_gift_pill() ?> This is a Birthday Grocery Gift &mdash; no payment required.</p>
+        <?php else: ?>
+          <p class="mb-1">Amount Due: <?= format_price($order['total_amount']) ?></p>
+          <p class="mb-3">Amount Paid: <span class="fw-bold"><?= format_price($amount_paid) ?></span></p>
+        <?php endif; ?>
         <?php if ($order['status'] === 'pending'): ?>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="confirm">
@@ -243,7 +317,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <input type="hidden" name="action" value="out_for_delivery">
             <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as out for delivery?');">Mark For Delivery</button>
           </form>
-          <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
+          <?php if (!$order['is_gift']): ?>
+            <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
+          <?php endif; ?>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="cancel">
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel Order</button>
@@ -253,10 +329,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <input type="hidden" name="action" value="deliver">
             <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Mark this order as delivered?');">Mark Delivered</button>
           </form>
-          <?php if ($amount_paid < $order['total_amount']): ?>
+          <?php if (!$order['is_gift'] && $amount_paid < $order['total_amount']): ?>
             <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
           <?php endif; ?>
-        <?php elseif ($order['status'] === 'delivered' && $amount_paid < $order['total_amount']): ?>
+        <?php elseif ($order['status'] === 'delivered' && !$order['is_gift'] && $amount_paid < $order['total_amount']): ?>
           <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-success">Record Payment</a>
         <?php endif; ?>
       </div>

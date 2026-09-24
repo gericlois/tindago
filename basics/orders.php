@@ -47,7 +47,7 @@ require __DIR__ . '/../includes/navbar.php';
         <?php while ($order = $orders->fetch_assoc()): ?>
           <tr>
             <td>#<?= (int) $order['id'] ?></td>
-            <td><?= format_price($order['total_amount']) ?></td>
+            <td><?= format_price($order['total_amount']) ?><?php if ($order['is_gift']): ?> <span class="text-muted small">(Gift)</span><?php endif; ?></td>
             <td><span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span></td>
             <td><?= date('M j, Y', strtotime($order['created_at'])) ?></td>
             <td><a href="<?= BASICS_URL ?>/order_view.php?id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">View</a></td>

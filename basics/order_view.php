@@ -56,7 +56,7 @@ require __DIR__ . '/../includes/navbar.php';
 <div class="inner-hero">
   <div class="container">
     <a href="<?= BASICS_URL ?>/orders.php" class="small">&larr; Back to Orders</a>
-    <h1 class="stitle" style="font-size:2rem;">Order #<?= (int) $order['id'] ?></h1>
+    <h1 class="stitle" style="font-size:2rem;">Order #<?= (int) $order['id'] ?><?php if ($order['is_gift']): ?> <?= basics_gift_pill() ?><?php endif; ?></h1>
   </div>
 </div>
 
@@ -70,6 +70,10 @@ require __DIR__ . '/../includes/navbar.php';
         <h2 class="h6">Order Details</h2>
         <?php if ($order['delivered_at']): ?>
           <p class="mb-1">Delivered: <?= date('M j, Y', strtotime($order['delivered_at'])) ?></p>
+        <?php endif; ?>
+        <?php if ($order['is_gift']): ?>
+          <p class="mb-1 text-muted">This is your Birthday Grocery Gift &mdash; no payment is required.</p>
+        <?php elseif ($order['delivered_at']): ?>
           <p class="mb-1">Payment Due: <?= date('M j, Y', strtotime($payment_due_date)) ?></p>
         <?php else: ?>
           <p class="mb-1 text-muted">Payment Due: 7 days after delivery</p>

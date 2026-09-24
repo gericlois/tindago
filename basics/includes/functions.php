@@ -61,7 +61,7 @@ function basics_admin_role_label($role) {
 function basics_staff_roles() {
     return [
         'staff_orders' => 'Handles orders, applications, products and the supplier summary.',
-        'staff_payments' => 'Handles payments, reminders, payment submissions, emergency credit, benefits and the dormancy report.',
+        'staff_payments' => 'Handles payments, reminders, payment submissions, emergency credit, benefits, the dormancy report, and the communication log.',
         'staff_registration' => 'Registers new members and views users only — cannot approve, edit credit, or see orders and payments.',
     ];
 }
@@ -73,6 +73,16 @@ function basics_staff_roles() {
 // paid-before-delivery.
 function basics_order_is_paid($total_amount, $amount_paid) {
     return (float) $total_amount > 0 && (float) $amount_paid >= (float) $total_amount;
+}
+
+// Gift orders (basics_orders.is_gift=1) are pinned at total_amount=0 and
+// never require payment. basics_order_is_paid(0,0) returns false, and once
+// a gift order is delivered, basics_payment_due_date()/basics_projected_penalty()
+// would still compute a real due date and a nonsensical "₱0.00 penalty" once
+// it passes — every payment-status display site must check is_gift first and
+// use this instead of the normal paid/unpaid/overdue markup.
+function basics_gift_pill() {
+    return '<span class="pill pill-approved"><i class="fas fa-gift"></i> Gift</span>';
 }
 
 // Thin wrapper around send_sms() (includes/functions.php) — every Basics

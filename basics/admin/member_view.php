@@ -361,15 +361,21 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <?php endif; ?>
           <?php while ($o = $orders->fetch_assoc()): ?>
             <?php
-              $order_is_paid = basics_order_is_paid($o['total_amount'], $o['amount_paid']);
-              $order_projection = $order_is_paid ? null : basics_projected_penalty($conn, $o, $member['offense_count']);
+              // Gift orders are pinned at total_amount=0 and never need payment
+              // — basics_projected_penalty() must not even be called for them,
+              // since once delivered+overdue it would compute a real (if
+              // zero-amount) penalty rate against a free gift.
+              $order_is_paid = !$o['is_gift'] && basics_order_is_paid($o['total_amount'], $o['amount_paid']);
+              $order_projection = (!$o['is_gift'] && !$order_is_paid) ? basics_projected_penalty($conn, $o, $member['offense_count']) : null;
             ?>
             <tr>
               <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
-              <td><?= format_price($o['total_amount']) ?></td>
+              <td><?= format_price($o['total_amount']) ?><?php if ($o['is_gift']): ?> <span class="text-muted small">(Gift)</span><?php endif; ?></td>
               <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
               <td>
-                <?php if ($order_is_paid): ?>
+                <?php if ($o['is_gift']): ?>
+                  <?= basics_gift_pill() ?>
+                <?php elseif ($order_is_paid): ?>
                   <span class="pill pill-paid">Paid</span>
                 <?php elseif ($order_projection): ?>
                   <span class="pill pill-rejected">Overdue</span>

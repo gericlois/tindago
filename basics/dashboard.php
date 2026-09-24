@@ -44,7 +44,10 @@ require __DIR__ . '/../includes/navbar.php';
       <i class="fas fa-cake-candles mb-2" style="font-size:2.4rem;color:var(--primary);"></i>
       <h2 class="h4 mb-2">Happy Birthday, <?= sanitize(basics_birthday_first_name($member)) ?>!</h2>
       <?php if ($birthday['claimed_at']): ?>
-        <p class="mb-0">Your Birthday Grocery Gift was claimed on <?= date('M j, Y', strtotime($birthday['claimed_at'])) ?>. Thank you for being part of JMC Foodies Basics &mdash; our team will be in touch about your gift.</p>
+        <p class="mb-3">Your Birthday Grocery Gift request was received on <?= date('M j, Y', strtotime($birthday['claimed_at'])) ?>. Our team will review it and get it ready for you.</p>
+        <?php if ($birthday['order_id']): ?>
+          <a href="<?= BASICS_URL ?>/order_view.php?id=<?= (int) $birthday['order_id'] ?>" class="btn-red justify-content-center"><i class="fas fa-gift"></i>View Gift Order Status</a>
+        <?php endif; ?>
       <?php else: ?>
         <p class="mb-3">
           <?= $birthday['is_today'] ? 'Everyone at JMC Foodies Basics is celebrating with you today.' : 'We hope you had a wonderful birthday.' ?>

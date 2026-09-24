@@ -73,14 +73,18 @@ function basics_birthday_entries($conn, $lookback_days, $lookahead_days, $only_m
                 'days_away' => (int) $today->diff(new DateTimeImmutable($date))->format('%r%a'),
                 'greeted_at' => null,
                 'claimed_at' => null,
+                'order_id' => null,
+                'order_status' => null,
             ];
         }
     }
 
     if ($entries) {
         $gifts = [];
-        $result = $conn->query("SELECT member_id, birthday_year, greeted_at, claimed_at FROM basics_birthday_gifts
-                                 WHERE birthday_year BETWEEN " . ($this_year - 1) . " AND " . ($this_year + 1));
+        $result = $conn->query("SELECT g.member_id, g.birthday_year, g.greeted_at, g.claimed_at, g.order_id, o.status AS order_status
+                                 FROM basics_birthday_gifts g
+                                 LEFT JOIN basics_orders o ON o.id = g.order_id
+                                 WHERE g.birthday_year BETWEEN " . ($this_year - 1) . " AND " . ($this_year + 1));
         while ($g = $result->fetch_assoc()) {
             $gifts[$g['member_id'] . '-' . $g['birthday_year']] = $g;
         }
@@ -89,6 +93,8 @@ function basics_birthday_entries($conn, $lookback_days, $lookahead_days, $only_m
             if ($g) {
                 $e['greeted_at'] = $g['greeted_at'];
                 $e['claimed_at'] = $g['claimed_at'];
+                $e['order_id'] = $g['order_id'];
+                $e['order_status'] = $g['order_status'];
             }
         }
         unset($e);
@@ -118,7 +124,7 @@ function basics_birthday_gift_status($conn, $member) {
         if ($year - $birth_year < 1 || $elapsed < 0 || $elapsed >= $claim_days) {
             continue;
         }
-        $stmt = $conn->prepare("SELECT claimed_at FROM basics_birthday_gifts WHERE member_id = ? AND birthday_year = ?");
+        $stmt = $conn->prepare("SELECT claimed_at, order_id FROM basics_birthday_gifts WHERE member_id = ? AND birthday_year = ?");
         $stmt->bind_param('ii', $member['id'], $year);
         $stmt->execute();
         $gift = $stmt->get_result()->fetch_assoc();
@@ -130,13 +136,20 @@ function basics_birthday_gift_status($conn, $member) {
             'is_today' => $elapsed === 0,
             'claim_by' => date('Y-m-d', strtotime($date . ' +' . ($claim_days - 1) . ' days')),
             'claimed_at' => $gift['claimed_at'] ?? null,
+            'order_id' => $gift['order_id'] ?? null,
         ];
     }
     return null;
 }
 
-// Returns true if the gift is (now or already) claimed, false if there's no
-// open birthday gift to claim.
+// Claiming creates a real basics_orders row (is_gift=1, total_amount=0,
+// status='pending') and runs it through the same admin-approval + delivery
+// pipeline as a regular order — see basics/admin/order_view.php. Returns
+// true if the gift is (now or already) claimed, false if there's no open
+// birthday gift to claim.
+// Calls basics_notify() (basics/includes/functions.php) — safe because the
+// only call site, basics/dashboard.php, always loads that file first; this
+// file's own requires don't include it.
 function basics_claim_birthday_gift($conn, $member) {
     $status = basics_birthday_gift_status($conn, $member);
     if (!$status) {
@@ -145,12 +158,39 @@ function basics_claim_birthday_gift($conn, $member) {
     if ($status['claimed_at']) {
         return true;
     }
-    $stmt = $conn->prepare("INSERT INTO basics_birthday_gifts (member_id, birthday_year, claimed_at) VALUES (?, ?, NOW())
-                             ON DUPLICATE KEY UPDATE claimed_at = IF(claimed_at IS NULL, NOW(), claimed_at)");
+
+    $conn->begin_transaction();
+    $stmt = $conn->prepare("INSERT IGNORE INTO basics_birthday_gifts (member_id, birthday_year) VALUES (?, ?)");
     $stmt->bind_param('ii', $member['id'], $status['year']);
     $stmt->execute();
     $stmt->close();
-    log_activity($conn, 'claim_birthday_gift', 'Member #' . $member['id'] . ' claimed their Birthday Grocery Gift (' . $status['year'] . ')');
+
+    // Row-locked re-check so two concurrent claims can't both create an order.
+    $stmt = $conn->prepare("SELECT claimed_at FROM basics_birthday_gifts WHERE member_id = ? AND birthday_year = ? FOR UPDATE");
+    $stmt->bind_param('ii', $member['id'], $status['year']);
+    $stmt->execute();
+    $gift = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($gift['claimed_at']) {
+        $conn->commit();
+        return true;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO basics_orders (member_id, status, total_amount, is_gift, placed_at) VALUES (?, 'pending', 0, 1, NOW())");
+    $stmt->bind_param('i', $member['id']);
+    $stmt->execute();
+    $order_id = $stmt->insert_id;
+    $stmt->close();
+
+    $stmt = $conn->prepare("UPDATE basics_birthday_gifts SET claimed_at = NOW(), order_id = ? WHERE member_id = ? AND birthday_year = ?");
+    $stmt->bind_param('iii', $order_id, $member['id'], $status['year']);
+    $stmt->execute();
+    $stmt->close();
+    $conn->commit();
+
+    log_activity($conn, 'claim_birthday_gift', 'Member #' . $member['id'] . ' claimed their Birthday Grocery Gift (' . $status['year'] . '), created order #' . $order_id);
+    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your Birthday Grocery Gift request (order #{$order_id}). Our team will review it and get it ready for you. - JMC Foodies Basics");
     return true;
 }
 

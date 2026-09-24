@@ -143,9 +143,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <tr>
           <td>#<?= (int) $o['id'] ?></td>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($o['username']) ?>)</span></td>
-          <td><?= format_price($o['total_amount']) ?></td>
+          <td><?= format_price($o['total_amount']) ?><?php if ($o['is_gift']): ?> <span class="text-muted small">(Gift)</span><?php endif; ?></td>
           <td><?= format_price($o['amount_paid']) ?></td>
-          <td><?php if (basics_order_is_paid($o['total_amount'], $o['amount_paid'])): ?><span class="pill pill-paid">Paid</span><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <td><?php if ($o['is_gift']): ?><?= basics_gift_pill() ?><?php elseif (basics_order_is_paid($o['total_amount'], $o['amount_paid'])): ?><span class="pill pill-paid">Paid</span><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
           <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
           <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
           <td class="no-print">
