@@ -300,7 +300,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Employer: <?= sanitize($member['employer_name']) ?></p>
         <?php if ($is_view_only): ?>
         <p class="mb-0">Application: <span class="pill pill-<?= ['approved' => 'approved', 'denied' => 'rejected'][$member['application_status']] ?? 'pending' ?>"><?= sanitize($member['application_status']) ?></span></p>
-        <?php else: ?>
+        <?php endif; ?>
+      </div>
+
+      <?php if (!$is_view_only): ?>
+      <div class="panel-card">
+        <h2 class="h6">Membership Status</h2>
         <p class="mb-3">Status: <span class="pill pill-<?= $member['membership_status'] === 'active' ? 'active' : ($member['membership_status'] === 'dormant' ? 'pending' : 'suspended') ?>"><?= sanitize($member['membership_status']) ?></span>
           <?php if ($member['credit_limit_frozen']): ?><span class="pill pill-rejected">Credit Frozen</span><?php endif; ?>
         </p>
@@ -325,11 +330,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Permanently terminate this membership? This cannot be undone.');">Terminate</button>
           </form>
         <?php endif; ?>
-        <?php endif; ?>
       </div>
 
-      <?php if (!$is_view_only): ?>
-      <div class="panel-card">
+      <div class="panel-card mt-4">
         <h2 class="h6">Edit Details</h2>
         <form method="post">
           <input type="hidden" name="action" value="update_profile">
