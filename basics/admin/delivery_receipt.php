@@ -56,6 +56,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       </div>
       <div class="text-end">
         <p class="mb-1"><strong>Order #<?= (int) $order['id'] ?></strong></p>
+        <p class="text-muted small mb-1">Date Ordered: <?= $order['placed_at'] ? date('M j, Y', strtotime($order['placed_at'])) : '—' ?></p>
         <p class="text-muted small mb-0">Delivery Date: <?= $order['delivered_at'] ? date('M j, Y', strtotime($order['delivered_at'])) : 'Pending' ?></p>
       </div>
     </div>
