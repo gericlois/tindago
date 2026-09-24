@@ -7,20 +7,25 @@ require __DIR__ . '/../includes/functions.php';
 
 require_basics_admin_role(['super_admin', 'admin']);
 
-$pending_basics_applications = $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'pending'")->fetch_assoc()['c'];
-$active_basics_members = $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'approved' AND membership_status = 'active'")->fetch_assoc()['c'];
-$basics_orders_awaiting_approval = $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending'")->fetch_assoc()['c'];
+// The designated developer/test account's activity is excluded from every
+// stat/chart on this page — see basics_test_member_id() for why.
+$test_member_id = basics_test_member_id($conn);
+
+$pending_basics_applications = $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'pending' AND id != $test_member_id")->fetch_assoc()['c'];
+$active_basics_members = $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'approved' AND membership_status = 'active' AND id != $test_member_id")->fetch_assoc()['c'];
+$basics_orders_awaiting_approval = $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 $basics_orders_awaiting_payment = $conn->query("SELECT COUNT(*) AS c FROM basics_orders o WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered')
+    AND o.member_id != $test_member_id
     AND o.total_amount > (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id)")->fetch_assoc()['c'];
 $basics_outstanding_total = (float) $conn->query("SELECT COALESCE(SUM(GREATEST(o.total_amount - IFNULL((SELECT SUM(amount_paid) FROM basics_payments p WHERE p.order_id = o.id), 0), 0)), 0) AS s
-    FROM basics_orders o WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered')")->fetch_assoc()['s'];
+    FROM basics_orders o WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered') AND o.member_id != $test_member_id")->fetch_assoc()['s'];
 $basics_revenue_this_month = (float) $conn->query("SELECT COALESCE(SUM(amount_paid), 0) AS s FROM basics_payments
-    WHERE paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01')")->fetch_assoc()['s'];
-$pending_basics_benefit_requests = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
-$pending_basics_emergency_credit = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
+    WHERE paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') AND member_id != $test_member_id")->fetch_assoc()['s'];
+$pending_basics_benefit_requests = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_emergency_credit = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 
 $recent_basics_applications = $conn->query("SELECT bm.*, u.full_name, u.username FROM basics_members bm
-    JOIN basics_users u ON u.id = bm.user_id WHERE bm.application_status = 'pending' ORDER BY bm.applied_at DESC LIMIT 5");
+    JOIN basics_users u ON u.id = bm.user_id WHERE bm.application_status = 'pending' AND bm.id != $test_member_id ORDER BY bm.applied_at DESC LIMIT 5");
 
 // "Needs Attention" — things due right now, not just awaiting eventually
 // (unlike the "Orders Awaiting Payment" stat tile above, which counts every
@@ -29,7 +34,7 @@ $recent_basics_applications = $conn->query("SELECT bm.*, u.full_name, u.username
 // only those need checking here.
 $due_orders_raw = $conn->query("SELECT o.id, o.total_amount, o.delivered_at,
         (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
-    FROM basics_orders o WHERE o.status = 'delivered'
+    FROM basics_orders o WHERE o.status = 'delivered' AND o.member_id != $test_member_id
     HAVING amount_paid < o.total_amount")->fetch_all(MYSQLI_ASSOC);
 $due_payments_count = 0;
 foreach ($due_orders_raw as $due_order) {
@@ -41,12 +46,12 @@ foreach ($due_orders_raw as $due_order) {
 
 $birthdays_today_count = 0;
 foreach (basics_birthday_entries($conn, 0, 0) as $birthday_entry) {
-    if ($birthday_entry['days_away'] === 0) {
+    if ($birthday_entry['days_away'] === 0 && $birthday_entry['member_id'] != $test_member_id) {
         $birthdays_today_count++;
     }
 }
 
-$pending_basics_payment_submissions = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending'")->fetch_assoc()['c'];
+$pending_basics_payment_submissions = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 
 // Orders placed per day, last 14 days — bucketed by placed_at (when the
 // order was actually submitted), not created_at (when its cart row first
@@ -54,7 +59,8 @@ $pending_basics_payment_submissions = (int) $conn->query("SELECT COUNT(*) AS c F
 $orders_per_day_days = 14;
 $orders_per_day_raw = $conn->query("SELECT DATE(placed_at) AS d, COUNT(*) AS c
     FROM basics_orders
-    WHERE status != 'draft' AND placed_at >= DATE_SUB(CURDATE(), INTERVAL " . ($orders_per_day_days - 1) . " DAY)
+    WHERE status != 'draft' AND member_id != $test_member_id
+      AND placed_at >= DATE_SUB(CURDATE(), INTERVAL " . ($orders_per_day_days - 1) . " DAY)
     GROUP BY DATE(placed_at)")->fetch_all(MYSQLI_ASSOC);
 $orders_per_day_counts = array_column($orders_per_day_raw, 'c', 'd');
 $orders_per_day_labels = [];

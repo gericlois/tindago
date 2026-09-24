@@ -158,6 +158,25 @@ function basics_member_by_id($conn, $member_id) {
 }
 
 
+// The one designated developer/test account (username 'testbasics') — kept
+// on both local and live DBs for safe end-to-end feature testing without
+// ever touching a real member's data. Its activity is excluded from
+// dashboard stats/charts and sidebar pending-count badges (see
+// basics/admin/index.php and basics/admin/includes/admin_sidebar.php) so
+// testing never skews what admins see. Matched by username rather than a
+// hardcoded id, since the two databases don't share auto-increment ids.
+// Returns 0 (matches no real member_id) if the account doesn't exist here.
+function basics_test_member_id($conn) {
+    static $id = null;
+    if ($id === null) {
+        $row = $conn->query("SELECT bm.id FROM basics_members bm
+            JOIN basics_users u ON u.id = bm.user_id
+            WHERE u.username = 'testbasics'")->fetch_assoc();
+        $id = $row ? (int) $row['id'] : 0;
+    }
+    return $id;
+}
+
 function basics_get_member($conn, $user_id) {
     $stmt = $conn->prepare("SELECT bm.*, u.full_name, u.first_name, u.middle_name, u.last_name,
                                     u.username, u.email, u.contact_number, u.birthdate,

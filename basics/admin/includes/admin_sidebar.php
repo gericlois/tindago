@@ -19,11 +19,15 @@ if (basics_admin_role() === 'staff_registration') {
 }
 $current_path = $sub_to_parent[$current_path] ?? $current_path;
 
-$pending_basics_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'pending'")->fetch_assoc()['c'];
-$pending_basics_payments_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending'")->fetch_assoc()['c'];
-$pending_basics_credit_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
-$pending_basics_benefits_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
-$pending_basics_checking_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending'")->fetch_assoc()['c'];
+// The designated developer/test account's pending items are excluded from
+// every badge below — see basics_test_member_id() for why.
+$test_member_id = basics_test_member_id($conn);
+
+$pending_basics_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_members WHERE application_status = 'pending' AND id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_payments_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_credit_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_benefits_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_checking_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 
 // Overdue follow-ups for Payment Reminders — same "delivered, unpaid, due
 // date already passed" definition as basics_orders_overdue() in
@@ -31,7 +35,7 @@ $pending_basics_checking_count = (int) $conn->query("SELECT COUNT(*) AS c FROM b
 // shared include, so it's re-derived here rather than called directly).
 $overdue_orders_raw = $conn->query("SELECT o.id, o.total_amount, o.delivered_at,
         (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
-    FROM basics_orders o WHERE o.status = 'delivered'
+    FROM basics_orders o WHERE o.status = 'delivered' AND o.member_id != $test_member_id
     HAVING amount_paid < o.total_amount")->fetch_all(MYSQLI_ASSOC);
 $pending_basics_overdue_count = 0;
 $today_ymd = date('Y-m-d');
