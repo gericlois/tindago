@@ -124,7 +124,14 @@ function basics_birthday_gift_status($conn, $member) {
         if ($year - $birth_year < 1 || $elapsed < 0 || $elapsed >= $claim_days) {
             continue;
         }
-        $stmt = $conn->prepare("SELECT claimed_at, order_id FROM basics_birthday_gifts WHERE member_id = ? AND birthday_year = ?");
+        // Joined to the order's current status/delivered_at so the dashboard
+        // can reflect what's actually happened to the gift instead of always
+        // showing the same "received, we'll get it ready" message even after
+        // it's been delivered (or cancelled).
+        $stmt = $conn->prepare("SELECT g.claimed_at, g.order_id, o.status AS order_status, o.delivered_at AS order_delivered_at
+                                 FROM basics_birthday_gifts g
+                                 LEFT JOIN basics_orders o ON o.id = g.order_id
+                                 WHERE g.member_id = ? AND g.birthday_year = ?");
         $stmt->bind_param('ii', $member['id'], $year);
         $stmt->execute();
         $gift = $stmt->get_result()->fetch_assoc();
@@ -137,6 +144,8 @@ function basics_birthday_gift_status($conn, $member) {
             'claim_by' => date('Y-m-d', strtotime($date . ' +' . ($claim_days - 1) . ' days')),
             'claimed_at' => $gift['claimed_at'] ?? null,
             'order_id' => $gift['order_id'] ?? null,
+            'order_status' => $gift['order_status'] ?? null,
+            'order_delivered_at' => $gift['order_delivered_at'] ?? null,
         ];
     }
     return null;
