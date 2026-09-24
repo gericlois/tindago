@@ -480,10 +480,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <h2 class="h6 mb-3">Recent Orders</h2>
       <div class="table-responsive mb-4">
         <table class="table-theme">
-          <thead><tr><th>Date</th><th>Total</th><th>Status</th><th>Payment</th></tr></thead>
+          <thead><tr><th>Date</th><th>Total</th><th>Status</th><th>Payment</th><th class="no-print"></th></tr></thead>
           <tbody>
           <?php if ($orders->num_rows === 0): ?>
-            <tr><td colspan="4" class="text-muted">No orders yet.</td></tr>
+            <tr><td colspan="5" class="text-muted">No orders yet.</td></tr>
           <?php endif; ?>
           <?php while ($o = $orders->fetch_assoc()): ?>
             <?php
@@ -510,6 +510,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
                   <span class="pill pill-pending">Unpaid</span>
                 <?php endif; ?>
               </td>
+              <td class="no-print"><a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">View</a></td>
             </tr>
           <?php endwhile; ?>
           </tbody>
