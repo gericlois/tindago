@@ -48,9 +48,22 @@ foreach (basics_birthday_entries($conn, 0, 0) as $birthday_entry) {
 
 $pending_basics_payment_submissions = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending'")->fetch_assoc()['c'];
 
-$recent_orders = $conn->query("SELECT o.*, u.full_name FROM basics_orders o
-    JOIN basics_members bm ON bm.id = o.member_id JOIN basics_users u ON u.id = bm.user_id
-    WHERE o.status != 'draft' ORDER BY o.created_at DESC LIMIT 5");
+// Orders placed per day, last 14 days — bucketed by placed_at (when the
+// order was actually submitted), not created_at (when its cart row first
+// existed, which for a placed order can be well before it was placed).
+$orders_per_day_days = 14;
+$orders_per_day_raw = $conn->query("SELECT DATE(placed_at) AS d, COUNT(*) AS c
+    FROM basics_orders
+    WHERE status != 'draft' AND placed_at >= DATE_SUB(CURDATE(), INTERVAL " . ($orders_per_day_days - 1) . " DAY)
+    GROUP BY DATE(placed_at)")->fetch_all(MYSQLI_ASSOC);
+$orders_per_day_counts = array_column($orders_per_day_raw, 'c', 'd');
+$orders_per_day_labels = [];
+$orders_per_day_data = [];
+for ($i = $orders_per_day_days - 1; $i >= 0; $i--) {
+    $day = date('Y-m-d', strtotime("-$i days"));
+    $orders_per_day_labels[] = date('M j', strtotime($day));
+    $orders_per_day_data[] = (int) ($orders_per_day_counts[$day] ?? 0);
+}
 
 $page_title = 'Dashboard';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -151,24 +164,32 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   <?php endif; ?>
 
-  <h2 class="h6 mb-3">Recent Orders</h2>
-  <div class="table-responsive">
-    <table class="table-theme">
-      <thead><tr><th>Member</th><th>Total</th><th>Status</th><th class="no-print"></th></tr></thead>
-      <tbody>
-      <?php if ($recent_orders->num_rows === 0): ?>
-        <tr><td colspan="4" class="text-muted">No orders yet.</td></tr>
-      <?php endif; ?>
-      <?php while ($o = $recent_orders->fetch_assoc()): ?>
-        <tr>
-          <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $o['member_id'] ?>"><?= sanitize($o['full_name']) ?></a></td>
-          <td><?= format_price($o['total_amount']) ?></td>
-          <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
-          <td><a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">View</a></td>
-        </tr>
-      <?php endwhile; ?>
-      </tbody>
-    </table>
+  <h2 class="h6 mb-3">Orders Placed, Last <?= $orders_per_day_days ?> Days</h2>
+  <div class="panel-card">
+    <canvas id="ordersPerDayChart" height="90"></canvas>
   </div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
+<script>
+new Chart(document.getElementById('ordersPerDayChart'), {
+  type: 'bar',
+  data: {
+    labels: <?= json_encode($orders_per_day_labels) ?>,
+    datasets: [{
+      label: 'Orders Placed',
+      data: <?= json_encode($orders_per_day_data) ?>,
+      backgroundColor: '#34a853',
+      borderRadius: 4,
+      maxBarThickness: 36
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } }
+    }
+  }
+});
+</script>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>
