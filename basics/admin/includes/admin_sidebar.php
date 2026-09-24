@@ -41,19 +41,31 @@ $nav_groups = [
         '/basics/admin/products.php'    => ['icon' => 'fa-box',            'label' => 'Manage Products'],
         '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders'],
         '/basics/admin/supplier_summary.php' => ['icon' => 'fa-truck-ramp-box', 'label' => 'Supplier Summary'],
-        '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
-        '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders'],
-        '/basics/admin/payment_submissions.php' => ['icon' => 'fa-receipt', 'label' => 'Payment Submissions', 'badge' => $pending_basics_payments_count],
-        '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
-        '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
-        '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
+        '__payments' => [
+            // These 6 paths are exactly the staff_payments allowlist below —
+            // grouping them mirrors a boundary that already exists.
+            'icon' => 'fa-sack-dollar', 'label' => 'Payments',
+            'children' => [
+                '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
+                '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders'],
+                '/basics/admin/payment_submissions.php' => ['icon' => 'fa-receipt', 'label' => 'Payment Submissions', 'badge' => $pending_basics_payments_count],
+                '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
+                '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
+                '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
+            ],
+        ],
         '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
         '/basics/admin/broadcast.php'    => ['icon' => 'fa-comment-sms',    'label' => 'Announcement'],
     ],
     'System' => [
         '/basics/admin/settings.php' => ['icon' => 'fa-gear', 'label' => 'Settings'],
-        '/basics/admin/activity_log.php' => ['icon' => 'fa-clock-rotate-left', 'label' => 'Activity Log'],
-        '/basics/admin/communication_log.php' => ['icon' => 'fa-comments', 'label' => 'Communication Log'],
+        '__logs' => [
+            'icon' => 'fa-clock-rotate-left', 'label' => 'Logs',
+            'children' => [
+                '/basics/admin/activity_log.php' => ['icon' => 'fa-clock-rotate-left', 'label' => 'Activity Log'],
+                '/basics/admin/communication_log.php' => ['icon' => 'fa-comments', 'label' => 'Communication Log'],
+            ],
+        ],
     ],
 ];
 
@@ -68,9 +80,14 @@ if (in_array(basics_admin_role(), ['super_admin', 'admin'], true)) {
 // everything else in "System" which the (lower-privilege) admin role can
 // also see.
 if (basics_admin_role() === 'super_admin') {
-    $nav_groups['System']['/basics/admin/db_backup.php'] = ['icon' => 'fa-database', 'label' => 'Database Backup'];
-    $nav_groups['System']['/basics/admin/admins.php'] = ['icon' => 'fa-user-shield', 'label' => 'Admin Management'];
-    $nav_groups['System']['/basics/admin/maintenance.php'] = ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'];
+    $nav_groups['System']['__super_admin'] = [
+        'icon' => 'fa-shield-halved', 'label' => 'Super Admin',
+        'children' => [
+            '/basics/admin/db_backup.php' => ['icon' => 'fa-database', 'label' => 'Database Backup'],
+            '/basics/admin/admins.php' => ['icon' => 'fa-user-shield', 'label' => 'Admin Management'],
+            '/basics/admin/maintenance.php' => ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'],
+        ],
+    ];
 }
 
 // staff_orders, staff_payments and staff_registration are restricted roles (see
