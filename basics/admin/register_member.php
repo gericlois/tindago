@@ -20,6 +20,8 @@ $doc_fields = [
     'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
     'certificate_of_employment' => 'Certificate of Employment / Company Work Clearance',
 ];
+// Barangay Clearance is optional — everything else is still required.
+$optional_doc_fields = ['barangay_clearance'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($text_fields as $field) {
@@ -58,6 +60,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     foreach ($doc_fields as $field => $label) {
+        if (in_array($field, $optional_doc_fields, true)) {
+            continue;
+        }
         if (empty($_FILES[$field]['name'])) {
             $errors[] = $label . ' is required.';
         }
@@ -92,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             foreach ($doc_fields as $field => $label) {
+                // Skip entirely if an optional doc was left blank — no row,
+                // no upload attempt, not just a suppressed error.
+                if (in_array($field, $optional_doc_fields, true) && empty($_FILES[$field]['name'])) {
+                    continue;
+                }
                 [$filename, $upload_error] = handle_kyc_document_upload($field);
                 if ($upload_error) {
                     throw new Exception($label . ': ' . $upload_error);
@@ -232,9 +242,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <h2 class="h6 mb-3 mt-2">Required Documents</h2>
           <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
           <?php foreach ($doc_fields as $field => $label): ?>
+            <?php $is_optional_doc = in_array($field, $optional_doc_fields, true); ?>
             <div class="mb-3">
-              <label class="flbl"><?= sanitize($label) ?></label>
-              <input type="file" name="<?= $field ?>" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+              <label class="flbl"><?= sanitize($label) ?><?= $is_optional_doc ? ' (optional)' : '' ?></label>
+              <input type="file" name="<?= $field ?>" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" <?= $is_optional_doc ? '' : 'required' ?>>
             </div>
           <?php endforeach; ?>
 
