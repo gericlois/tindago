@@ -29,10 +29,15 @@ $nav_groups = [
         '/basics/admin/index.php' => ['icon' => 'fa-gauge-high', 'label' => 'Dashboard'],
     ],
     'Basics' => [
-        '/basics/admin/applications.php' => ['icon' => 'fa-file-signature', 'label' => 'Applications', 'badge' => $pending_basics_count],
-        '/basics/admin/members.php'      => ['icon' => 'fa-users',          'label' => 'Members'],
-        '/basics/admin/users.php'        => ['icon' => 'fa-address-book',   'label' => 'Users'],
-        '/basics/admin/register_member.php' => ['icon' => 'fa-user-plus',   'label' => 'Register Member'],
+        '__people' => [
+            'icon' => 'fa-users', 'label' => 'People',
+            'children' => [
+                '/basics/admin/applications.php' => ['icon' => 'fa-file-signature', 'label' => 'Applications', 'badge' => $pending_basics_count],
+                '/basics/admin/members.php'      => ['icon' => 'fa-address-card',   'label' => 'Members'],
+                '/basics/admin/users.php'        => ['icon' => 'fa-address-book',   'label' => 'Users'],
+                '/basics/admin/register_member.php' => ['icon' => 'fa-user-plus',   'label' => 'Register Member'],
+            ],
+        ],
         '/basics/admin/products.php'    => ['icon' => 'fa-box',            'label' => 'Manage Products'],
         '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders'],
         '/basics/admin/supplier_summary.php' => ['icon' => 'fa-truck-ramp-box', 'label' => 'Supplier Summary'],
@@ -89,7 +94,23 @@ $staff_role_paths = [
 if (isset($staff_role_paths[basics_admin_role()])) {
     $allowed_paths = $staff_role_paths[basics_admin_role()];
     foreach ($nav_groups as $group_label => $group_items) {
-        $filtered = array_intersect_key($group_items, array_flip($allowed_paths));
+        $filtered = [];
+        foreach ($group_items as $path => $item) {
+            if (isset($item['children'])) {
+                // A dropdown group: keep only its allowed children. If just
+                // one survives, drop down to a plain link instead of a
+                // single-item dropdown.
+                $children = array_intersect_key($item['children'], array_flip($allowed_paths));
+                if (count($children) === 1) {
+                    $filtered[array_key_first($children)] = reset($children);
+                } elseif ($children) {
+                    $item['children'] = $children;
+                    $filtered[$path] = $item;
+                }
+            } elseif (in_array($path, $allowed_paths, true)) {
+                $filtered[$path] = $item;
+            }
+        }
         if (empty($filtered)) {
             unset($nav_groups[$group_label]);
         } else {
@@ -124,10 +145,32 @@ $basics_dashboard_url = basics_admin_landing_url();
         <?php foreach ($nav_groups as $group_label => $group_items): ?>
           <div class="admin-nav-group-label"><?= sanitize($group_label) ?></div>
           <?php foreach ($group_items as $path => $item): ?>
-            <a class="admin-nav-link <?= $current_path === $path ? 'active' : '' ?>" href="<?= BASE_URL . $path ?>">
-              <i class="fas <?= $item['icon'] ?>"></i> <?= $item['label'] ?>
-              <?php if (!empty($item['badge'])): ?><span class="admin-nav-badge"><?= (int) $item['badge'] ?></span><?php endif; ?>
-            </a>
+            <?php if (!empty($item['children'])): ?>
+              <?php
+                $child_active = array_key_exists($current_path, $item['children']);
+                $badge_total = array_sum(array_column($item['children'], 'badge'));
+              ?>
+              <details class="admin-nav-dropdown" <?= $child_active ? 'open' : '' ?>>
+                <summary class="admin-nav-link admin-nav-dropdown-toggle <?= $child_active ? 'active' : '' ?>">
+                  <i class="fas <?= $item['icon'] ?>"></i> <?= $item['label'] ?>
+                  <?php if ($badge_total > 0): ?><span class="admin-nav-badge"><?= (int) $badge_total ?></span><?php endif; ?>
+                  <i class="fas fa-chevron-down admin-nav-dropdown-caret"></i>
+                </summary>
+                <div class="admin-nav-submenu">
+                  <?php foreach ($item['children'] as $child_path => $child): ?>
+                    <a class="admin-nav-link admin-nav-sublink <?= $current_path === $child_path ? 'active' : '' ?>" href="<?= BASE_URL . $child_path ?>">
+                      <i class="fas <?= $child['icon'] ?>"></i> <?= $child['label'] ?>
+                      <?php if (!empty($child['badge'])): ?><span class="admin-nav-badge"><?= (int) $child['badge'] ?></span><?php endif; ?>
+                    </a>
+                  <?php endforeach; ?>
+                </div>
+              </details>
+            <?php else: ?>
+              <a class="admin-nav-link <?= $current_path === $path ? 'active' : '' ?>" href="<?= BASE_URL . $path ?>">
+                <i class="fas <?= $item['icon'] ?>"></i> <?= $item['label'] ?>
+                <?php if (!empty($item['badge'])): ?><span class="admin-nav-badge"><?= (int) $item['badge'] ?></span><?php endif; ?>
+              </a>
+            <?php endif; ?>
           <?php endforeach; ?>
         <?php endforeach; ?>
       </nav>
