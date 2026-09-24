@@ -42,19 +42,27 @@ $nav_groups = [
         '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders'],
         '/basics/admin/supplier_summary.php' => ['icon' => 'fa-truck-ramp-box', 'label' => 'Supplier Summary'],
         '__payments' => [
-            // These 6 paths are exactly the staff_payments allowlist below —
-            // grouping them mirrors a boundary that already exists.
             'icon' => 'fa-sack-dollar', 'label' => 'Payments',
             'children' => [
                 '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
                 '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders'],
                 '/basics/admin/payment_submissions.php' => ['icon' => 'fa-receipt', 'label' => 'Payment Submissions', 'badge' => $pending_basics_payments_count],
-                '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
-                '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
                 '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
             ],
         ],
-        '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
+        '__perks' => [
+            // Emergency Cash Credit and Member Benefits are staff_payments-
+            // accessible; Birthday Gifts is admin/super_admin-only (see
+            // basics_admin_role() checks in each page) — the role filter
+            // below naturally drops Birthday Gifts for staff_payments,
+            // leaving them a 2-item dropdown instead of 3.
+            'icon' => 'fa-gift', 'label' => 'Member Perks',
+            'children' => [
+                '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
+                '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
+                '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
+            ],
+        ],
         '/basics/admin/broadcast.php'    => ['icon' => 'fa-comment-sms',    'label' => 'Announcement'],
     ],
     'System' => [
