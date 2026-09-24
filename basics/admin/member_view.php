@@ -18,7 +18,7 @@ $email_errors = [];
 $sms_errors = [];
 $reset_errors = [];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', ['send_email', 'send_sms', 'reset_password'], true)) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', ['send_email', 'send_sms', 'reset_password', 'update_profile'], true)) {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'update_credit') {
@@ -57,7 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
     redirect('/basics/admin/member_view.php?id=' . $id);
 }
 
-$stmt = $conn->prepare("SELECT bm.*, u.full_name, u.username, u.email, u.contact_number, u.address
+$stmt = $conn->prepare("SELECT bm.*, u.full_name, u.username, u.email, u.contact_number, u.address,
+                                u.first_name, u.middle_name, u.last_name,
+                                u.address_line, u.barangay, u.city, u.province, u.birthdate
                          FROM basics_members bm JOIN basics_users u ON u.id = bm.user_id WHERE bm.id = ?");
 $stmt->bind_param('i', $id);
 $stmt->execute();
@@ -131,6 +133,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
     }
 }
 
+$profile_errors = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_profile') {
+    $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $address_line = trim($_POST['address_line'] ?? '');
+    $barangay = trim($_POST['barangay'] ?? '');
+    $city = trim($_POST['city'] ?? '');
+    $province = trim($_POST['province'] ?? '');
+    $contact_number = trim($_POST['contact_number'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $birthdate = trim($_POST['birthdate'] ?? '');
+
+    if ($first_name === '') $profile_errors[] = 'First name is required.';
+    if ($last_name === '') $profile_errors[] = 'Last name is required.';
+    if ($address_line === '') $profile_errors[] = 'House #/Street is required.';
+    if ($barangay === '') $profile_errors[] = 'Barangay is required.';
+    if ($city === '') $profile_errors[] = 'City/Municipality is required.';
+    if ($province === '') $profile_errors[] = 'Province is required.';
+    if ($contact_number === '') $profile_errors[] = 'Contact number is required.';
+    if ($birthdate === '' || !DateTime::createFromFormat('Y-m-d', $birthdate)) $profile_errors[] = 'A valid birthdate is required.';
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $profile_errors[] = 'That email address doesn\'t look valid.';
+
+    if (empty($profile_errors) && $email !== '') {
+        $stmt = $conn->prepare("SELECT id FROM basics_users WHERE email = ? AND id != ?");
+        $stmt->bind_param('si', $email, $member['user_id']);
+        $stmt->execute();
+        if ($stmt->get_result()->fetch_assoc()) $profile_errors[] = 'That email address is already used by another account.';
+        $stmt->close();
+    }
+
+    if (empty($profile_errors)) {
+        $full_name = basics_compose_full_name($first_name, $middle_name, $last_name);
+        $address = basics_compose_address($address_line, $barangay, $city, $province);
+        $email_to_store = $email !== '' ? $email : null;
+        $stmt = $conn->prepare("UPDATE basics_users SET
+            full_name = ?, first_name = ?, middle_name = ?, last_name = ?,
+            address = ?, address_line = ?, barangay = ?, city = ?, province = ?,
+            contact_number = ?, email = ?, birthdate = ?
+            WHERE id = ?");
+        $stmt->bind_param('ssssssssssssi', $full_name, $first_name, $middle_name, $last_name,
+            $address, $address_line, $barangay, $city, $province, $contact_number, $email_to_store, $birthdate, $member['user_id']);
+        $stmt->execute();
+        $stmt->close();
+
+        log_activity($conn, 'update_basics_member_profile', 'Updated profile details for Basics member "' . $full_name . '" (#' . $id . ')');
+        redirect('/basics/admin/member_view.php?id=' . $id . '&profile_updated=1');
+    }
+
+    // Validation failed — keep the submitted values on screen instead of
+    // silently reverting to what's still in the database.
+    $member = array_merge($member, compact(
+        'first_name', 'middle_name', 'last_name', 'address_line', 'barangay',
+        'city', 'province', 'contact_number', 'email', 'birthdate'
+    ));
+    $member['full_name'] = basics_compose_full_name($first_name, $middle_name, $last_name);
+}
+
 $outstanding = basics_outstanding_balance($conn, $member['id']);
 
 $stmt = $conn->prepare("SELECT o.*,
@@ -182,6 +242,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if (isset($_GET['sms_sent'])): ?>
     <div class="sucmsg is-visible mb-4"><p>Text sent to <?= sanitize($member['contact_number']) ?>.</p></div>
   <?php endif; ?>
+  <?php if (isset($_GET['profile_updated'])): ?>
+    <div class="sucmsg is-visible mb-4"><p class="mb-0">Details updated.</p></div>
+  <?php endif; ?>
   <?php if (isset($_GET['password_reset'])): ?>
     <?php $pr = $_GET['password_reset']; ?>
     <div class="sucmsg is-visible mb-4"><p>Password reset. New temporary password sent
@@ -200,6 +263,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if ($reset_errors): ?>
     <div class="errmsg mb-4">
       <ul class="mb-0"><?php foreach ($reset_errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
+    </div>
+  <?php endif; ?>
+  <?php if ($profile_errors): ?>
+    <div class="errmsg mb-4">
+      <ul class="mb-0"><?php foreach ($profile_errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
     </div>
   <?php endif; ?>
 
@@ -228,6 +296,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Email: <?= sanitize($member['email']) ?></p>
         <p class="mb-1">Contact #: <?= sanitize($member['contact_number']) ?></p>
         <p class="mb-1">Address: <?= $member['address'] ? sanitize($member['address']) : '—' ?></p>
+        <p class="mb-1">Birthday: <?= $member['birthdate'] ? date('M j, Y', strtotime($member['birthdate'])) : '—' ?></p>
         <p class="mb-1">Employer: <?= sanitize($member['employer_name']) ?></p>
         <?php if ($is_view_only): ?>
         <p class="mb-0">Application: <span class="pill pill-<?= ['approved' => 'approved', 'denied' => 'rejected'][$member['application_status']] ?? 'pending' ?>"><?= sanitize($member['application_status']) ?></span></p>
@@ -261,6 +330,60 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
       <?php if (!$is_view_only): ?>
       <div class="panel-card">
+        <h2 class="h6">Edit Details</h2>
+        <form method="post">
+          <input type="hidden" name="action" value="update_profile">
+          <div class="row">
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">First Name</label>
+              <input type="text" name="first_name" class="fctrl" value="<?= sanitize($member['first_name'] ?? '') ?>" required>
+            </div>
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">Middle Name</label>
+              <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($member['middle_name'] ?? '') ?>">
+            </div>
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">Surname</label>
+              <input type="text" name="last_name" class="fctrl" value="<?= sanitize($member['last_name'] ?? '') ?>" required>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="flbl">House #/Street</label>
+            <input type="text" name="address_line" class="fctrl" value="<?= sanitize($member['address_line'] ?? '') ?>" required>
+          </div>
+          <div class="row">
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">Barangay</label>
+              <input type="text" name="barangay" class="fctrl" value="<?= sanitize($member['barangay'] ?? '') ?>" required>
+            </div>
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">City/Municipality</label>
+              <input type="text" name="city" class="fctrl" value="<?= sanitize($member['city'] ?? '') ?>" required>
+            </div>
+            <div class="col-sm-4 mb-2">
+              <label class="flbl">Province</label>
+              <input type="text" name="province" class="fctrl" value="<?= sanitize($member['province'] ?? '') ?>" required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-6 mb-2">
+              <label class="flbl">Contact Number</label>
+              <input type="text" name="contact_number" class="fctrl" value="<?= sanitize($member['contact_number']) ?>" required>
+            </div>
+            <div class="col-sm-6 mb-2">
+              <label class="flbl">Email Address (optional)</label>
+              <input type="email" name="email" class="fctrl" value="<?= sanitize($member['email']) ?>">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="flbl">Birthday</label>
+            <input type="date" name="birthdate" class="fctrl" value="<?= sanitize($member['birthdate'] ?? '') ?>" required>
+          </div>
+          <button type="submit" class="btn-chip btn-chip-success"><i class="fas fa-floppy-disk"></i> Save Details</button>
+        </form>
+      </div>
+
+      <div class="panel-card mt-4">
         <h2 class="h6">Adjust Credit Line</h2>
         <form method="post">
           <input type="hidden" name="action" value="update_credit">
