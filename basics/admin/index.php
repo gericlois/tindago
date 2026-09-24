@@ -107,28 +107,28 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num<?= $pending_basics_applications > 0 ? ' accent' : '' ?>"><?= (int) $pending_basics_applications ?></div><div class="stat-lbl">Pending Applications</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/applications.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_applications > 0 ? ' accent' : '' ?>"><?= (int) $pending_basics_applications ?></div><div class="stat-lbl">Pending Applications</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num"><?= (int) $active_basics_members ?></div><div class="stat-lbl">Active Members</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/members.php?status=active" class="stat-tile stat-tile-link"><div class="stat-num"><?= (int) $active_basics_members ?></div><div class="stat-lbl">Active Members</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num<?= $basics_orders_awaiting_approval > 0 ? ' accent' : '' ?>"><?= (int) $basics_orders_awaiting_approval ?></div><div class="stat-lbl">Orders Awaiting Approval</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/orders.php?status=pending" class="stat-tile stat-tile-link"><div class="stat-num<?= $basics_orders_awaiting_approval > 0 ? ' accent' : '' ?>"><?= (int) $basics_orders_awaiting_approval ?></div><div class="stat-lbl">Orders Awaiting Approval</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num"><?= (int) $basics_orders_awaiting_payment ?></div><div class="stat-lbl">Orders Awaiting Payment</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num"><?= (int) $basics_orders_awaiting_payment ?></div><div class="stat-lbl">Orders Awaiting Payment</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_outstanding_total) ?></div><div class="stat-lbl">Outstanding Balance</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_outstanding_total) ?></div><div class="stat-lbl">Outstanding Balance</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_revenue_this_month) ?></div><div class="stat-lbl">Revenue This Month</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_revenue_this_month) ?></div><div class="stat-lbl">Revenue This Month</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num<?= $pending_basics_benefit_requests > 0 ? ' accent' : '' ?>"><?= $pending_basics_benefit_requests ?></div><div class="stat-lbl">Pending Benefit Requests</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/benefit_requests.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_benefit_requests > 0 ? ' accent' : '' ?>"><?= $pending_basics_benefit_requests ?></div><div class="stat-lbl">Pending Benefit Requests</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <div class="stat-tile"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Credit</div></div>
+      <a href="<?= BASE_URL ?>/basics/admin/emergency_credit.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Credit</div></a>
     </div>
   </div>
 

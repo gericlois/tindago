@@ -356,6 +356,17 @@
 .stat-tile .stat-num.accent {
   color: var(--primary);
 }
+.stat-tile-link {
+  display: block;
+  color: inherit;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-tile-link:hover,
+.stat-tile-link:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14);
+  color: inherit;
+}
 .stat-tile .stat-lbl {
   font-size: 0.72rem;
   color: #999;
