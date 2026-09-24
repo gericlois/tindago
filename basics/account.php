@@ -9,11 +9,7 @@ require __DIR__ . '/includes/functions.php';
 require_basics_access($conn);
 
 $user_id = basics_current_user_id();
-$stmt = $conn->prepare("SELECT * FROM basics_users WHERE id = ?");
-$stmt->bind_param('i', $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$user = basics_get_member($conn, $user_id);
 
 $errors = [];
 $saved = false;
@@ -28,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $province = trim($_POST['province'] ?? '');
     $contact_number = trim($_POST['contact_number'] ?? '');
     $email = trim($_POST['email'] ?? '');
+    $employer_address = trim($_POST['employer_address'] ?? '');
 
     if ($first_name === '') $errors[] = 'First name is required.';
     if ($last_name === '') $errors[] = 'Last name is required.';
@@ -61,13 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
+        $employer_address_to_store = $employer_address !== '' ? $employer_address : null;
+        $stmt = $conn->prepare("UPDATE basics_members SET employer_address = ? WHERE id = ?");
+        $stmt->bind_param('si', $employer_address_to_store, $user['id']);
+        $stmt->execute();
+        $stmt->close();
+
         log_activity($conn, 'update_basics_account', 'Basics member updated their own account info');
 
-        $stmt = $conn->prepare("SELECT * FROM basics_users WHERE id = ?");
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $user = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $user = basics_get_member($conn, $user_id);
         $saved = true;
     }
 }
@@ -149,6 +148,12 @@ require __DIR__ . '/../includes/navbar.php';
           <div class="mb-3">
             <label class="flbl">Email Address (optional)</label>
             <input type="email" name="email" class="fctrl" value="<?= sanitize($user['email']) ?>">
+          </div>
+
+          <h2 class="h6 mb-3 mt-2">Employer / Office (optional)</h2>
+          <div class="mb-3">
+            <label class="flbl">Employer / Office Address</label>
+            <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($user['employer_address'] ?? '') ?>" placeholder="Lets you choose company delivery at checkout">
           </div>
 
           <div class="row">

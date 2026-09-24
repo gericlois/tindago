@@ -104,8 +104,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
         $item_count = $stmt->get_result()->fetch_assoc()['c'];
         $stmt->close();
 
+        $delivery_location = ($_POST['delivery_location'] ?? '') === 'company' ? 'company' : 'home';
+        $delivery_address = $delivery_location === 'company' ? trim((string) ($member['employer_address'] ?? '')) : trim((string) ($member['address'] ?? ''));
+
         if ($item_count == 0) {
             $errors[] = 'Add at least one item before placing your order.';
+        } elseif ($delivery_location === 'company' && $delivery_address === '') {
+            $errors[] = 'You don\'t have an employer/office address on file. Add one in My Account, or choose Home delivery.';
         } else {
             $available = basics_credit_available($conn, $member);
             if ($member['membership_status'] !== 'active') {
@@ -113,8 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
             } elseif ($order['total_amount'] > $available) {
                 $errors[] = 'This order (' . format_price($order['total_amount']) . ') exceeds your available credit (' . format_price($available) . ').';
             } else {
-                $stmt = $conn->prepare("UPDATE basics_orders SET status = 'pending', placed_at = NOW() WHERE id = ?");
-                $stmt->bind_param('i', $order['id']);
+                $stmt = $conn->prepare("UPDATE basics_orders SET status = 'pending', placed_at = NOW(), delivery_location = ?, delivery_address = ? WHERE id = ?");
+                $stmt->bind_param('ssi', $delivery_location, $delivery_address, $order['id']);
                 $stmt->execute();
                 $stmt->close();
 
@@ -204,6 +209,26 @@ require __DIR__ . '/../includes/navbar.php';
       </div>
       <form method="post" id="placeOrderForm">
         <input type="hidden" name="action" value="place_order">
+
+        <div class="mb-3">
+          <label class="flbl d-block">Deliver To</label>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="delivery_location" id="deliverHome" value="home" checked>
+            <label class="form-check-label" for="deliverHome">
+              Home Address — <?= $member['address'] ? sanitize($member['address']) : '—' ?>
+            </label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="delivery_location" id="deliverCompany" value="company" <?= empty($member['employer_address']) ? 'disabled' : '' ?>>
+            <label class="form-check-label" for="deliverCompany">
+              Company Address — <?= $member['employer_address'] ? sanitize($member['employer_address']) : 'Not on file' ?>
+            </label>
+          </div>
+          <?php if (empty($member['employer_address'])): ?>
+            <p class="text-muted small mb-0 mt-1">Add an employer/office address in <a href="<?= BASICS_URL ?>/account.php">My Account</a> to enable company delivery.</p>
+          <?php endif; ?>
+        </div>
+
         <button type="submit" class="btn-red w-100 justify-content-center" id="placeOrderBtn" <?= $order['total_amount'] > $available ? 'disabled' : '' ?>><i class="fas fa-check"></i>Place Order</button>
       </form>
       <p class="small text-muted mt-2 mb-0" id="exceedsCreditMsg" style="<?= $order['total_amount'] > $available ? '' : 'display:none;' ?>">This order exceeds your available credit.</p>

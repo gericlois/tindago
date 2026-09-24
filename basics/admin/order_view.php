@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     redirect('/basics/admin/order_view.php?id=' . $id);
 }
 
-$stmt = $conn->prepare("SELECT o.*, u.full_name, u.username
+$stmt = $conn->prepare("SELECT o.*, u.full_name, u.username, u.address
                          FROM basics_orders o
                          JOIN basics_members bm ON bm.id = o.member_id
                          JOIN basics_users u ON u.id = bm.user_id
@@ -207,9 +207,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="panel-card mb-4">
         <h2 class="h6">Order Details</h2>
         <p class="mb-1">Member: <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
-        <?php if ($order['delivered_at']): ?>
-          <p class="mb-1">Delivered: <?= date('M j, Y', strtotime($order['delivered_at'])) ?></p>
-        <?php endif; ?>
+        <?php $delivery_addr = $order['delivery_address'] !== '' ? $order['delivery_address'] : $order['address']; ?>
+        <p class="mb-1">Delivery Address (<?= $order['delivery_location'] === 'company' ? 'Company' : 'Home' ?>): <?= $delivery_addr ? sanitize($delivery_addr) : '—' ?></p>
+        <p class="mb-1">Order Date: <?= $order['placed_at'] ? date('M j, Y', strtotime($order['placed_at'])) : '—' ?></p>
+        <p class="mb-1">Delivery Date: <?= $order['delivered_at'] ? date('M j, Y', strtotime($order['delivered_at'])) : 'Not yet delivered' ?></p>
         <?php if ($order['is_gift']): ?>
           <p class="mb-1 text-muted">No payment required &mdash; Birthday Grocery Gift.</p>
         <?php elseif ($order['delivered_at']): ?>

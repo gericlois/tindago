@@ -28,6 +28,7 @@ $username = '';
 $employer_name = '';
 $employer_contact = '';
 $position = '';
+$employer_address = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
@@ -46,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employer_name = trim($_POST['employer_name'] ?? '');
     $employer_contact = trim($_POST['employer_contact'] ?? '');
     $position = trim($_POST['position'] ?? '');
+    $employer_address = trim($_POST['employer_address'] ?? '');
 
     if ($first_name === '') $errors[] = 'First name is required.';
     if ($last_name === '') $errors[] = 'Last name is required.';
@@ -117,8 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_id = $stmt->insert_id;
             $stmt->close();
 
-            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param('isss', $user_id, $employer_name, $employer_contact, $position);
+            $employer_address_to_store = $employer_address !== '' ? $employer_address : null;
+            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position, employer_address) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param('issss', $user_id, $employer_name, $employer_contact, $position, $employer_address_to_store);
             $stmt->execute();
             $member_id = $stmt->insert_id;
             $stmt->close();
@@ -258,6 +261,10 @@ require __DIR__ . '/../includes/navbar.php';
               <input type="text" name="position" class="fctrl" value="<?= sanitize($position) ?>" required>
             </div>
           </div>
+          <div class="mb-3">
+            <label class="flbl">Employer / Office Address (optional)</label>
+            <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($employer_address) ?>" placeholder="Lets you choose company delivery at checkout later">
+          </div>
 
           <h2 class="h6 mb-3 mt-2">Required Documents</h2>
           <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
@@ -303,7 +310,7 @@ require __DIR__ . '/../includes/navbar.php';
   var storageKey = 'basicsApplyDraft';
   var fields = ['first_name', 'middle_name', 'last_name', 'address_line', 'barangay', 'city', 'province',
                 'birthdate', 'contact_number', 'email', 'username',
-                'employer_name', 'employer_contact', 'position'];
+                'employer_name', 'employer_contact', 'position', 'employer_address'];
 
   var draft = {};
   try { draft = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch (e) { draft = {}; }
