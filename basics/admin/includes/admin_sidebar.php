@@ -23,6 +23,24 @@ $pending_basics_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_mem
 $pending_basics_payments_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_payment_submissions WHERE status = 'pending'")->fetch_assoc()['c'];
 $pending_basics_credit_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
 $pending_basics_benefits_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
+$pending_basics_checking_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending'")->fetch_assoc()['c'];
+
+// Overdue follow-ups for Payment Reminders — same "delivered, unpaid, due
+// date already passed" definition as basics_orders_overdue() in
+// payment_reminders.php (that function lives on the page itself, not in a
+// shared include, so it's re-derived here rather than called directly).
+$overdue_orders_raw = $conn->query("SELECT o.id, o.total_amount, o.delivered_at,
+        (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
+    FROM basics_orders o WHERE o.status = 'delivered'
+    HAVING amount_paid < o.total_amount")->fetch_all(MYSQLI_ASSOC);
+$pending_basics_overdue_count = 0;
+$today_ymd = date('Y-m-d');
+foreach ($overdue_orders_raw as $overdue_order) {
+    $due_date = basics_payment_due_date($overdue_order);
+    if ($due_date !== null && $due_date < $today_ymd) {
+        $pending_basics_overdue_count++;
+    }
+}
 
 $nav_groups = [
     'Overview' => [
@@ -39,13 +57,13 @@ $nav_groups = [
             ],
         ],
         '/basics/admin/products.php'    => ['icon' => 'fa-box',            'label' => 'Manage Products'],
-        '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders'],
+        '/basics/admin/orders.php'       => ['icon' => 'fa-receipt',        'label' => 'Manage Orders', 'badge' => $pending_basics_checking_count],
         '/basics/admin/supplier_summary.php' => ['icon' => 'fa-truck-ramp-box', 'label' => 'Supplier Summary'],
         '__payments' => [
             'icon' => 'fa-sack-dollar', 'label' => 'Payments',
             'children' => [
                 '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
-                '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders'],
+                '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders', 'badge' => $pending_basics_overdue_count],
                 '/basics/admin/payment_submissions.php' => ['icon' => 'fa-receipt', 'label' => 'Payment Submissions', 'badge' => $pending_basics_payments_count],
                 '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
             ],
