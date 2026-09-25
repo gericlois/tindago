@@ -128,6 +128,7 @@ $staff_role_paths = [
     'staff_orders' => [
         '/basics/admin/applications.php', '/basics/admin/products.php',
         '/basics/admin/orders.php', '/basics/admin/supplier_summary.php',
+        '/basics/admin/communication_log.php',
     ],
     'staff_payments' => [
         '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
@@ -137,6 +138,7 @@ $staff_role_paths = [
     ],
     'staff_registration' => [
         '/basics/admin/users.php', '/basics/admin/register_member.php',
+        '/basics/admin/communication_log.php',
     ],
 ];
 if (isset($staff_role_paths[basics_admin_role()])) {
