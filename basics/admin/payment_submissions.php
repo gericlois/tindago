@@ -123,10 +123,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th>Auto-Check</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if (empty($submissions)): ?>
-        <tr><td colspan="11" class="text-muted">No submissions.</td></tr>
+        <tr><td colspan="12" class="text-muted">No submissions.</td></tr>
       <?php endif; ?>
       <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
@@ -140,6 +140,20 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= sanitize($s['reference_number']) ?></td>
           <td><?= date('M j, Y g:i A', strtotime($s['paid_at'])) ?></td>
           <td class="no-print"><?php if ($s['proof_image']): ?><a href="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" target="_blank">View</a><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <td class="small">
+            <?php if ($s['proof_check_status'] === 'match'): ?>
+              <span class="pill pill-approved" title="Proof reads: <?= sanitize(format_price($s['proof_extracted_amount'])) ?>, Ref <?= sanitize($s['proof_extracted_reference']) ?>"><i class="fas fa-check"></i> Matches</span>
+            <?php elseif ($s['proof_check_status'] === 'mismatch'): ?>
+              <span class="pill pill-rejected" title="<?= sanitize($s['proof_check_notes']) ?>"><i class="fas fa-triangle-exclamation"></i> Mismatch</span>
+              <div class="text-muted" style="font-size:0.75rem;"><?= sanitize($s['proof_check_notes']) ?></div>
+            <?php elseif ($s['proof_check_status'] === 'no_proof'): ?>
+              <span class="text-muted">&mdash;</span>
+            <?php elseif ($s['proof_check_status'] === 'unsupported'): ?>
+              <span class="text-muted" title="<?= sanitize($s['proof_check_notes']) ?>">PDF &mdash; check manually</span>
+            <?php else: ?>
+              <span class="text-muted" title="<?= sanitize($s['proof_check_notes'] ?? '') ?>">Not checked</span>
+            <?php endif; ?>
+          </td>
           <td><span class="pill pill-<?= $status_pill[$s['status']] ?? 'pending' ?>"><?= ucfirst($s['status']) ?></span></td>
           <td class="small"><?= $s['admin_notes'] ? sanitize($s['admin_notes']) : '<span class="text-muted">—</span>' ?></td>
           <td class="no-print">
