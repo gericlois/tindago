@@ -124,8 +124,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div class="d-flex flex-wrap gap-2">
-      <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'denied' => 'Denied', 'all' => 'All'] as $key => $label): ?>
-        <a href="?status=<?= $key ?>" class="btn-chip <?= $status_filter === $key ? 'btn-chip-success' : '' ?>">
+      <?php foreach (['all' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'denied' => 'Denied'] as $key => $label): ?>
+        <a href="?status=<?= $key ?>" class="filter-pill <?= $status_filter === $key ? 'active' : '' ?>">
           <?= $label ?><?= $key === 'pending' && $pending_count > 0 ? ' (' . $pending_count . ')' : '' ?>
         </a>
       <?php endforeach; ?>
