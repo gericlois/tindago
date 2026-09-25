@@ -198,4 +198,9 @@ new Chart(document.getElementById('ordersPerDayChart'), {
   }
 });
 </script>
+<script>
+// Keeps pending counts/badges and the orders chart current without the
+// admin needing to manually reload.
+setTimeout(function () { location.reload(); }, 5000);
+</script>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>
