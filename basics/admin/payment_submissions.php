@@ -123,10 +123,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th>Status</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if (empty($submissions)): ?>
-        <tr><td colspan="10" class="text-muted">No submissions.</td></tr>
+        <tr><td colspan="11" class="text-muted">No submissions.</td></tr>
       <?php endif; ?>
       <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
@@ -141,11 +141,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= date('M j, Y g:i A', strtotime($s['paid_at'])) ?></td>
           <td class="no-print"><?php if ($s['proof_image']): ?><a href="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" target="_blank">View</a><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
           <td><span class="pill pill-<?= $status_pill[$s['status']] ?? 'pending' ?>"><?= ucfirst($s['status']) ?></span></td>
+          <td class="small"><?= $s['admin_notes'] ? sanitize($s['admin_notes']) : '<span class="text-muted">—</span>' ?></td>
           <td class="no-print">
             <?php if ($s['status'] === 'pending'): ?>
               <button type="button" class="btn-chip btn-chip-success" data-bs-toggle="modal" data-bs-target="#reviewModal-<?= (int) $s['id'] ?>">Review</button>
-            <?php elseif ($s['admin_notes']): ?>
-              <span class="small text-muted"><?= sanitize($s['admin_notes']) ?></span>
             <?php endif; ?>
           </td>
         </tr>
