@@ -115,17 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->bind_param('isiissdsss', $member['id'], $payment_for, $order_id, $loan_request_id, $payment_method, $destination_account, $amount, $reference_number, $paid_at, $proof_filename);
         $stmt->execute();
-        $submission_id = $stmt->insert_id;
         $stmt->close();
-
-        // Advisory only — never let a hiccup here (network, API, etc.) block
-        // the member's actual submission, which has already been saved.
-        try {
-            basics_check_payment_proof($conn, $submission_id);
-        } catch (Throwable $e) {
-            error_log('basics_check_payment_proof failed for submission #' . $submission_id . ': ' . $e->getMessage());
-        }
-
         redirect('/basics/payments.php?submitted=1');
     }
 }
