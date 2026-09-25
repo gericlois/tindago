@@ -987,11 +987,25 @@ footer {
 
 /* DataTables (Basics admin tables — search/sort/print). Light polish so the
    library's default chrome matches the rest of the admin UI. */
+.dataTables_wrapper .dataTables_filter {
+  /* Full-width, own line — the parent row is flex-wrap, so this pushes the
+     Print button above it instead of squeezing the search box to fit. */
+  flex: 1 1 100%;
+}
+.dataTables_wrapper .dataTables_filter label {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+  margin-bottom: 0;
+}
 .dataTables_wrapper .dataTables_filter input {
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 6px 12px;
-  margin-left: 6px;
+  margin-left: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
 }
 .dataTables_wrapper .dataTables_length select {
   border: 1px solid #ddd;

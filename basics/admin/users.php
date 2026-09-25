@@ -54,7 +54,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div class="d-flex flex-wrap gap-2">
       <a href="<?= BASE_URL ?>/basics/admin/users.php<?= $search !== '' ? '?q=' . urlencode($search) : '' ?>" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
       <?php foreach ($valid_statuses as $status): ?>
@@ -62,15 +62,13 @@ require __DIR__ . '/includes/admin_sidebar.php';
            class="filter-pill text-capitalize <?= $status_filter === $status ? 'active' : '' ?>"><?= $status ?></a>
       <?php endforeach; ?>
     </div>
-    <div class="d-flex flex-wrap gap-2 align-items-center">
-      <form method="get" class="d-flex gap-2">
-        <?php if (in_array($status_filter, $valid_statuses, true)): ?><input type="hidden" name="status" value="<?= sanitize($status_filter) ?>"><?php endif; ?>
-        <input type="search" name="q" class="fctrl" placeholder="Search name, username or contact" value="<?= sanitize($search) ?>">
-        <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-magnifying-glass"></i> Search</button>
-      </form>
-      <a href="<?= BASE_URL ?>/basics/admin/register_member.php" class="btn-chip btn-chip-success"><i class="fas fa-user-plus"></i> Register Member</a>
-    </div>
+    <a href="<?= BASE_URL ?>/basics/admin/register_member.php" class="btn-chip btn-chip-success"><i class="fas fa-user-plus"></i> Register Member</a>
   </div>
+  <form method="get" class="d-flex gap-2 mb-4">
+    <?php if (in_array($status_filter, $valid_statuses, true)): ?><input type="hidden" name="status" value="<?= sanitize($status_filter) ?>"><?php endif; ?>
+    <input type="search" name="q" class="fctrl" placeholder="Search name, username or contact" value="<?= sanitize($search) ?>" style="flex:1 1 auto; min-width:0;">
+    <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-magnifying-glass"></i> Search</button>
+  </form>
 
   <div class="table-responsive">
     <table class="table-theme">
