@@ -133,6 +133,7 @@ $staff_role_paths = [
         '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
         '/basics/admin/payment_submissions.php', '/basics/admin/emergency_credit.php',
         '/basics/admin/benefit_requests.php', '/basics/admin/dormancy.php',
+        '/basics/admin/communication_log.php',
     ],
     'staff_registration' => [
         '/basics/admin/users.php', '/basics/admin/register_member.php',
