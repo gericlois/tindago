@@ -80,6 +80,9 @@ require __DIR__ . '/../includes/navbar.php';
           <p class="mb-1 text-muted">Payment Due: 7 days after delivery</p>
         <?php endif; ?>
         <p class="mb-2">Status: <span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span></p>
+        <?php if ($order['status'] === 'cancelled' && $order['cancel_reason']): ?>
+          <p class="mb-2 text-muted">Reason: <?= sanitize($order['cancel_reason']) ?></p>
+        <?php endif; ?>
         <?php if ($order['status'] === 'pending'): ?>
           <form method="post">
             <input type="hidden" name="action" value="cancel">

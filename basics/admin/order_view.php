@@ -130,16 +130,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel') {
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'confirmed')");
-    $stmt->bind_param('i', $id);
+    $cancel_reason = trim($_POST['cancel_reason'] ?? '');
+    if ($cancel_reason === '') {
+        redirect('/basics/admin/order_view.php?id=' . $id . '&error=missing_cancel_reason');
+    }
+
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled', cancel_reason = ? WHERE id = ? AND status IN ('pending', 'confirmed')");
+    $stmt->bind_param('si', $cancel_reason, $id);
     $stmt->execute();
     $cancelled = $stmt->affected_rows > 0;
     $stmt->close();
     if ($cancelled) {
-        log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $id);
+        log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $id . ': ' . $cancel_reason);
         $member = basics_member_by_order_id($conn, $id);
         if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been cancelled. - JMC Foodies Basics");
+            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been cancelled. Reason: {$cancel_reason} - JMC Foodies Basics");
         }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
@@ -201,6 +206,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
 <div class="container-fluid py-4">
   <?php if (($_GET['error'] ?? '') === 'empty_gift'): ?>
     <div class="errmsg mb-4"><p class="mb-0">Add at least one item before approving a gift order.</p></div>
+  <?php elseif (($_GET['error'] ?? '') === 'missing_cancel_reason'): ?>
+    <div class="errmsg mb-4"><p class="mb-0">Enter a reason before cancelling this order.</p></div>
   <?php endif; ?>
   <div class="row g-4">
     <div class="col-12 col-md-7">
@@ -211,6 +218,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Delivery Address (<?= $order['delivery_location'] === 'company' ? 'Company' : 'Home' ?>): <?= $delivery_addr ? sanitize($delivery_addr) : '—' ?></p>
         <p class="mb-1">Order Date: <?= $order['placed_at'] ? date('M j, Y', strtotime($order['placed_at'])) : '—' ?></p>
         <p class="mb-1">Delivery Date: <?= $order['delivered_at'] ? date('M j, Y', strtotime($order['delivered_at'])) : 'Not yet delivered' ?></p>
+        <?php if ($order['status'] === 'cancelled' && $order['cancel_reason']): ?>
+          <p class="mb-1">Cancellation Reason: <?= sanitize($order['cancel_reason']) ?></p>
+        <?php endif; ?>
         <?php if ($order['is_gift']): ?>
           <p class="mb-1 text-muted">No payment required &mdash; Birthday Grocery Gift.</p>
         <?php elseif ($order['delivered_at']): ?>
@@ -309,10 +319,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <input type="hidden" name="action" value="confirm">
             <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this order? Review the items above first if anything is out of stock.');">Approve Order</button>
           </form>
-          <form method="post" class="d-inline">
-            <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel Order</button>
-          </form>
+          <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">Cancel Order</button>
         <?php elseif ($order['status'] === 'confirmed'): ?>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="out_for_delivery">
@@ -321,10 +328,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <?php if (!$order['is_gift']): ?>
             <a href="<?= BASE_URL ?>/basics/admin/payments.php?order_id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">Record Payment</a>
           <?php endif; ?>
-          <form method="post" class="d-inline">
-            <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel Order</button>
-          </form>
+          <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">Cancel Order</button>
         <?php elseif ($order['status'] === 'out_for_delivery'): ?>
           <form method="post" class="d-inline">
             <input type="hidden" name="action" value="deliver">
@@ -358,4 +362,29 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   </div>
 </div>
+
+<?php if (in_array($order['status'], ['pending', 'confirmed'], true)): ?>
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post">
+        <input type="hidden" name="action" value="cancel">
+        <div class="modal-header">
+          <h5 class="modal-title">Cancel Order #<?= (int) $order['id'] ?></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small">The member will be notified by SMS/email with this reason. This cannot be undone.</p>
+          <label class="flbl">Reason for Cancellation (required)</label>
+          <textarea name="cancel_reason" class="fctrl" rows="3" required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline-theme" data-bs-dismiss="modal">Never Mind</button>
+          <button type="submit" class="btn-red" onclick="return confirm('Cancel this order? This cannot be undone.');">Cancel Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>
