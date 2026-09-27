@@ -13,7 +13,7 @@ if (!$member) {
     redirect('/basics/apply.php');
 }
 if ($member['application_status'] === 'approved' && in_array($member['membership_status'], ['active', 'dormant'], true)) {
-    redirect('/basics/dashboard.php');
+    redirect('/basics/catalog.php');
 }
 
 $page_title = 'Application Status';

@@ -10,6 +10,7 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 $id = (int) ($_GET['id'] ?? 0);
 $product = [
     'id' => 0, 'sku' => '', 'category' => 'Rice', 'name' => '', 'unit' => '', 'srp' => '0', 'image' => null, 'status' => 'active',
+    'is_featured' => 0, 'flash_deal_price' => null, 'flash_deal_ends_at' => null,
 ];
 if ($id) {
     $stmt = $conn->prepare("SELECT * FROM basics_products WHERE id = ?");
@@ -30,11 +31,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $srp = (float) ($_POST['srp'] ?? 0);
     $status = ($_POST['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active';
     $image = $product['image'];
+    $is_featured = !empty($_POST['is_featured']) ? 1 : 0;
+    $flash_deal_price_raw = trim($_POST['flash_deal_price'] ?? '');
+    $flash_deal_ends_at_raw = trim($_POST['flash_deal_ends_at'] ?? '');
+    $flash_deal_price = $flash_deal_price_raw !== '' ? round((float) $flash_deal_price_raw, 2) : null;
+    // <input type="datetime-local"> posts "2026-10-01T14:30" (or "...:30:00"
+    // if the browser includes seconds) — MySQL DATETIME wants a space
+    // instead of the "T", and always wants seconds.
+    if ($flash_deal_ends_at_raw !== '') {
+        $flash_deal_ends_at = str_replace('T', ' ', $flash_deal_ends_at_raw);
+        if (substr_count($flash_deal_ends_at, ':') < 2) {
+            $flash_deal_ends_at .= ':00';
+        }
+    } else {
+        $flash_deal_ends_at = null;
+    }
 
     if ($sku === '') $errors[] = 'SKU is required.';
     if ($name === '') $errors[] = 'Product name is required.';
     if ($unit === '') $errors[] = 'Unit is required.';
     if ($srp < 0) $errors[] = 'SRP cannot be negative.';
+    // Both-or-neither — a flash deal needs both a price and an end time to
+    // mean anything.
+    if (($flash_deal_price !== null) !== ($flash_deal_ends_at !== null)) {
+        $errors[] = 'Set both a Flash Deal Price and an End Date/Time, or leave both blank.';
+    } elseif ($flash_deal_price !== null) {
+        if ($flash_deal_price <= 0) {
+            $errors[] = 'Flash Deal Price must be greater than 0.';
+        } elseif ($srp > 0 && $flash_deal_price >= $srp) {
+            $errors[] = 'Flash Deal Price must be less than the regular SRP.';
+        }
+    }
 
     if (empty($errors)) {
         $stmt = $conn->prepare("SELECT id FROM basics_products WHERE sku = ? AND id != ?");
@@ -58,15 +85,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
         if ($id) {
-            $stmt = $conn->prepare("UPDATE basics_products SET sku=?, category=?, name=?, unit=?, srp=?, image=?, status=? WHERE id=?");
-            $stmt->bind_param('ssssdssi', $sku, $category, $name, $unit, $srp, $image, $status, $id);
+            $stmt = $conn->prepare("UPDATE basics_products SET sku=?, category=?, name=?, unit=?, srp=?, image=?, status=?, is_featured=?, flash_deal_price=?, flash_deal_ends_at=? WHERE id=?");
+            $stmt->bind_param('ssssdssidsi', $sku, $category, $name, $unit, $srp, $image, $status, $is_featured, $flash_deal_price, $flash_deal_ends_at, $id);
             $stmt->execute();
             $stmt->close();
             log_activity($conn, 'update_basics_product', 'Updated Basics product "' . $name . '" (' . $sku . ')');
             redirect('/basics/admin/product_edit.php?id=' . $id . '&saved=1');
         } else {
-            $stmt = $conn->prepare("INSERT INTO basics_products (sku, category, name, unit, srp, image, status) VALUES (?,?,?,?,?,?,?)");
-            $stmt->bind_param('ssssdss', $sku, $category, $name, $unit, $srp, $image, $status);
+            $stmt = $conn->prepare("INSERT INTO basics_products (sku, category, name, unit, srp, image, status, is_featured, flash_deal_price, flash_deal_ends_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+            $stmt->bind_param('ssssdssids', $sku, $category, $name, $unit, $srp, $image, $status, $is_featured, $flash_deal_price, $flash_deal_ends_at);
             $stmt->execute();
             $new_id = $stmt->insert_id;
             $stmt->close();
@@ -74,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/basics/admin/product_edit.php?id=' . $new_id . '&saved=1');
         }
     }
-    $product = array_merge($product, compact('sku', 'category', 'name', 'unit', 'srp', 'status', 'image'));
+    $product = array_merge($product, compact('sku', 'category', 'name', 'unit', 'srp', 'status', 'image', 'is_featured', 'flash_deal_price', 'flash_deal_ends_at'));
 }
 
 $page_title = $id ? 'Edit Product' : 'Add Product';
@@ -149,6 +176,24 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <option value="inactive" <?= $product['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
             </select>
           </div>
+
+          <h2 class="h6 mb-3 mt-2">Catalog Placement</h2>
+          <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="is_featured" name="is_featured" value="1" <?= $product['is_featured'] ? 'checked' : '' ?>>
+            <label class="form-check-label" for="is_featured">Featured Product — shows in the Featured row at the top of the catalog</label>
+          </div>
+          <div class="row">
+            <div class="col-sm-6 mb-3">
+              <label class="flbl">Flash Deal Price (optional)</label>
+              <input type="number" step="0.01" min="0" name="flash_deal_price" class="fctrl" value="<?= $product['flash_deal_price'] !== null ? sanitize($product['flash_deal_price']) : '' ?>" placeholder="Leave blank for no deal">
+            </div>
+            <div class="col-sm-6 mb-3">
+              <label class="flbl">Flash Deal Ends At</label>
+              <input type="datetime-local" name="flash_deal_ends_at" class="fctrl" value="<?= $product['flash_deal_ends_at'] ? date('Y-m-d\TH:i', strtotime($product['flash_deal_ends_at'])) : '' ?>">
+            </div>
+          </div>
+          <div class="form-text mb-3">Set both fields to run a Flash Deal — it shows at the top of the catalog with a countdown until the end time, then automatically stops showing (the fields aren't cleared, so re-running the same deal is just picking a new end time).</div>
+
           <button type="submit" class="btn-red"><i class="fas fa-floppy-disk"></i>Save Product</button>
           <a href="<?= BASE_URL ?>/basics/admin/products.php" class="btn-outline-theme">Cancel</a>
         </form>

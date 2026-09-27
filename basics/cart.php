@@ -8,6 +8,11 @@ require __DIR__ . '/includes/functions.php';
 
 require_basics_access($conn);
 
+// Orders must total at least this much to be placed — applies to the
+// member's own cart checkout only, not admin-added gift orders (which are
+// pinned at total_amount=0 and go through a separate claim flow).
+$minimum_order = 1500;
+
 $member = basics_get_member($conn, basics_current_user_id());
 $errors = [];
 
@@ -44,6 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
                 'order_total_formatted' => format_price($order_total),
                 'available' => $available,
                 'exceeds_credit' => $order_total > $available,
+                'below_minimum' => $order_total < $minimum_order,
                 'item_count' => $item_count,
                 'cart_count' => basics_cart_item_count($conn, basics_current_user_id()),
             ]);
@@ -86,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
                     'order_total_formatted' => format_price($order_total),
                     'available' => $available,
                     'exceeds_credit' => $order_total > $available,
+                    'below_minimum' => $order_total < $minimum_order,
                     'cart_count' => basics_cart_item_count($conn, basics_current_user_id()),
                 ]);
                 exit;
@@ -109,6 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
 
         if ($item_count == 0) {
             $errors[] = 'Add at least one item before placing your order.';
+        } elseif ($order['total_amount'] < $minimum_order) {
+            $errors[] = 'This order (' . format_price($order['total_amount']) . ') is below the minimum order of ' . format_price($minimum_order) . '.';
         } elseif ($delivery_location === 'company' && $delivery_address === '') {
             $errors[] = 'You don\'t have an employer/office address on file. Add one in My Account, or choose Home delivery.';
         } else {
@@ -116,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
             if ($member['membership_status'] !== 'active') {
                 $errors[] = 'Your account is not currently active for ordering.';
             } elseif ($order['total_amount'] > $available) {
-                $errors[] = 'This order (' . format_price($order['total_amount']) . ') exceeds your available credit (' . format_price($available) . ').';
+                $errors[] = 'This order (' . format_price($order['total_amount']) . ') exceeds your available purchase balance (' . format_price($available) . ').';
             } else {
                 $stmt = $conn->prepare("UPDATE basics_orders SET status = 'pending', placed_at = NOW(), delivery_location = ?, delivery_address = ? WHERE id = ?");
                 $stmt->bind_param('ssi', $delivery_location, $delivery_address, $order['id']);
@@ -175,7 +184,7 @@ require __DIR__ . '/../includes/navbar.php';
       <a href="<?= BASICS_URL ?>/catalog.php" class="btn-red"><i class="fas fa-basket-shopping"></i>Browse Catalog</a>
     </div>
   <?php else: ?>
-    <p class="small text-muted mb-3">Available credit: <strong><?= format_price($available) ?></strong></p>
+    <p class="small text-muted mb-3">Available purchase balance: <strong><?= format_price($available) ?></strong></p>
     <div class="table-responsive mb-4">
       <table class="table-theme" id="cartTable">
         <thead><tr><th>Product</th><th>Qty</th><th>Unit Price</th><th>Line Total</th><th></th></tr></thead>
@@ -229,9 +238,10 @@ require __DIR__ . '/../includes/navbar.php';
           <?php endif; ?>
         </div>
 
-        <button type="submit" class="btn-red w-100 justify-content-center" id="placeOrderBtn" <?= $order['total_amount'] > $available ? 'disabled' : '' ?>><i class="fas fa-check"></i>Place Order</button>
+        <button type="submit" class="btn-red w-100 justify-content-center" id="placeOrderBtn" <?= ($order['total_amount'] > $available || $order['total_amount'] < $minimum_order) ? 'disabled' : '' ?>><i class="fas fa-check"></i>Place Order</button>
       </form>
-      <p class="small text-muted mt-2 mb-0" id="exceedsCreditMsg" style="<?= $order['total_amount'] > $available ? '' : 'display:none;' ?>">This order exceeds your available credit.</p>
+      <p class="small text-muted mt-2 mb-0" id="exceedsCreditMsg" style="<?= $order['total_amount'] > $available ? '' : 'display:none;' ?>">This order exceeds your available purchase balance.</p>
+      <p class="small text-muted mt-2 mb-0" id="belowMinimumMsg" style="<?= $order['total_amount'] < $minimum_order ? '' : 'display:none;' ?>">Minimum order is <?= format_price($minimum_order) ?>.</p>
     </div>
   <?php endif; ?>
 </div>
@@ -279,11 +289,13 @@ document.addEventListener('DOMContentLoaded', function () {
   var orderTotal = document.getElementById('orderTotal');
   var placeOrderBtn = document.getElementById('placeOrderBtn');
   var exceedsCreditMsg = document.getElementById('exceedsCreditMsg');
+  var belowMinimumMsg = document.getElementById('belowMinimumMsg');
 
   function applyOrderState(data) {
     orderTotal.textContent = data.order_total_formatted;
-    placeOrderBtn.disabled = !!data.exceeds_credit;
+    placeOrderBtn.disabled = !!data.exceeds_credit || !!data.below_minimum;
     exceedsCreditMsg.style.display = data.exceeds_credit ? '' : 'none';
+    belowMinimumMsg.style.display = data.below_minimum ? '' : 'none';
     basicsUpdateCartBadge(data.cart_count);
   }
 

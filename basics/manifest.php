@@ -6,7 +6,7 @@ header('Content-Type: application/manifest+json');
 echo json_encode([
     'name' => 'JMC Foodies Basics',
     'short_name' => 'JMC Basics',
-    'description' => 'A weekly grocery credit line for employees of partner companies. Basic needs, everyday, for every family.',
+    'description' => 'A weekly grocery purchase line for employees of partner companies. Basic needs, everyday, for every family.',
     'start_url' => BASICS_URL . '/index.php',
     'scope' => BASE_URL . '/',
     'display' => 'standalone',

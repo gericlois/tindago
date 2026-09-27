@@ -166,7 +166,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="row justify-content-center">
     <div class="col-12 col-xl-9">
       <div class="panel-card">
-        <p class="text-muted small">Registers a member on their behalf. The application goes to an admin for approval — credit limit and activation are set there, not here.</p>
+        <p class="text-muted small">Registers a member on their behalf. The application goes to an admin for approval — purchase limit and activation are set there, not here.</p>
         <form method="post" enctype="multipart/form-data">
           <h2 class="h6 mb-3">Member Details</h2>
           <div class="row">

@@ -6,7 +6,7 @@ require __DIR__ . '/../includes/auth.php';
 require __DIR__ . '/includes/module.php';
 
 if (basics_is_logged_in()) {
-    redirect(!empty($_SESSION['basics_must_change_password']) ? '/basics/change_password.php' : '/basics/dashboard.php');
+    redirect(!empty($_SESSION['basics_must_change_password']) ? '/basics/change_password.php' : '/basics/catalog.php');
 }
 
 $errors = [];
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         session_regenerate_id(true);
         $_SESSION['basics_user_id'] = $user['id'];
         $_SESSION['basics_must_change_password'] = (bool) $user['must_change_password'];
-        redirect($user['must_change_password'] ? '/basics/change_password.php' : '/basics/dashboard.php');
+        redirect($user['must_change_password'] ? '/basics/change_password.php' : '/basics/catalog.php');
     }
 }
 

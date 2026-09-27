@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($member) {
                 // No password reset on approval — the applicant already
                 // chose their own at signup, so they log in with that.
-                basics_notify($conn, $member, "Hi {$member['full_name']}, your JMC Foodies Basics membership has been APPROVED! Weekly credit limit: " . format_price($weekly_limit) . ". Log in with the username and password you set at signup. - JMC Foodies Basics");
+                basics_notify($conn, $member, "Hi {$member['full_name']}, your JMC Foodies Basics membership has been APPROVED! Weekly purchase limit: " . format_price($weekly_limit) . ". Log in with the username and password you set at signup. - JMC Foodies Basics");
                 send_basics_account_approved_email($member['email'], $member['full_name'], $member['username'], $weekly_limit);
             }
         }
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_activity($conn, 'deny_basics_application', 'Denied Basics application for member #' . $id);
             $member = basics_get_member($conn, $conn->query("SELECT user_id FROM basics_members WHERE id = $id")->fetch_assoc()['user_id']);
             if ($member) {
-                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the JMC Foodies Basics Program. Unfortunately, we are unable to approve your application at this time, based on your available credit and financial information. However, we would like you to consider applying after 30 days. For questions and other concerns please call +63 917 323 8153. - JMC Foodies Basics");
+                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the JMC Foodies Basics Program. Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying after 30 days. For questions and other concerns please call +63 917 323 8153. - JMC Foodies Basics");
                 send_basics_account_denied_email($member['email'], $member['full_name']);
             }
         }
@@ -131,10 +131,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php if ($application['application_status'] === 'pending'): ?>
           <form method="post" class="mb-4">
             <input type="hidden" name="action" value="approve">
-            <h3 class="h6 mb-2">Approve &amp; Set Credit Line</h3>
+            <h3 class="h6 mb-2">Approve &amp; Set Purchase Line</h3>
             <div class="mb-2">
-              <label class="flbl">Weekly Grocery Credit Limit (₱1,500&ndash;2,000)</label>
-              <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="1500" required>
+              <label class="flbl">Weekly Grocery Purchase Limit (₱3,000&ndash;4,000)</label>
+              <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="3000" required>
             </div>
             <div class="mb-3">
               <label class="flbl">Emergency Cash Credit Limit (up to ₱1,000)</label>
@@ -152,7 +152,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Deny this application?');"><i class="fas fa-xmark"></i> Deny Application</button>
           </form>
         <?php else: ?>
-          <p class="mb-1">Weekly Credit Limit: <?= format_price($application['weekly_credit_limit']) ?></p>
+          <p class="mb-1">Weekly Purchase Limit: <?= format_price($application['weekly_credit_limit']) ?></p>
           <p class="mb-1">Emergency Credit Limit: <?= format_price($application['emergency_credit_limit']) ?></p>
           <?php if ($application['admin_notes']): ?>
             <p class="mb-0 text-muted">Notes: <?= sanitize($application['admin_notes']) ?></p>

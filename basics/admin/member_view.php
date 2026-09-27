@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
         }
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'update_basics_credit', 'Updated credit line for Basics member #' . $id . ' (weekly ' . format_price($weekly_limit) . ', emergency ' . format_price($emergency_limit) . ')');
+        log_activity($conn, 'update_basics_credit', 'Updated purchase limit for Basics member #' . $id . ' (weekly ' . format_price($weekly_limit) . ', emergency ' . format_price($emergency_limit) . ')');
     } elseif ($action === 'suspend') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'suspended' WHERE id = ?");
         $stmt->bind_param('i', $id);
@@ -307,10 +307,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="panel-card">
         <h2 class="h6">Membership Status</h2>
         <p class="mb-3">Status: <span class="pill pill-<?= $member['membership_status'] === 'active' ? 'active' : ($member['membership_status'] === 'dormant' ? 'pending' : 'suspended') ?>"><?= sanitize($member['membership_status']) ?></span>
-          <?php if ($member['credit_limit_frozen']): ?><span class="pill pill-rejected">Credit Frozen</span><?php endif; ?>
+          <?php if ($member['credit_limit_frozen']): ?><span class="pill pill-rejected">Purchase Frozen</span><?php endif; ?>
         </p>
         <?php if ($member['consecutive_on_time_payments'] >= 12): ?>
-          <div class="sucmsg is-visible mb-3"><p class="mb-0">Eligible for a higher credit limit (12+ on-time payments).</p></div>
+          <div class="sucmsg is-visible mb-3"><p class="mb-0">Eligible for a higher purchase limit (12+ on-time payments).</p></div>
         <?php endif; ?>
 
         <?php if ($member['membership_status'] === 'active'): ?>
@@ -387,11 +387,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
       </div>
 
       <div class="panel-card mt-4">
-        <h2 class="h6">Adjust Credit Line</h2>
+        <h2 class="h6">Adjust Purchase Line</h2>
         <form method="post">
           <input type="hidden" name="action" value="update_credit">
           <div class="mb-2">
-            <label class="flbl">Weekly Credit Limit</label>
+            <label class="flbl">Weekly Purchase Limit</label>
             <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="<?= sanitize($member['weekly_credit_limit']) ?>" required>
           </div>
           <div class="mb-2">
@@ -401,7 +401,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <?php if ($member['credit_limit_frozen']): ?>
             <div class="form-check mb-3">
               <input class="form-check-input" type="checkbox" name="unfreeze" id="unfreezeCheck" value="1">
-              <label class="form-check-label" for="unfreezeCheck">Unfreeze credit limit</label>
+              <label class="form-check-label" for="unfreezeCheck">Unfreeze purchase limit</label>
             </div>
           <?php endif; ?>
           <button type="submit" class="btn-chip btn-chip-success"><i class="fas fa-floppy-disk"></i> Save</button>

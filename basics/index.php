@@ -9,7 +9,7 @@ require __DIR__ . '/includes/functions.php';
 if (basics_is_logged_in()) {
     $member = basics_get_member($conn, basics_current_user_id());
     if ($member && $member['application_status'] === 'approved' && in_array($member['membership_status'], ['active', 'dormant'], true)) {
-        redirect('/basics/dashboard.php');
+        redirect('/basics/catalog.php');
     }
     redirect('/basics/pending.php');
 }
@@ -29,7 +29,7 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
         <h1 class="htitle">Basic Needs,<br/><span class="hl">Everyday, For Every Family</span></h1>
         <p class="hdesc mx-auto">
-          A grocery credit line for employees of partner companies. Order rice, breakfast
+          A grocery purchase line for employees of partner companies. Order rice, breakfast
           essentials, and viand any time &mdash; settle up 7 days after delivery, 0% interest.
         </p>
         <div class="d-flex flex-wrap justify-content-center gap-3 mb-2">

@@ -68,11 +68,11 @@ require __DIR__ . '/../includes/navbar.php';
   <?php endif; ?>
   <?php if ($member['credit_limit_frozen']): ?>
     <div class="errmsg mb-4">
-      <p class="mb-0"><i class="fas fa-triangle-exclamation me-1"></i>Your credit limit is currently frozen due to a late payment. It will unfreeze once your payment performance improves.</p>
+      <p class="mb-0"><i class="fas fa-triangle-exclamation me-1"></i>Your purchase limit is currently frozen due to a late payment. It will unfreeze once your payment performance improves.</p>
     </div>
   <?php endif; ?>
   <?php if ($member['consecutive_on_time_payments'] >= 12): ?>
-    <div class="sucmsg is-visible mb-4"><p><i class="fas fa-star me-1"></i>You've made 12+ consecutive on-time payments &mdash; you may be eligible for a higher credit limit. Contact support to ask about an increase.</p></div>
+    <div class="sucmsg is-visible mb-4"><p><i class="fas fa-star me-1"></i>You've made 12+ consecutive on-time payments &mdash; you may be eligible for a higher purchase limit. Contact support to ask about an increase.</p></div>
   <?php endif; ?>
 
   <div class="row g-4">
@@ -82,13 +82,13 @@ require __DIR__ . '/../includes/navbar.php';
         <div class="col-6 col-lg-12">
           <div class="stat-tile">
             <div class="stat-num"><?= format_price($member['weekly_credit_limit']) ?></div>
-            <div class="stat-lbl">Weekly Credit Limit</div>
+            <div class="stat-lbl">Weekly Purchase Limit</div>
           </div>
         </div>
         <div class="col-6 col-lg-12">
           <div class="stat-tile">
             <div class="stat-num accent"><?= format_price($available) ?></div>
-            <div class="stat-lbl">Available Credit</div>
+            <div class="stat-lbl">Available Purchase Balance</div>
           </div>
         </div>
         <div class="col-6 col-lg-12">

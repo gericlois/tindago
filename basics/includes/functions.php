@@ -62,7 +62,7 @@ function basics_staff_roles() {
     return [
         'staff_orders' => 'Handles orders, applications, products and the supplier summary.',
         'staff_payments' => 'Handles payments, reminders, payment submissions, emergency credit, benefits, the dormancy report, and the communication log.',
-        'staff_registration' => 'Registers new members and views users only — cannot approve, edit credit, or see orders and payments.',
+        'staff_registration' => 'Registers new members and views users only — cannot approve, edit purchase limits, or see orders and payments.',
     ];
 }
 
@@ -112,7 +112,7 @@ function send_basics_account_approved_email($to_email, $full_name, $username, $w
     $subject = 'Your JMC Foodies Basics membership has been approved';
     $message = "Hi {$full_name},\r\n\r\n"
         . "Good news! Your JMC Foodies Basics membership application has been reviewed and approved.\r\n\r\n"
-        . 'Weekly Credit Limit: ' . format_price($weekly_limit) . "\r\n\r\n"
+        . 'Weekly Purchase Limit: ' . format_price($weekly_limit) . "\r\n\r\n"
         . "You can now log in and start ordering with the username and password you set at signup:\r\n\r\n"
         . "Username: {$username}\r\n\r\n"
         . 'Log in here: ' . BASICS_URL . "/login.php\r\n\r\n"
@@ -131,7 +131,7 @@ function send_basics_account_denied_email($to_email, $full_name) {
     $subject = 'Your JMC Foodies Basics application status';
     $message = "Hi {$full_name},\r\n\r\n"
         . "Thank you for choosing to apply for the JMC Foodies Basics Program.\r\n\r\n"
-        . "Unfortunately, we are unable to approve your application at this time, based on your available credit and financial information. However, we would like you to consider applying again after 30 days.\r\n\r\n"
+        . "Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying again after 30 days.\r\n\r\n"
         . '— JMC Foodies Basics Team';
     return send_email($to_email, $subject, $message);
 }
@@ -389,7 +389,7 @@ function basics_projected_penalty($conn, $order, $offense_count) {
     $offense_number = (int) $offense_count + 1;
     $rate = basics_late_penalty_rate($conn, $offense_number);
     $amount = round((float) $order['total_amount'] * $rate, 2);
-    $impact = $offense_number === 1 ? 'credit freeze' : ($offense_number === 2 ? '1-month suspension' : 'termination');
+    $impact = $offense_number === 1 ? 'purchase freeze' : ($offense_number === 2 ? '1-month suspension' : 'termination');
     return ['rate' => $rate, 'amount' => $amount, 'impact' => $impact];
 }
 
@@ -469,7 +469,7 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $notify_member = basics_get_member($conn, $member['user_id']);
     if ($notify_member) {
         if ($new_status === 'active') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your credit limit has been restored - you may now place new orders. - JMC Foodies Basics");
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - JMC Foodies Basics");
         } elseif ($new_status === 'suspended') {
             basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your membership has been suspended until " . date('M j, Y', strtotime($new_suspended_until)) . ". - JMC Foodies Basics");
         } elseif ($new_status === 'terminated') {

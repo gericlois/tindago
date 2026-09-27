@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         $_SESSION['basics_must_change_password'] = false;
-        redirect('/basics/dashboard.php');
+        redirect('/basics/catalog.php');
     }
 }
 

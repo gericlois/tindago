@@ -21,6 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
     $stmt->close();
 
     if ($product) {
+        // Charge the Flash Deal price while it's still running, same as
+        // what's shown on the catalog card — regular SRP otherwise.
+        $has_active_deal = $product['flash_deal_price'] !== null && $product['flash_deal_ends_at']
+            && strtotime($product['flash_deal_ends_at']) > time();
+        $effective_price = $has_active_deal ? (float) $product['flash_deal_price'] : (float) $product['srp'];
+
         $conn->begin_transaction();
         try {
             $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE member_id = ? AND status = 'draft'");
@@ -47,15 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 
             if ($existing_item) {
                 $new_qty = $existing_item['quantity'] + $quantity;
-                $line_total = round($product['srp'] * $new_qty, 2);
+                $line_total = round($effective_price * $new_qty, 2);
                 $stmt = $conn->prepare("UPDATE basics_order_items SET quantity = ?, line_total = ? WHERE id = ?");
                 $stmt->bind_param('idi', $new_qty, $line_total, $existing_item['id']);
                 $stmt->execute();
                 $stmt->close();
             } else {
-                $line_total = round($product['srp'] * $quantity, 2);
+                $line_total = round($effective_price * $quantity, 2);
                 $stmt = $conn->prepare("INSERT INTO basics_order_items (order_id, product_id, quantity, unit_price, line_total) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param('iiidd', $order_id, $product_id, $quantity, $product['srp'], $line_total);
+                $stmt->bind_param('iiidd', $order_id, $product_id, $quantity, $effective_price, $line_total);
                 $stmt->execute();
                 $stmt->close();
             }
@@ -99,7 +105,74 @@ if (in_array($category_filter, $valid_categories, true)) {
 $sql .= " ORDER BY name ASC";
 $products = $conn->query($sql);
 
+// Catalog.php is the member's landing page after login — Flash Deals and
+// Featured Products surface at the top of it, above the regular browse grid
+// below. Only shown here regardless of the category filter above (deals
+// don't disappear just because you're browsing a specific category).
+$flash_deals = $conn->query("SELECT * FROM basics_products
+    WHERE status = 'active' AND flash_deal_price IS NOT NULL AND flash_deal_ends_at > NOW()
+    ORDER BY flash_deal_ends_at ASC")->fetch_all(MYSQLI_ASSOC);
+$flash_deal_ids = array_column($flash_deals, 'id');
+$featured_sql = "SELECT * FROM basics_products WHERE status = 'active' AND is_featured = 1";
+if ($flash_deal_ids) {
+    // A product already shown as a Flash Deal doesn't need a second,
+    // redundant card in Featured right below it.
+    $featured_sql .= " AND id NOT IN (" . implode(',', array_map('intval', $flash_deal_ids)) . ")";
+}
+$featured_sql .= " ORDER BY name ASC";
+$featured_products = $conn->query($featured_sql)->fetch_all(MYSQLI_ASSOC);
+
 $cart_count = basics_cart_item_count($conn, basics_current_user_id());
+
+// One shared card renderer for the Flash Deals / Featured / regular browse
+// grid below — keeps all three visually and behaviorally identical (same
+// Add to Cart form/JS hook) instead of three near-duplicate blocks of HTML.
+function basics_catalog_card($product, $badge = null) {
+    $is_deal = $badge === 'deal';
+    ob_start();
+    ?>
+    <div class="basics-product-card catalog-item<?= $is_deal ? ' basics-product-deal' : '' ?>" data-name="<?= sanitize(strtolower($product['name'])) ?>" data-sku="<?= sanitize(strtolower($product['sku'])) ?>">
+      <?php if ($badge === 'deal'): ?>
+        <span class="basics-product-badge basics-product-badge-deal"><i class="fas fa-bolt"></i> Flash Deal</span>
+      <?php elseif ($badge === 'featured'): ?>
+        <span class="basics-product-badge basics-product-badge-featured"><i class="fas fa-star"></i> Featured</span>
+      <?php endif; ?>
+      <?php if ($product['image']): ?>
+        <img src="<?= UPLOAD_URL ?>basics_products/<?= sanitize($product['image']) ?>" alt="<?= sanitize($product['name']) ?>" class="basics-product-tile">
+      <?php else: ?>
+        <div class="basics-product-tile-empty"><i class="fas fa-basket-shopping"></i></div>
+      <?php endif; ?>
+      <div class="basics-product-body">
+        <div class="basics-product-name"><?= sanitize($product['name']) ?></div>
+        <div class="basics-product-unit"><?= sanitize($product['unit']) ?></div>
+        <div class="basics-product-price">
+          <?php if ($is_deal): ?>
+            <span class="basics-product-price-was"><?= format_price($product['srp']) ?></span>
+            <span class="basics-product-price-deal"><?= format_price($product['flash_deal_price']) ?></span>
+          <?php else: ?>
+            <?= $product['srp'] > 0 ? format_price($product['srp']) : 'TBD' ?>
+          <?php endif; ?>
+        </div>
+        <?php if ($is_deal): ?>
+          <div class="basics-deal-countdown text-muted small" data-ends-at="<?= sanitize(str_replace(' ', 'T', $product['flash_deal_ends_at'])) ?>">Ends in &hellip;</div>
+        <?php endif; ?>
+        <?php if ($product['srp'] > 0): ?>
+          <form method="post" class="basics-product-cart-row">
+            <input type="hidden" name="action" value="add_to_cart">
+            <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
+            <div class="qty-stepper">
+              <button type="button" class="qty-btn qty-minus" aria-label="Decrease quantity">&minus;</button>
+              <input type="number" name="quantity" value="1" min="1" class="qty-value-input" readonly>
+              <button type="button" class="qty-btn qty-plus" aria-label="Increase quantity">+</button>
+            </div>
+            <button type="submit" class="btn-red"><i class="fas fa-cart-plus"></i></button>
+          </form>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
 
 $page_title = 'Catalog';
 require __DIR__ . '/../includes/header.php';
@@ -119,6 +192,28 @@ require __DIR__ . '/../includes/navbar.php';
     <div id="cartToast" class="sucmsg mb-4<?= isset($_GET['added']) ? ' is-visible' : '' ?>" style="<?= isset($_GET['added']) ? '' : 'display:none;' ?>">
       <p class="mb-0">Added to cart! <a href="<?= BASICS_URL ?>/cart.php">View Cart</a></p>
     </div>
+
+    <?php if ($flash_deals): ?>
+      <div class="mb-4">
+        <h2 class="h5 mb-3"><i class="fas fa-bolt" style="color:var(--primary);"></i> Flash Deals</h2>
+        <div class="basics-catalog-grid">
+          <?php foreach ($flash_deals as $product): ?>
+            <?= basics_catalog_card($product, 'deal') ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($featured_products): ?>
+      <div class="mb-4">
+        <h2 class="h5 mb-3"><i class="fas fa-star" style="color:var(--primary);"></i> Featured Products</h2>
+        <div class="basics-catalog-grid">
+          <?php foreach ($featured_products as $product): ?>
+            <?= basics_catalog_card($product, 'featured') ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    <?php endif; ?>
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
       <button type="button" class="btn-outline-theme" data-bs-toggle="collapse" data-bs-target="#scheduleInfo"><i class="fas fa-circle-info"></i>Ordering &amp; Payment Policy</button>
@@ -152,32 +247,7 @@ require __DIR__ . '/../includes/navbar.php';
           <p class="text-muted">No products found.</p>
         <?php endif; ?>
         <?php while ($product = $products->fetch_assoc()): ?>
-          <div class="basics-product-card catalog-item" data-name="<?= sanitize(strtolower($product['name'])) ?>" data-sku="<?= sanitize(strtolower($product['sku'])) ?>">
-            <?php if ($product['image']): ?>
-              <img src="<?= UPLOAD_URL ?>basics_products/<?= sanitize($product['image']) ?>" alt="<?= sanitize($product['name']) ?>" class="basics-product-tile">
-            <?php else: ?>
-              <div class="basics-product-tile-empty"><i class="fas fa-basket-shopping"></i></div>
-            <?php endif; ?>
-            <div class="basics-product-body">
-              <div class="basics-product-name"><?= sanitize($product['name']) ?></div>
-              <div class="basics-product-unit"><?= sanitize($product['unit']) ?></div>
-              <div class="basics-product-price">
-                <?= $product['srp'] > 0 ? format_price($product['srp']) : 'TBD' ?>
-              </div>
-              <?php if ($product['srp'] > 0): ?>
-                <form method="post" class="basics-product-cart-row">
-                  <input type="hidden" name="action" value="add_to_cart">
-                  <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-                  <div class="qty-stepper">
-                    <button type="button" class="qty-btn qty-minus" aria-label="Decrease quantity">&minus;</button>
-                    <input type="number" name="quantity" value="1" min="1" class="qty-value-input" readonly>
-                    <button type="button" class="qty-btn qty-plus" aria-label="Increase quantity">+</button>
-                  </div>
-                  <button type="submit" class="btn-red"><i class="fas fa-cart-plus"></i></button>
-                </form>
-              <?php endif; ?>
-            </div>
-          </div>
+          <?= basics_catalog_card($product) ?>
         <?php endwhile; ?>
       </div>
     </div>
@@ -191,8 +261,36 @@ require __DIR__ . '/../includes/navbar.php';
 </a>
 
 <script>
+  // Flash Deal countdowns — cosmetic only. The actual price charged is
+  // always re-verified server-side at add-to-cart time (see catalog.php's
+  // add_to_cart handler), so a stale countdown here can never overcharge or
+  // undercharge; worst case it just looks a little behind until refresh.
+  var dealCountdowns = document.querySelectorAll('.basics-deal-countdown');
+  function updateDealCountdowns() {
+    dealCountdowns.forEach(function (el) {
+      var endsAt = new Date(el.dataset.endsAt).getTime();
+      var diff = endsAt - Date.now();
+      if (diff <= 0) {
+        el.textContent = 'Deal ended';
+        return;
+      }
+      var days = Math.floor(diff / 86400000);
+      var hours = Math.floor((diff % 86400000) / 3600000);
+      var mins = Math.floor((diff % 3600000) / 60000);
+      var secs = Math.floor((diff % 60000) / 1000);
+      var label = days > 0 ? (days + 'd ' + hours + 'h') : (hours + 'h ' + mins + 'm ' + secs + 's');
+      el.textContent = 'Ends in ' + label;
+    });
+  }
+  if (dealCountdowns.length) {
+    updateDealCountdowns();
+    setInterval(updateDealCountdowns, 1000);
+  }
+
   var catalogSearch = document.getElementById('catalogSearch');
-  var catalogItems = document.querySelectorAll('.catalog-item');
+  // Scoped to the main grid only — Flash Deals/Featured above it are a
+  // separate merchandising section, not part of what's being searched.
+  var catalogItems = document.querySelectorAll('#catalogGrid .catalog-item');
   var catalogNoResults = document.getElementById('catalogNoResults');
 
   catalogSearch.addEventListener('input', function () {

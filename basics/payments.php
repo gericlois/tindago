@@ -203,7 +203,7 @@ require __DIR__ . '/../includes/navbar.php';
   <div class="collapse mb-4" id="policyInfo">
     <div class="panel-card">
       <h2 class="h6 mb-2">Payment Policy</h2>
-      <p class="mb-4">All outstanding balances must be settled within <strong>7 days of your order being delivered</strong>. Failure to pay may result in penalties, suspension, reduction of credit limit, or termination.</p>
+      <p class="mb-4">All outstanding balances must be settled within <strong>7 days of your order being delivered</strong>. Failure to pay may result in penalties, suspension, reduction of purchase limit, or termination.</p>
 
       <h2 class="h6 mb-3">Late Payment Policy</h2>
       <div class="table-responsive">

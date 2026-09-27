@@ -87,7 +87,13 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= sanitize($p['name']) ?></td>
           <td><?= sanitize($p['unit']) ?></td>
           <td><?= $p['srp'] > 0 ? format_price($p['srp']) : '<span class="text-muted">TBD</span>' ?></td>
-          <td><span class="pill pill-<?= $p['status'] === 'active' ? 'completed' : 'cancelled' ?>"><?= sanitize($p['status']) ?></span></td>
+          <td>
+            <span class="pill pill-<?= $p['status'] === 'active' ? 'completed' : 'cancelled' ?>"><?= sanitize($p['status']) ?></span>
+            <?php if ($p['is_featured']): ?><span class="pill pill-approved"><i class="fas fa-star"></i> Featured</span><?php endif; ?>
+            <?php if ($p['flash_deal_price'] !== null && $p['flash_deal_ends_at'] && strtotime($p['flash_deal_ends_at']) > time()): ?>
+              <span class="pill pill-pending"><i class="fas fa-bolt"></i> Deal till <?= date('M j, g:ia', strtotime($p['flash_deal_ends_at'])) ?></span>
+            <?php endif; ?>
+          </td>
           <td class="no-print">
             <a href="<?= BASE_URL ?>/basics/admin/product_edit.php?id=<?= (int) $p['id'] ?>" class="btn-chip btn-chip-outline">Edit</a>
             <form method="post" class="d-inline">

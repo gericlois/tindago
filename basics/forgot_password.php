@@ -6,7 +6,7 @@ require __DIR__ . '/../includes/auth.php';
 require __DIR__ . '/includes/module.php';
 
 if (basics_is_logged_in()) {
-    redirect(!empty($_SESSION['basics_must_change_password']) ? '/basics/change_password.php' : '/basics/dashboard.php');
+    redirect(!empty($_SESSION['basics_must_change_password']) ? '/basics/change_password.php' : '/basics/catalog.php');
 }
 
 $errors = [];
