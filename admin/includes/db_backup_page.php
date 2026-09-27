@@ -51,7 +51,7 @@ require $db_backup_sidebar;
   <?php endif; ?>
   <div class="panel-card">
     <h2 class="h6">Automatic Backup</h2>
-    <p class="text-muted small">Runs on its own every 3 hours — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file each time so it never accumulates disk space. The backup covers the whole database — Wellness and Basics together.</p>
+    <p class="text-muted small">Runs on its own every 1 hour — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file each time so it never accumulates disk space. The backup covers the whole database — Wellness and Basics together.</p>
     <p class="mb-1">Last run: <?= sanitize($last_run) ?></p>
     <?php if ($backup_exists): ?>
       <p class="mb-1">Backup file date: <?= sanitize($backup_modified) ?></p>

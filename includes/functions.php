@@ -585,13 +585,13 @@ function write_database_backup($conn) {
 // cron/SSH access, so there's no way to run this on a real timer. Instead
 // it piggybacks on ordinary site traffic — this file is required by every
 // single page right after config/database.php, so it's guaranteed to run
-// often enough to catch the 3-hour mark on whichever page loads next.
+// often enough to catch the 1-hour mark on whichever page loads next.
 // The "claim the slot" save_setting() happens before the (slower) dump
 // itself so two requests landing in the same moment don't both trigger a
 // redundant backup.
 // ---------------------------------------------------------------
 function maybe_run_scheduled_backup($conn) {
-    $interval_seconds = 3 * 3600;
+    $interval_seconds = 1 * 3600;
     $last_run = setting($conn, 'db_backup_last_run_at');
     if ($last_run !== null && (time() - strtotime($last_run)) < $interval_seconds) {
         return;
