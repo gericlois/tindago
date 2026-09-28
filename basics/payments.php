@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
 
     if ($payment_for === 'loan') {
         if ($loan_request_id <= 0) {
-            $errors[] = 'Choose which Emergency Cash Credit request this payment is for.';
+            $errors[] = 'Choose which Emergency Cash Loan request this payment is for.';
         } else {
             $stmt = $conn->prepare("SELECT r.*, (r.amount_released - COALESCE((SELECT SUM(s.amount) FROM basics_payment_submissions s WHERE s.loan_request_id = r.id AND s.status = 'confirmed'), 0)) AS remaining
                                      FROM basics_emergency_credit_requests r
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             $loan = $stmt->get_result()->fetch_assoc();
             $stmt->close();
             if (!$loan || $loan['remaining'] <= 0) {
-                $errors[] = 'That Emergency Cash Credit request was not found or has no balance left.';
+                $errors[] = 'That Emergency Cash Loan request was not found or has no balance left.';
             }
         }
     } else {
@@ -246,7 +246,7 @@ require __DIR__ . '/../includes/navbar.php';
           <select name="payment_for" id="payment_for" class="fctrl" required>
             <option value="">Select...</option>
             <option value="grocery"<?= empty($awaiting_list) ? ' disabled' : '' ?>>Grocery Order<?= empty($awaiting_list) ? ' (no unpaid orders)' : '' ?></option>
-            <option value="loan"<?= empty($outstanding_loans_list) ? ' disabled' : '' ?>>Loan / Emergency Credit<?= empty($outstanding_loans_list) ? ' (nothing outstanding)' : '' ?></option>
+            <option value="loan"<?= empty($outstanding_loans_list) ? ' disabled' : '' ?>>Emergency Cash Loan<?= empty($outstanding_loans_list) ? ' (nothing outstanding)' : '' ?></option>
             <option value="other">Other</option>
           </select>
         </div>
@@ -271,7 +271,7 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
 
         <div class="mb-3" id="loan-field" style="display:none;">
-          <label class="flbl">Which Emergency Cash Credit request?</label>
+          <label class="flbl">Which Emergency Cash Loan request?</label>
           <select name="loan_request_id" class="fctrl">
             <option value="">Select a request...</option>
             <?php foreach ($outstanding_loans_list as $l): ?>
@@ -280,7 +280,7 @@ require __DIR__ . '/../includes/navbar.php';
               </option>
             <?php endforeach; ?>
           </select>
-          <div class="form-text">No open request? <a href="<?= BASICS_URL ?>/emergency_credit.php">Request Emergency Cash Credit</a> first.</div>
+          <div class="form-text">No open request? <a href="<?= BASICS_URL ?>/emergency_credit.php">Request Emergency Cash Loan</a> first.</div>
         </div>
 
         <div class="mb-3">

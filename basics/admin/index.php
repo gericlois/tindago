@@ -147,7 +147,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <a href="<?= BASE_URL ?>/basics/admin/benefit_requests.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_benefit_requests > 0 ? ' accent' : '' ?>"><?= $pending_basics_benefit_requests ?></div><div class="stat-lbl">Pending Benefit Requests</div></a>
     </div>
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/emergency_credit.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Credit</div></a>
+      <a href="<?= BASE_URL ?>/basics/admin/emergency_credit.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Loan</div></a>
     </div>
   </div>
 

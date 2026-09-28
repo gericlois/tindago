@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
             } elseif ($submission['payment_for'] === 'loan') {
                 $member = basics_member_by_id($conn, $submission['member_id']);
                 if ($member) {
-                    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your payment of " . format_price($submission['amount']) . " for your Emergency Cash Credit / Loan. - JMC Foodies Basics");
+                    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your payment of " . format_price($submission['amount']) . " for your Emergency Cash Loan. - JMC Foodies Basics");
                 }
             }
             $stmt = $conn->prepare("UPDATE basics_payment_submissions SET status = 'confirmed', admin_notes = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");

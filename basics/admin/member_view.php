@@ -395,7 +395,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="<?= sanitize($member['weekly_credit_limit']) ?>" required>
           </div>
           <div class="mb-2">
-            <label class="flbl">Emergency Credit Limit</label>
+            <label class="flbl">Emergency Loan Limit</label>
             <input type="number" step="0.01" min="0" name="emergency_credit_limit" class="fctrl" value="<?= sanitize($member['emergency_credit_limit']) ?>">
           </div>
           <?php if ($member['credit_limit_frozen']): ?>

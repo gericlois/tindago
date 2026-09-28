@@ -61,7 +61,7 @@ function basics_admin_role_label($role) {
 function basics_staff_roles() {
     return [
         'staff_orders' => 'Handles orders, applications, products and the supplier summary.',
-        'staff_payments' => 'Handles payments, reminders, payment submissions, emergency credit, benefits, the dormancy report, and the communication log.',
+        'staff_payments' => 'Handles payments, reminders, payment submissions, emergency cash loans, benefits, the dormancy report, and the communication log.',
         'staff_registration' => 'Registers new members and views users only — cannot approve, edit purchase limits, or see orders and payments.',
     ];
 }

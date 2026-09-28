@@ -137,7 +137,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="3000" required>
             </div>
             <div class="mb-3">
-              <label class="flbl">Emergency Cash Credit Limit (up to ₱1,000)</label>
+              <label class="flbl">Emergency Cash Loan Limit (up to ₱1,000)</label>
               <input type="number" step="0.01" min="0" max="1000" name="emergency_credit_limit" class="fctrl" value="0">
             </div>
             <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Approve this application?');"><i class="fas fa-check"></i> Approve Membership</button>
@@ -153,7 +153,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </form>
         <?php else: ?>
           <p class="mb-1">Weekly Purchase Limit: <?= format_price($application['weekly_credit_limit']) ?></p>
-          <p class="mb-1">Emergency Credit Limit: <?= format_price($application['emergency_credit_limit']) ?></p>
+          <p class="mb-1">Emergency Loan Limit: <?= format_price($application['emergency_credit_limit']) ?></p>
           <?php if ($application['admin_notes']): ?>
             <p class="mb-0 text-muted">Notes: <?= sanitize($application['admin_notes']) ?></p>
           <?php endif; ?>

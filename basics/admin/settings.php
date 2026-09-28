@@ -139,7 +139,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <h2 class="h6 mb-3 mt-4">SMS Notifications</h2>
           <div class="form-check mb-2">
             <input type="checkbox" class="form-check-input" id="smsEnabled" name="basics_sms_notifications_enabled" <?= $sms_enabled_val ? 'checked' : '' ?>>
-            <label class="form-check-label" for="smsEnabled">Send automatic SMS notifications (application status, orders, payment reminders, credit requests, benefits)</label>
+            <label class="form-check-label" for="smsEnabled">Send automatic SMS notifications (application status, orders, payment reminders, emergency loan requests, benefits)</label>
           </div>
           <div class="form-text mb-3">Turning this off stops all automatic triggers. It does not affect the Announcement broadcast, which you send manually.</div>
 

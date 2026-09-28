@@ -25,7 +25,7 @@ $module_nav_items = [
     'Dashboard'         => BASICS_URL . '/dashboard.php',
     'My Orders'         => BASICS_URL . '/orders.php',
     'Payments'          => BASICS_URL . '/payments.php',
-    'Emergency Credit'  => BASICS_URL . '/emergency_credit.php',
+    'Emergency Loan'    => BASICS_URL . '/emergency_credit.php',
     'Benefits'          => BASICS_URL . '/benefits.php',
     'My Account'        => BASICS_URL . '/account.php',
 ];

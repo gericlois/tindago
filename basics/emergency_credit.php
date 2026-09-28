@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reque
     if ($amount_requested <= 0) {
         $errors[] = 'Enter a valid amount.';
     } elseif ($amount_requested > $available) {
-        $errors[] = 'You can request up to ' . format_price($available) . ' based on your remaining Emergency Cash Credit limit.';
+        $errors[] = 'You can request up to ' . format_price($available) . ' based on your remaining Emergency Cash Loan limit.';
     }
 
     if (empty($errors)) {
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reque
         $stmt->bind_param('ids', $member['id'], $amount_requested, $reason);
         $stmt->execute();
         $stmt->close();
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Credit request of " . format_price($amount_requested) . " is under review. - JMC Foodies Basics");
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan request of " . format_price($amount_requested) . " is under review. - JMC Foodies Basics");
         redirect('/basics/emergency_credit.php?requested=1');
     }
 }
@@ -40,7 +40,7 @@ $stmt->bind_param('i', $member['id']);
 $stmt->execute();
 $requests = $stmt->get_result();
 
-$page_title = 'Emergency Cash Credit';
+$page_title = 'Emergency Cash Loan';
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
 ?>
@@ -48,7 +48,7 @@ require __DIR__ . '/../includes/navbar.php';
 <div class="inner-hero">
   <div class="container">
     <span class="slbl">0% Interest</span>
-    <h1 class="stitle">Emergency <span>Cash Credit</span></h1>
+    <h1 class="stitle">Emergency <span>Cash Loan</span></h1>
     <div class="sline"></div>
   </div>
 </div>
@@ -65,7 +65,7 @@ require __DIR__ . '/../includes/navbar.php';
 
   <div class="row g-3 mb-4">
     <div class="col-6">
-      <button type="button" class="btn-outline-theme w-100 justify-content-center" data-bs-toggle="collapse" data-bs-target="#ecInfo"><i class="fas fa-circle-info"></i>About Emergency Cash Credit</button>
+      <button type="button" class="btn-outline-theme w-100 justify-content-center" data-bs-toggle="collapse" data-bs-target="#ecInfo"><i class="fas fa-circle-info"></i>About Emergency Cash Loan</button>
     </div>
     <div class="col-6">
       <button type="button" class="btn-outline-theme w-100 justify-content-center" data-bs-toggle="collapse" data-bs-target="#ecIncrease"><i class="fas fa-arrow-trend-up"></i>How to Increase Your Limit</button>
@@ -78,8 +78,8 @@ require __DIR__ . '/../includes/navbar.php';
       <ul class="mb-0" style="padding-left:1.1rem;">
         <li class="mb-2">Up to <strong>₱1,000</strong>, at <strong>0% interest</strong> — no interest is ever added to what you owe.</li>
         <li class="mb-2">Every request is <strong>subject to approval</strong> and your <strong>payment performance</strong> — approval isn't automatic, and admins may release less than requested.</li>
-        <li class="mb-2">This credit line is a <strong>privilege</strong>, not a guarantee — it may be adjusted, suspended, or revoked at any time.</li>
-        <li class="mb-2">Two or more late payments (on grocery or emergency credit obligations) may result in your credit line being reduced, suspended, or revoked.</li>
+        <li class="mb-2">This loan facility is a <strong>privilege</strong>, not a guarantee — it may be adjusted, suspended, or revoked at any time.</li>
+        <li class="mb-2">Two or more late payments (on grocery or emergency loan obligations) may result in your loan limit being reduced, suspended, or revoked.</li>
         <li class="mb-0">Repay promptly and on time to stay in good standing for future requests and higher limits.</li>
       </ul>
     </div>
@@ -91,7 +91,7 @@ require __DIR__ . '/../includes/navbar.php';
       <ul class="mb-0" style="padding-left:1.1rem;">
         <li class="mb-2">Make <strong>12 consecutive on-time grocery payments</strong> to become eligible for a higher limit review. Track your streak on the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page.</li>
         <li class="mb-2">One late payment doesn't lower your limit — it just freezes it in place until your payment record improves.</li>
-        <li class="mb-2">Two or more late payments move things the other way: your credit line may be reduced, suspended, or revoked instead.</li>
+        <li class="mb-2">Two or more late payments move things the other way: your loan limit may be reduced, suspended, or revoked instead.</li>
         <li class="mb-0">Reaching 12 on-time payments makes you <strong>eligible</strong>, not automatically approved — an admin still reviews and decides whether to raise your limit.</li>
       </ul>
     </div>
@@ -101,7 +101,7 @@ require __DIR__ . '/../includes/navbar.php';
     <div class="col-6 col-md-4">
       <div class="stat-tile">
         <div class="stat-num"><?= format_price($member['emergency_credit_limit']) ?></div>
-        <div class="stat-lbl">Credit Limit</div>
+        <div class="stat-lbl">Loan Limit</div>
       </div>
     </div>
     <div class="col-6 col-md-4">
@@ -121,11 +121,11 @@ require __DIR__ . '/../includes/navbar.php';
   <div class="row g-4">
     <div class="col-12 col-lg-6">
       <div class="panel-card mb-4">
-        <h2 class="h6 mb-3">Request Emergency Cash Credit</h2>
+        <h2 class="h6 mb-3">Request Emergency Cash Loan</h2>
         <?php if ((float) $member['emergency_credit_limit'] <= 0): ?>
-          <p class="text-muted mb-0">You don't have an Emergency Cash Credit limit set up yet. Contact support if you need one.</p>
+          <p class="text-muted mb-0">You don't have an Emergency Cash Loan limit set up yet. Contact support if you need one.</p>
         <?php elseif ($available <= 0): ?>
-          <p class="text-muted mb-0">You have no available Emergency Cash Credit right now — you're at your limit. Repay an outstanding balance from the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page to free up room.</p>
+          <p class="text-muted mb-0">You have no available Emergency Cash Loan right now — you're at your limit. Repay an outstanding balance from the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page to free up room.</p>
         <?php else: ?>
           <form method="post">
             <input type="hidden" name="action" value="request_credit">
@@ -145,7 +145,7 @@ require __DIR__ . '/../includes/navbar.php';
       <?php if ($outstanding > 0): ?>
         <div class="panel-card">
           <h2 class="h6 mb-2">Repaying?</h2>
-          <p class="mb-0">Settle an outstanding Emergency Cash Credit balance from the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page — choose "Loan / Emergency Credit" under Pay!.</p>
+          <p class="mb-0">Settle an outstanding Emergency Cash Loan balance from the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page — choose "Emergency Cash Loan" under Pay!.</p>
         </div>
       <?php endif; ?>
     </div>

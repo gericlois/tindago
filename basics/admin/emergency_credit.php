@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
         $stmt->close();
 
         if ($amount_released > $remaining_limit) {
-            $errors[] = 'That exceeds the member\'s remaining Emergency Cash Credit limit (' . format_price($remaining_limit) . ' available).';
+            $errors[] = 'That exceeds the member\'s remaining Emergency Cash Loan limit (' . format_price($remaining_limit) . ' available).';
         } else {
             $stmt = $conn->prepare("UPDATE basics_emergency_credit_requests
                 SET status = 'approved', amount_released = ?, released_at = NOW(), admin_notes = ?, reviewed_by = ?, reviewed_at = NOW()
@@ -47,10 +47,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
             $stmt->bind_param('dsii', $amount_released, $notes, $admin_id, $id);
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'approve_emergency_credit', 'Approved Emergency Cash Credit request #' . $id . ', released ' . format_price($amount_released));
+            log_activity($conn, 'approve_emergency_credit', 'Approved Emergency Cash Loan request #' . $id . ', released ' . format_price($amount_released));
             $member = basics_member_by_id($conn, $request['member_id']);
             if ($member) {
-                basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Credit of " . format_price($amount_released) . " has been released. - JMC Foodies Basics");
+                basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan of " . format_price($amount_released) . " has been released. - JMC Foodies Basics");
             }
             redirect('/basics/admin/emergency_credit.php?approved=1');
         }
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deny'
         $denied = $stmt->affected_rows > 0;
         $stmt->close();
         if ($denied) {
-            log_activity($conn, 'deny_emergency_credit', 'Denied Emergency Cash Credit request #' . $id . ': ' . $notes);
+            log_activity($conn, 'deny_emergency_credit', 'Denied Emergency Cash Loan request #' . $id . ': ' . $notes);
             redirect('/basics/admin/emergency_credit.php?denied=1');
         }
         $errors[] = 'Request not found or already reviewed.';
@@ -99,13 +99,13 @@ $requests = $conn->query($sql)->fetch_all(MYSQLI_ASSOC);
 
 $pending_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending'")->fetch_assoc()['c'];
 
-$page_title = 'Emergency Cash Credit';
+$page_title = 'Emergency Cash Loan';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
 <div class="inner-hero">
   <div class="container">
-    <h1 class="stitle" style="font-size:2rem;">Emergency Cash Credit</h1>
+    <h1 class="stitle" style="font-size:2rem;">Emergency Cash Loan</h1>
   </div>
 </div>
 
