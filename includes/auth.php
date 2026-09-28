@@ -58,13 +58,17 @@ ob_start(function ($html) use ($csrf_page_token) {
 });
 
 // ---------------------------------------------------------------
-// Login throttling: after N failed attempts for one username (or 60 from
-// one IP) within 15 minutes, further attempts are refused until the window
-// passes. N is 3 for the admin scopes (wellness_admin, basics_admin) and 8
-// for regular member scopes (wellness, basics) — admin accounts guard more
-// sensitive data, so they get a stricter lockout. Tracked in login_attempts
-// (database/live_add_login_attempts.sql). Fails open if that table doesn't
-// exist yet, so a missing migration can never lock everyone out of the site.
+// Login throttling: further attempts are refused once a limit is hit within
+// a 15-minute window. Member scopes (wellness, basics) throttle by username
+// (8 attempts) since each member has their own account. Admin scopes
+// (wellness_admin, basics_admin) throttle by IP instead (3 attempts) — admin
+// accounts are shared by multiple staff, so locking the username would lock
+// out everyone on that account over one bad actor; locking the IP instead
+// only blocks the machine making the failed attempts. A 60-attempts-from-one-
+// IP-across-any-scope guard also applies everywhere as a blunter backstop.
+// Tracked in login_attempts (database/live_add_login_attempts.sql). Fails
+// open if that table doesn't exist yet, so a missing migration can never
+// lock everyone out of the site.
 // ---------------------------------------------------------------
 function login_throttle_blocked($conn, $scope, $username) {
     try {
@@ -72,13 +76,16 @@ function login_throttle_blocked($conn, $scope, $username) {
         $ip = substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45);
         $stmt = $conn->prepare("SELECT
                 (SELECT COUNT(*) FROM login_attempts WHERE scope = ? AND identifier = ? AND created_at > (NOW() - INTERVAL 15 MINUTE)) AS by_user,
+                (SELECT COUNT(*) FROM login_attempts WHERE scope = ? AND ip = ? AND created_at > (NOW() - INTERVAL 15 MINUTE)) AS by_scope_ip,
                 (SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND created_at > (NOW() - INTERVAL 15 MINUTE)) AS by_ip");
-        $stmt->bind_param('sss', $scope, $id, $ip);
+        $stmt->bind_param('sssss', $scope, $id, $scope, $ip, $ip);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        $user_limit = substr($scope, -6) === '_admin' ? 3 : 8;
-        return (int) $row['by_user'] >= $user_limit || (int) $row['by_ip'] >= 60;
+        if (substr($scope, -6) === '_admin') {
+            return (int) $row['by_scope_ip'] >= 3 || (int) $row['by_ip'] >= 60;
+        }
+        return (int) $row['by_user'] >= 8 || (int) $row['by_ip'] >= 60;
     } catch (Throwable $e) {
         return false;
     }
@@ -99,11 +106,19 @@ function login_throttle_fail($conn, $scope, $username) {
     }
 }
 
+// Admin scopes clear by IP (since blocking is IP-based there); member scopes
+// clear by username, matching how each is throttled above.
 function login_throttle_clear($conn, $scope, $username) {
     try {
-        $id = strtolower(substr(trim((string) $username), 0, 150));
-        $stmt = $conn->prepare("DELETE FROM login_attempts WHERE scope = ? AND identifier = ?");
-        $stmt->bind_param('ss', $scope, $id);
+        if (substr($scope, -6) === '_admin') {
+            $ip = substr($_SERVER['REMOTE_ADDR'] ?? '', 0, 45);
+            $stmt = $conn->prepare("DELETE FROM login_attempts WHERE scope = ? AND ip = ?");
+            $stmt->bind_param('ss', $scope, $ip);
+        } else {
+            $id = strtolower(substr(trim((string) $username), 0, 150));
+            $stmt = $conn->prepare("DELETE FROM login_attempts WHERE scope = ? AND identifier = ?");
+            $stmt->bind_param('ss', $scope, $id);
+        }
         $stmt->execute();
         $stmt->close();
     } catch (Throwable $e) {

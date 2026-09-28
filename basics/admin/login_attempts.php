@@ -18,16 +18,18 @@ $scopes_in_play = $scope_filter === '' ? ['basics_admin', 'wellness_admin'] : [$
 $scope_placeholders = implode(',', array_fill(0, count($scopes_in_play), '?'));
 $scope_types = str_repeat('s', count($scopes_in_play));
 
-// One row per (scope, identifier, ip) combo — mirrors exactly what
-// login_throttle_blocked() in includes/auth.php checks: 3 attempts for one
-// username from one IP within 15 minutes locks that combo out.
-$stmt = $conn->prepare("SELECT scope, identifier, ip,
+// One row per (scope, ip) — mirrors exactly what login_throttle_blocked() in
+// includes/auth.php checks for admin scopes: 3 attempts from one IP within
+// 15 minutes locks that IP out, regardless of which username it tried
+// (admin accounts are shared, so blocking is IP-based, not username-based).
+$stmt = $conn->prepare("SELECT scope, ip,
+        GROUP_CONCAT(DISTINCT identifier ORDER BY identifier SEPARATOR ', ') AS usernames_tried,
         COUNT(*) AS total_attempts,
         SUM(created_at > (NOW() - INTERVAL 15 MINUTE)) AS recent_attempts,
         MAX(created_at) AS last_attempt
     FROM login_attempts
     WHERE scope IN ($scope_placeholders)
-    GROUP BY scope, identifier, ip
+    GROUP BY scope, ip
     ORDER BY last_attempt DESC
     LIMIT 300");
 $stmt->bind_param($scope_types, ...$scopes_in_play);
@@ -59,7 +61,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
-  <p class="text-muted small mb-3">IPs and usernames that have attempted to log into an admin panel. An admin login now locks after 3 failed attempts for the same username within 15 minutes (or 60 from one IP across any login, admin or member).</p>
+  <p class="text-muted small mb-3">IPs that have attempted to log into an admin panel. Since admin accounts are shared by multiple staff, lockout is by IP, not username: an IP locks out of a given admin panel after 3 failed attempts within 15 minutes, no matter which username it tried (a separate, wider guard also blocks any single IP making 60+ attempts across any login form).</p>
 
   <?php if ($ip_wide): ?>
     <div class="errmsg mb-4">
@@ -84,7 +86,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="panel-card">
     <div class="table-responsive">
       <table class="table-theme">
-        <thead><tr><th>IP Address</th><th>Panel</th><th>Username Attempted</th><th>Attempts (15 min)</th><th>Attempts (total)</th><th>Last Attempt</th><th>Status</th></tr></thead>
+        <thead><tr><th>IP Address</th><th>Panel</th><th>Usernames Attempted</th><th>Attempts (15 min)</th><th>Attempts (total)</th><th>Last Attempt</th><th>Status</th></tr></thead>
         <tbody>
         <?php if (empty($rows)): ?>
           <tr><td colspan="7" class="text-muted">No admin login attempts recorded.</td></tr>
@@ -94,7 +96,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <tr>
             <td><code><?= sanitize($row['ip']) ?></code></td>
             <td><?= sanitize($scope_labels[$row['scope']] ?? $row['scope']) ?></td>
-            <td><?= sanitize($row['identifier']) ?></td>
+            <td><?= sanitize($row['usernames_tried']) ?></td>
             <td><?= (int) $row['recent_attempts'] ?></td>
             <td><?= (int) $row['total_attempts'] ?></td>
             <td class="small"><?= date('M j, Y g:i:s A', strtotime($row['last_attempt'])) ?></td>
