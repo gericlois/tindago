@@ -58,11 +58,13 @@ ob_start(function ($html) use ($csrf_page_token) {
 });
 
 // ---------------------------------------------------------------
-// Login throttling: after 8 failed attempts for one username (or 60 from
+// Login throttling: after N failed attempts for one username (or 60 from
 // one IP) within 15 minutes, further attempts are refused until the window
-// passes. Tracked in login_attempts (database/live_add_login_attempts.sql).
-// Fails open if that table doesn't exist yet, so a missing migration can
-// never lock everyone out of the site.
+// passes. N is 3 for the admin scopes (wellness_admin, basics_admin) and 8
+// for regular member scopes (wellness, basics) — admin accounts guard more
+// sensitive data, so they get a stricter lockout. Tracked in login_attempts
+// (database/live_add_login_attempts.sql). Fails open if that table doesn't
+// exist yet, so a missing migration can never lock everyone out of the site.
 // ---------------------------------------------------------------
 function login_throttle_blocked($conn, $scope, $username) {
     try {
@@ -75,7 +77,8 @@ function login_throttle_blocked($conn, $scope, $username) {
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return (int) $row['by_user'] >= 8 || (int) $row['by_ip'] >= 60;
+        $user_limit = substr($scope, -6) === '_admin' ? 3 : 8;
+        return (int) $row['by_user'] >= $user_limit || (int) $row['by_ip'] >= 60;
     } catch (Throwable $e) {
         return false;
     }

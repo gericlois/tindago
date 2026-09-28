@@ -80,7 +80,7 @@ $nav_groups = [
             // leaving them a 2-item dropdown instead of 3.
             'icon' => 'fa-gift', 'label' => 'Member Perks',
             'children' => [
-                '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Credit', 'badge' => $pending_basics_credit_count],
+                '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Loan', 'badge' => $pending_basics_credit_count],
                 '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
                 '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
             ],
@@ -115,6 +115,7 @@ if (basics_admin_role() === 'super_admin') {
         'children' => [
             '/basics/admin/db_backup.php' => ['icon' => 'fa-database', 'label' => 'Database Backup'],
             '/basics/admin/admins.php' => ['icon' => 'fa-user-shield', 'label' => 'Admin Management'],
+            '/basics/admin/login_attempts.php' => ['icon' => 'fa-user-secret', 'label' => 'Login Attempts'],
             '/basics/admin/maintenance.php' => ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'],
         ],
     ];
