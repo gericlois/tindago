@@ -71,6 +71,25 @@ for ($i = $orders_per_day_days - 1; $i >= 0; $i--) {
     $orders_per_day_data[] = (int) ($orders_per_day_counts[$day] ?? 0);
 }
 
+// Members added per day, last 14 days — bucketed by applied_at (when they
+// registered), same window/shape as the orders chart above. Counts every
+// application regardless of approval status, mirroring how the orders chart
+// counts every non-draft order regardless of its own downstream status.
+$members_per_day_days = 14;
+$members_per_day_raw = $conn->query("SELECT DATE(applied_at) AS d, COUNT(*) AS c
+    FROM basics_members
+    WHERE id != $test_member_id
+      AND applied_at >= DATE_SUB(CURDATE(), INTERVAL " . ($members_per_day_days - 1) . " DAY)
+    GROUP BY DATE(applied_at)")->fetch_all(MYSQLI_ASSOC);
+$members_per_day_counts = array_column($members_per_day_raw, 'c', 'd');
+$members_per_day_labels = [];
+$members_per_day_data = [];
+for ($i = $members_per_day_days - 1; $i >= 0; $i--) {
+    $day = date('Y-m-d', strtotime("-$i days"));
+    $members_per_day_labels[] = date('M j', strtotime($day));
+    $members_per_day_data[] = (int) ($members_per_day_counts[$day] ?? 0);
+}
+
 $page_title = 'Dashboard';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
@@ -171,8 +190,13 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php endif; ?>
 
   <h2 class="h6 mb-3">Orders Placed, Last <?= $orders_per_day_days ?> Days</h2>
-  <div class="panel-card">
+  <div class="panel-card mb-4">
     <canvas id="ordersPerDayChart" height="90"></canvas>
+  </div>
+
+  <h2 class="h6 mb-3">Members Added, Last <?= $members_per_day_days ?> Days</h2>
+  <div class="panel-card">
+    <canvas id="membersPerDayChart" height="90"></canvas>
   </div>
 </div>
 
@@ -186,6 +210,25 @@ new Chart(document.getElementById('ordersPerDayChart'), {
       label: 'Orders Placed',
       data: <?= json_encode($orders_per_day_data) ?>,
       backgroundColor: '#34a853',
+      borderRadius: 4,
+      maxBarThickness: 36
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } }
+    }
+  }
+});
+new Chart(document.getElementById('membersPerDayChart'), {
+  type: 'bar',
+  data: {
+    labels: <?= json_encode($members_per_day_labels) ?>,
+    datasets: [{
+      label: 'Members Added',
+      data: <?= json_encode($members_per_day_data) ?>,
+      backgroundColor: '#4285f4',
       borderRadius: 4,
       maxBarThickness: 36
     }]
