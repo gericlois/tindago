@@ -19,7 +19,7 @@ require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
 ?>
 
-<section id="hero" style="background:linear-gradient(rgba(13, 40, 24, 0.8), rgba(13, 40, 24, 0.72)), url('<?= BASE_URL ?>/assets/img/basics/JMCBasics_catalognew.jpg') center/cover no-repeat;">
+<section id="hero" style="background:linear-gradient(rgba(13, 40, 24, 0.8), rgba(13, 40, 24, 0.72)), url('<?= BASE_URL ?>/assets/img/head_bg.jpg') center/cover no-repeat;">
   <div class="container">
     <div class="row align-items-center g-5" style="min-height:60vh;">
       <div class="col-lg-8 mx-auto text-center">
