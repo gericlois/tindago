@@ -11,7 +11,7 @@ require_basics_access($conn);
 // Orders must total at least this much to be placed — applies to the
 // member's own cart checkout only, not admin-added gift orders (which are
 // pinned at total_amount=0 and go through a separate claim flow).
-$minimum_order = 1500;
+$minimum_order = 1000;
 
 $member = basics_get_member($conn, basics_current_user_id());
 $errors = [];
