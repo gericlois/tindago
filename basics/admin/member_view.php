@@ -77,6 +77,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
             $stmt->close();
             log_activity($conn, 'toggle_basics_partner', ($activating ? 'Designated' : 'Revoked') . ' Community Partner status for Basics member #' . $id);
         }
+    } elseif ($action === 'tag_member') {
+        $tag_member_id = (int) ($_POST['tag_member_id'] ?? 0);
+        $stmt = $conn->prepare("SELECT is_community_partner FROM basics_members WHERE id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $partner_check = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($tag_member_id && $tag_member_id !== $id && $partner_check && $partner_check['is_community_partner']) {
+            // Only tags members not already tagged under someone else — this
+            // never overwrites an existing referral relationship.
+            $stmt = $conn->prepare("UPDATE basics_members SET referred_by = ? WHERE id = ? AND referred_by IS NULL");
+            $stmt->bind_param('ii', $id, $tag_member_id);
+            $stmt->execute();
+            if ($stmt->affected_rows > 0) {
+                log_activity($conn, 'tag_basics_member', 'Tagged Basics member #' . $tag_member_id . ' under Community Partner #' . $id);
+            }
+            $stmt->close();
+        }
     }
     redirect('/basics/admin/member_view.php?id=' . $id);
 }
@@ -257,6 +276,15 @@ if ($member['is_community_partner']) {
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $override_earnings = $stmt->get_result();
+
+    $stmt = $conn->prepare("SELECT bm.id, u.full_name, u.username FROM basics_members bm
+                             JOIN basics_users u ON u.id = bm.user_id
+                             WHERE bm.application_status = 'approved' AND bm.membership_status IN ('active', 'dormant')
+                                   AND bm.referred_by IS NULL AND bm.id != ?
+                             ORDER BY u.full_name ASC");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $untagged_members = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
 $doc_labels = [
@@ -384,7 +412,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h2 class="h6 mb-0">Community Partner</h2>
           <?php if ($member['is_community_partner']): ?>
-            <span class="small">Total Override Earned: <strong class="accent"><?= format_price($total_override_earned) ?></strong></span>
+            <span style="font-size:1.1rem;">Total Override Earned: <strong class="accent" style="font-size:1.3rem;"><?= format_price($total_override_earned) ?></strong></span>
           <?php endif; ?>
         </div>
         <p class="mb-3 mt-3">Status: <span class="pill pill-<?= $member['is_community_partner'] ? 'active' : 'pending' ?>"><?= $member['is_community_partner'] ? 'Community Partner' : 'Not a Partner' ?></span></p>
@@ -414,7 +442,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
         </form>
 
         <?php if ($member['is_community_partner']): ?>
-          <h3 class="h6 mt-4">Tagged Users</h3>
+          <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+            <h3 class="h6 mb-0">Tagged Users</h3>
+            <button type="button" class="btn-chip btn-chip-success" data-bs-toggle="modal" data-bs-target="#tagMemberModal"><i class="fas fa-user-plus"></i> Add Tagged User</button>
+          </div>
           <div class="table-responsive">
             <table class="table-theme">
               <thead><tr><th>Name</th><th>Joined</th><th>Orders</th><th>Total Spent</th></tr></thead>
@@ -453,6 +484,40 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <?php endwhile; ?>
               </tbody>
             </table>
+          </div>
+
+          <div class="modal fade" id="tagMemberModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <form method="post">
+                  <input type="hidden" name="action" value="tag_member">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Add Tagged User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <?php if (empty($untagged_members)): ?>
+                      <p class="text-muted mb-0">No eligible members to tag — everyone active is already tagged under a partner.</p>
+                    <?php else: ?>
+                      <label class="flbl">Member</label>
+                      <select name="tag_member_id" class="fctrl" required>
+                        <option value="">Select a member…</option>
+                        <?php foreach ($untagged_members as $u): ?>
+                          <option value="<?= (int) $u['id'] ?>"><?= sanitize($u['full_name']) ?> (<?= sanitize($u['username']) ?>)</option>
+                        <?php endforeach; ?>
+                      </select>
+                      <div class="form-text mt-2">Only members not already tagged under another partner are listed.</div>
+                    <?php endif; ?>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Cancel</button>
+                    <?php if (!empty($untagged_members)): ?>
+                      <button type="submit" class="btn-chip btn-chip-success">Add Tagged User</button>
+                    <?php endif; ?>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
         <?php endif; ?>
       </div>
