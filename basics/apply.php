@@ -111,8 +111,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
         'certificate_of_employment' => 'Certificate of Employment / Work Clearance',
     ];
-    // Barangay Clearance is optional — everything else is still required.
-    $optional_doc_fields = ['barangay_clearance'];
+    // All documents are optional at application time — an admin can still
+    // request/collect them separately before approving the application.
+    $optional_doc_fields = array_keys($doc_fields);
     foreach ($doc_fields as $field => $label) {
         if (in_array($field, $optional_doc_fields, true)) {
             continue;
@@ -204,10 +205,15 @@ require __DIR__ . '/../includes/navbar.php';
         <?php endif; ?>
 
         <form method="post" enctype="multipart/form-data" id="applyForm">
-          <input type="hidden" name="ref_code" value="<?= sanitize($ref_code) ?>">
-          <?php if ($referrer): ?>
-            <div class="alert alert-success py-2 px-3 mb-3 small">Referred by <strong><?= sanitize($referrer['full_name']) ?></strong>.</div>
-          <?php endif; ?>
+          <div class="mb-3">
+            <label class="flbl">Referral Code (optional)</label>
+            <input type="text" name="ref_code" class="fctrl" value="<?= sanitize($ref_code) ?>" placeholder="Have a Community Partner's code? Enter it here.">
+            <?php if ($ref_code !== '' && $referrer): ?>
+              <div class="alert alert-success py-2 px-3 mt-2 mb-0 small">Referred by <strong><?= sanitize($referrer['full_name']) ?></strong>.</div>
+            <?php elseif ($ref_code !== ''): ?>
+              <div class="form-text mt-1">That code wasn't recognized — you can still submit without it.</div>
+            <?php endif; ?>
+          </div>
           <h2 class="h6 mb-3">Your Account</h2>
           <div class="row">
             <div class="col-sm-4 mb-3">
@@ -296,31 +302,31 @@ require __DIR__ . '/../includes/navbar.php';
             <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($employer_address) ?>" placeholder="Lets you choose company delivery at checkout later">
           </div>
 
-          <h2 class="h6 mb-3 mt-2">Required Documents</h2>
-          <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
+          <h2 class="h6 mb-3 mt-2">Documents (optional)</h2>
+          <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each. Optional, but submitting them now may speed up your application's approval.</div>
           <div class="mb-3">
-            <label class="flbl">Valid ID #1</label>
-            <input type="file" name="valid_id_1" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+            <label class="flbl">Valid ID #1 (optional)</label>
+            <input type="file" name="valid_id_1" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
           <div class="mb-3">
-            <label class="flbl">Valid ID #2</label>
-            <input type="file" name="valid_id_2" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+            <label class="flbl">Valid ID #2 (optional)</label>
+            <input type="file" name="valid_id_2" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
           <div class="mb-3">
             <label class="flbl">Barangay Clearance (optional)</label>
             <input type="file" name="barangay_clearance" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
           <div class="mb-3">
-            <label class="flbl">Membership Application Form (signed) - Front Page</label>
-            <input type="file" name="membership_application_form" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+            <label class="flbl">Membership Application Form (signed) - Front Page (optional)</label>
+            <input type="file" name="membership_application_form" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
           <div class="mb-3">
-            <label class="flbl">Membership Application Form (signed) - Back Page</label>
-            <input type="file" name="membership_application_form_back" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+            <label class="flbl">Membership Application Form (signed) - Back Page (optional)</label>
+            <input type="file" name="membership_application_form_back" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
           <div class="mb-3">
-            <label class="flbl">Certificate of Employment / Company Work Clearance</label>
-            <input type="file" name="certificate_of_employment" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
+            <label class="flbl">Certificate of Employment / Company Work Clearance (optional)</label>
+            <input type="file" name="certificate_of_employment" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
           </div>
 
           <button type="submit" class="btn-red w-100 justify-content-center"><i class="fas fa-paper-plane"></i>Submit Application</button>
@@ -338,7 +344,7 @@ require __DIR__ . '/../includes/navbar.php';
   var form = document.getElementById('applyForm');
   if (!form) return;
   var storageKey = 'basicsApplyDraft';
-  var fields = ['first_name', 'middle_name', 'last_name', 'address_line', 'barangay', 'city', 'province',
+  var fields = ['ref_code', 'first_name', 'middle_name', 'last_name', 'address_line', 'barangay', 'city', 'province',
                 'birthdate', 'contact_number', 'email', 'username',
                 'employer_name', 'employer_contact', 'position', 'employer_address'];
 

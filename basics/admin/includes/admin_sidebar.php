@@ -84,10 +84,10 @@ $nav_groups = [
                 '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Loan', 'badge' => $pending_basics_credit_count],
                 '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
                 '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
-                '/basics/admin/community_partners.php' => ['icon' => 'fa-handshake', 'label' => 'Community Partners'],
                 '/basics/admin/cashouts.php'     => ['icon' => 'fa-money-bill-transfer', 'label' => 'Cashout Requests', 'badge' => $pending_basics_cashouts_count],
             ],
         ],
+        '/basics/admin/community_partners.php' => ['icon' => 'fa-handshake', 'label' => 'Community Partners'],
         '/basics/admin/broadcast.php'    => ['icon' => 'fa-comment-sms',    'label' => 'Announcement'],
     ],
     'System' => [
