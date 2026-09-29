@@ -191,6 +191,14 @@ require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
 ?>
 
+<div class="inner-hero">
+  <div class="container">
+    <span class="slbl">Grocery Catalog</span>
+    <h1 class="stitle">Browse <span>Basic Needs</span></h1>
+    <div class="sline"></div>
+  </div>
+</div>
+
 <?php if ($show_purchase_limit_announcement): ?>
   <div class="promo-banner">
     <div class="container">
@@ -199,14 +207,6 @@ require __DIR__ . '/../includes/navbar.php';
     </div>
   </div>
 <?php endif; ?>
-
-<div class="inner-hero">
-  <div class="container">
-    <span class="slbl">Grocery Catalog</span>
-    <h1 class="stitle">Browse <span>Basic Needs</span></h1>
-    <div class="sline"></div>
-  </div>
-</div>
 
 <div class="shop-bg py-5">
   <div class="container">
