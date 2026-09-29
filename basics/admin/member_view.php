@@ -235,6 +235,28 @@ $stmt->bind_param('i', $id);
 $stmt->execute();
 $documents = $stmt->get_result();
 
+if ($member['is_community_partner']) {
+    $stmt = $conn->prepare("SELECT bm.id, u.full_name, u.username, bm.applied_at,
+                                    (SELECT COUNT(*) FROM basics_orders o WHERE o.member_id = bm.id AND o.status != 'draft') AS order_count,
+                                    (SELECT COALESCE(SUM(o.total_amount),0) FROM basics_orders o WHERE o.member_id = bm.id AND o.status != 'draft') AS order_total
+                             FROM basics_members bm JOIN basics_users u ON u.id = bm.user_id
+                             WHERE bm.referred_by = ? ORDER BY bm.applied_at DESC");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $tagged_members = $stmt->get_result();
+
+    $stmt = $conn->prepare("SELECT wt.amount, wt.created_at, wt.reference_order_id, o.total_amount AS order_total, u.full_name AS tagged_full_name
+                             FROM basics_wallet_transactions wt
+                             LEFT JOIN basics_orders o ON o.id = wt.reference_order_id
+                             LEFT JOIN basics_members bm2 ON bm2.id = o.member_id
+                             LEFT JOIN basics_users u ON u.id = bm2.user_id
+                             WHERE wt.member_id = ? AND wt.type = 'referral_override'
+                             ORDER BY wt.created_at DESC");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $override_earnings = $stmt->get_result();
+}
+
 $doc_labels = [
     'valid_id_1' => 'Valid ID #1',
     'valid_id_2' => 'Valid ID #2',
@@ -380,9 +402,52 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <?php if ($member['is_community_partner']): ?>
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Revoke Community Partner status for this member?');">Revoke Partner Status</button>
           <?php else: ?>
-            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Designate this member as a Community Partner?');">Make Community Partner</button>
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Designate this member as a Community Partner?');"><i class="fas fa-user-plus"></i> Add Community Partner</button>
           <?php endif; ?>
         </form>
+
+        <?php if ($member['is_community_partner']): ?>
+          <h3 class="h6 mt-4">Tagged Users</h3>
+          <div class="table-responsive">
+            <table class="table-theme">
+              <thead><tr><th>Name</th><th>Joined</th><th>Orders</th><th>Total Spent</th></tr></thead>
+              <tbody>
+              <?php if ($tagged_members->num_rows === 0): ?>
+                <tr><td colspan="4" class="text-muted">No one has joined using this partner's referral code yet.</td></tr>
+              <?php endif; ?>
+              <?php while ($t = $tagged_members->fetch_assoc()): ?>
+                <tr>
+                  <td><?= sanitize($t['full_name']) ?> <span class="text-muted small">(<?= sanitize($t['username']) ?>)</span></td>
+                  <td><?= date('M j, Y', strtotime($t['applied_at'])) ?></td>
+                  <td><?= (int) $t['order_count'] ?></td>
+                  <td><?= format_price($t['order_total']) ?></td>
+                </tr>
+              <?php endwhile; ?>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 class="h6 mt-4">Override Earnings</h3>
+          <div class="table-responsive">
+            <table class="table-theme">
+              <thead><tr><th>Order</th><th>Tagged Member</th><th>Order Total</th><th>Override Earned</th><th>Date</th></tr></thead>
+              <tbody>
+              <?php if ($override_earnings->num_rows === 0): ?>
+                <tr><td colspan="5" class="text-muted">No override earnings yet.</td></tr>
+              <?php endif; ?>
+              <?php while ($e = $override_earnings->fetch_assoc()): ?>
+                <tr>
+                  <td><?php if ($e['reference_order_id']): ?><a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $e['reference_order_id'] ?>">#<?= (int) $e['reference_order_id'] ?></a><?php else: ?>—<?php endif; ?></td>
+                  <td><?= $e['tagged_full_name'] ? sanitize($e['tagged_full_name']) : '—' ?></td>
+                  <td><?= $e['order_total'] !== null ? format_price($e['order_total']) : '—' ?></td>
+                  <td class="fw-bold"><?= format_price($e['amount']) ?></td>
+                  <td><?= date('M j, Y', strtotime($e['created_at'])) ?></td>
+                </tr>
+              <?php endwhile; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php endif; ?>
       </div>
 
       <div class="panel-card mt-4">
