@@ -55,7 +55,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endif; ?>
         <?php while ($log = $logs->fetch_assoc()): ?>
           <tr>
-            <td class="small"><?= date('M j, Y g:i A', strtotime($log['created_at'])) ?></td>
+            <td class="small" data-order="<?= strtotime($log['created_at']) ?>"><?= date('M j, Y g:i A', strtotime($log['created_at'])) ?></td>
             <td><?= $log['admin_name'] ? sanitize($log['admin_name']) : '<span class="text-muted">System</span>' ?></td>
             <td><code class="small"><?= sanitize($log['action']) ?></code></td>
             <td><?= sanitize($log['description']) ?></td>
