@@ -383,9 +383,6 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="panel-card mt-4">
         <h2 class="h6">Community Partner</h2>
         <p class="mb-3">Status: <span class="pill pill-<?= $member['is_community_partner'] ? 'active' : 'pending' ?>"><?= $member['is_community_partner'] ? 'Community Partner' : 'Not a Partner' ?></span></p>
-        <?php if ($member['is_community_partner']): ?>
-          <p class="mb-3">Total Override Earned: <strong class="accent"><?= format_price($total_override_earned) ?></strong></p>
-        <?php endif; ?>
         <?php if ($member['is_community_partner'] && $member['referral_code']): ?>
           <div class="row g-2 align-items-center mb-3">
             <div class="col-12 col-md-5">
@@ -432,7 +429,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
             </table>
           </div>
 
-          <h3 class="h6 mt-4">Override Earnings</h3>
+          <div class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
+            <h3 class="h6 mb-0">Override Earnings</h3>
+            <span class="small">Total Override Earned: <strong class="accent"><?= format_price($total_override_earned) ?></strong></span>
+          </div>
           <div class="table-responsive">
             <table class="table-theme">
               <thead><tr><th>Order</th><th>Tagged Member</th><th>Order Total</th><th>Override Earned</th><th>Date</th></tr></thead>
