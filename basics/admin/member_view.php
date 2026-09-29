@@ -236,6 +236,8 @@ $stmt->execute();
 $documents = $stmt->get_result();
 
 if ($member['is_community_partner']) {
+    $total_override_earned = basics_wallet_sum_by_type($conn, $id, 'referral_override');
+
     $stmt = $conn->prepare("SELECT bm.id, u.full_name, u.username, bm.applied_at,
                                     (SELECT COUNT(*) FROM basics_orders o WHERE o.member_id = bm.id AND o.status != 'draft') AS order_count,
                                     (SELECT COALESCE(SUM(o.total_amount),0) FROM basics_orders o WHERE o.member_id = bm.id AND o.status != 'draft') AS order_total
@@ -381,6 +383,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="panel-card mt-4">
         <h2 class="h6">Community Partner</h2>
         <p class="mb-3">Status: <span class="pill pill-<?= $member['is_community_partner'] ? 'active' : 'pending' ?>"><?= $member['is_community_partner'] ? 'Community Partner' : 'Not a Partner' ?></span></p>
+        <?php if ($member['is_community_partner']): ?>
+          <p class="mb-3">Total Override Earned: <strong class="accent"><?= format_price($total_override_earned) ?></strong></p>
+        <?php endif; ?>
         <?php if ($member['is_community_partner'] && $member['referral_code']): ?>
           <div class="row g-2 align-items-center mb-3">
             <div class="col-12 col-md-5">
