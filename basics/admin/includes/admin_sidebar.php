@@ -28,6 +28,7 @@ $pending_basics_payments_count = (int) $conn->query("SELECT COUNT(*) AS c FROM b
 $pending_basics_credit_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 $pending_basics_benefits_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 $pending_basics_checking_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_orders WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
+$pending_basics_cashouts_count = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_cashouts WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 
 // Overdue follow-ups for Payment Reminders — same "delivered, unpaid, due
 // date already passed" definition as basics_orders_overdue() in
@@ -83,6 +84,8 @@ $nav_groups = [
                 '/basics/admin/emergency_credit.php' => ['icon' => 'fa-hand-holding-dollar', 'label' => 'Emergency Cash Loan', 'badge' => $pending_basics_credit_count],
                 '/basics/admin/benefit_requests.php' => ['icon' => 'fa-hand-holding-heart', 'label' => 'Member Benefits', 'badge' => $pending_basics_benefits_count],
                 '/basics/admin/birthdays.php'    => ['icon' => 'fa-cake-candles',   'label' => 'Birthday Gifts'],
+                '/basics/admin/community_partners.php' => ['icon' => 'fa-handshake', 'label' => 'Community Partners'],
+                '/basics/admin/cashouts.php'     => ['icon' => 'fa-money-bill-transfer', 'label' => 'Cashout Requests', 'badge' => $pending_basics_cashouts_count],
             ],
         ],
         '/basics/admin/broadcast.php'    => ['icon' => 'fa-comment-sms',    'label' => 'Announcement'],
@@ -135,7 +138,7 @@ $staff_role_paths = [
         '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
         '/basics/admin/payment_submissions.php', '/basics/admin/emergency_credit.php',
         '/basics/admin/benefit_requests.php', '/basics/admin/dormancy.php',
-        '/basics/admin/communication_log.php',
+        '/basics/admin/communication_log.php', '/basics/admin/cashouts.php',
     ],
     'staff_registration' => [
         '/basics/admin/users.php', '/basics/admin/register_member.php',

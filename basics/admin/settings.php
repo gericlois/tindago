@@ -20,11 +20,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $basics_grace_period_days = (int) ($_POST['basics_grace_period_days'] ?? 0);
     $basics_dormancy_weeks = (int) ($_POST['basics_dormancy_weeks'] ?? 0);
     $basics_sms_notifications_enabled = isset($_POST['basics_sms_notifications_enabled']) ? '1' : '0';
+    $basics_partner_override_rate = (float) ($_POST['basics_partner_override_rate'] ?? 0);
+    $basics_cashout_processing_fee_rate = (float) ($_POST['basics_cashout_processing_fee_rate'] ?? 0);
+    $basics_min_cashout_amount = round((float) ($_POST['basics_min_cashout_amount'] ?? 0), 2);
 
     if ($basics_late_penalty_tier1 < 0 || $basics_late_penalty_tier1 > 100) $errors[] = '1st offense penalty must be between 0 and 100%.';
     if ($basics_late_penalty_tier2 < 0 || $basics_late_penalty_tier2 > 100) $errors[] = '2nd/3rd offense penalty must be between 0 and 100%.';
     if ($basics_grace_period_days < 0) $errors[] = 'Grace period days cannot be negative.';
     if ($basics_dormancy_weeks < 1) $errors[] = 'Dormancy weeks must be at least 1.';
+    if ($basics_partner_override_rate < 0 || $basics_partner_override_rate > 100) $errors[] = 'Partner override rate must be between 0 and 100%.';
+    if ($basics_cashout_processing_fee_rate < 0 || $basics_cashout_processing_fee_rate > 100) $errors[] = 'Cashout processing fee must be between 0 and 100%.';
+    if ($basics_min_cashout_amount < 0) $errors[] = 'Minimum cashout amount cannot be negative.';
 
     if (empty($errors)) {
         save_setting($conn, 'basics_gcash_name', $basics_gcash_name);
@@ -39,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         save_setting($conn, 'basics_grace_period_days', (string) $basics_grace_period_days);
         save_setting($conn, 'basics_dormancy_weeks', (string) $basics_dormancy_weeks);
         save_setting($conn, 'basics_sms_notifications_enabled', $basics_sms_notifications_enabled);
+        save_setting($conn, 'basics_partner_override_rate', (string) round($basics_partner_override_rate / 100, 4));
+        save_setting($conn, 'basics_cashout_processing_fee_rate', (string) round($basics_cashout_processing_fee_rate / 100, 4));
+        save_setting($conn, 'basics_min_cashout_amount', (string) $basics_min_cashout_amount);
         log_activity($conn, 'update_basics_settings', 'Updated Basics settings');
         redirect('/basics/admin/settings.php?saved=1');
     }
@@ -55,6 +64,9 @@ $tier2_val = (float) setting($conn, 'basics_late_penalty_tier2', 0.05) * 100;
 $grace_val = (int) setting($conn, 'basics_grace_period_days', 7);
 $dormancy_val = (int) setting($conn, 'basics_dormancy_weeks', 3);
 $sms_enabled_val = setting($conn, 'basics_sms_notifications_enabled', '1') === '1';
+$partner_override_val = (float) setting($conn, 'basics_partner_override_rate', 0.02) * 100;
+$cashout_fee_val = (float) setting($conn, 'basics_cashout_processing_fee_rate', 0) * 100;
+$min_cashout_val = (float) setting($conn, 'basics_min_cashout_amount', 500);
 
 $page_title = 'Settings';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -142,6 +154,23 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <label class="form-check-label" for="smsEnabled">Send automatic SMS notifications (application status, orders, payment reminders, emergency loan requests, benefits)</label>
           </div>
           <div class="form-text mb-3">Turning this off stops all automatic triggers. It does not affect the Announcement broadcast, which you send manually.</div>
+
+          <h2 class="h6 mb-3 mt-4">Community Partners</h2>
+          <div class="row">
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Override Rate (%)</label>
+              <input type="number" step="0.01" min="0" max="100" name="basics_partner_override_rate" class="fctrl" value="<?= sanitize($partner_override_val) ?>">
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Cashout Processing Fee (%)</label>
+              <input type="number" step="0.01" min="0" max="100" name="basics_cashout_processing_fee_rate" class="fctrl" value="<?= sanitize($cashout_fee_val) ?>">
+            </div>
+            <div class="col-sm-4 mb-3">
+              <label class="flbl">Minimum Cashout Amount (₱)</label>
+              <input type="number" step="0.01" min="0" name="basics_min_cashout_amount" class="fctrl" value="<?= sanitize($min_cashout_val) ?>">
+            </div>
+          </div>
+          <div class="form-text mb-3">Percentage of an order's total that a Community Partner earns when a tagged member's order is delivered.</div>
 
           <button type="submit" class="btn-red"><i class="fas fa-floppy-disk"></i>Save Settings</button>
         </form>

@@ -113,21 +113,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
-    // Delivery no longer waits on payment — members get their groceries on
-    // schedule regardless, and settle by the (much later) payment due date.
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ? AND status = 'out_for_delivery'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $delivered = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($delivered) {
-        log_activity($conn, 'deliver_basics_order', 'Marked Basics order #' . $id . ' as delivered');
-        $due_date = date('Y-m-d', strtotime('+7 days'));
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics");
-        }
-    }
+    // basics_deliver_order() (basics/includes/functions.php) is the single
+    // place this transition happens — also called from orders.php's own
+    // deliver action — so the referral-override credit can't be missed.
+    basics_deliver_order($conn, $id, basics_current_admin_id());
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel') {
     $cancel_reason = trim($_POST['cancel_reason'] ?? '');

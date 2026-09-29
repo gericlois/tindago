@@ -190,6 +190,115 @@ function basics_get_member($conn, $user_id) {
     return $member ?: null;
 }
 
+// ---------------------------------------------------------------
+// Community Partner Account — a regular member (same benefits/privileges,
+// can order for themselves) who also earns a % override on orders placed by
+// other members tagged under them via referral code at signup
+// (basics/apply.php). Mirrors the Wellness referral/wallet system
+// (generate_referral_code()/wallet_*() in includes/functions.php) but kept
+// entirely separate: this wallet is only an override-earnings ledger, never
+// used to pay for groceries (Basics purchases stay on the credit-line/
+// payment-due system).
+// ---------------------------------------------------------------
+function basics_generate_referral_code($conn) {
+    $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
+    do {
+        $code = 'JMCB-';
+        for ($i = 0; $i < 9; $i++) {
+            $code .= $chars[random_int(0, strlen($chars) - 1)];
+        }
+        $stmt = $conn->prepare("SELECT id FROM basics_members WHERE referral_code = ?");
+        $stmt->bind_param('s', $code);
+        $stmt->execute();
+        $exists = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+    } while ($exists);
+    return $code;
+}
+
+function basics_referral_link($code) {
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    return $scheme . '://' . $host . BASICS_URL . '/apply.php?ref=' . urlencode($code);
+}
+
+function basics_wallet_balance($conn, $member_id) {
+    $stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) AS balance FROM basics_wallet_transactions WHERE member_id = ?");
+    $stmt->bind_param('i', $member_id);
+    $stmt->execute();
+    $balance = $stmt->get_result()->fetch_assoc()['balance'];
+    $stmt->close();
+    return (float) $balance;
+}
+
+function basics_wallet_sum_by_type($conn, $member_id, $type) {
+    $stmt = $conn->prepare("SELECT COALESCE(SUM(amount), 0) AS total FROM basics_wallet_transactions WHERE member_id = ? AND type = ?");
+    $stmt->bind_param('is', $member_id, $type);
+    $stmt->execute();
+    $total = $stmt->get_result()->fetch_assoc()['total'];
+    $stmt->close();
+    return (float) $total;
+}
+
+function basics_wallet_credit($conn, $member_id, $type, $amount, $order_id = null, $cashout_id = null, $description = null) {
+    $stmt = $conn->prepare("INSERT INTO basics_wallet_transactions (member_id, type, amount, reference_order_id, reference_cashout_id, description)
+                             VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param('isdiis', $member_id, $type, $amount, $order_id, $cashout_id, $description);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// The single place a Basics order transitions to Delivered — both
+// basics/admin/order_view.php and basics/admin/orders.php call this instead
+// of each running their own copy of the UPDATE/notify logic, so the
+// referral-override credit below can't be missed from either entry point.
+// Returns false (no-op) if the order isn't actually out_for_delivery.
+function basics_deliver_order($conn, $order_id, $admin_id) {
+    $stmt = $conn->prepare("SELECT o.*, bm.referred_by FROM basics_orders o
+                             JOIN basics_members bm ON bm.id = o.member_id
+                             WHERE o.id = ? AND o.status = 'out_for_delivery' FOR UPDATE");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $order = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$order) {
+        return false;
+    }
+
+    // Delivery no longer waits on payment — members get their groceries on
+    // schedule regardless, and settle by the (much later) payment due date.
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'delivered', delivered_at = NOW() WHERE id = ?");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $stmt->close();
+
+    // Gift orders are pinned at total_amount=0 — nothing to override on.
+    // Re-checking is_community_partner here (not just "referred_by is set")
+    // guards against the referrer's partner status having been revoked since
+    // the referred member signed up.
+    if (!empty($order['referred_by']) && (float) $order['total_amount'] > 0) {
+        $stmt = $conn->prepare("SELECT is_community_partner FROM basics_members WHERE id = ?");
+        $stmt->bind_param('i', $order['referred_by']);
+        $stmt->execute();
+        $partner = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($partner && $partner['is_community_partner']) {
+            $rate = (float) setting($conn, 'basics_partner_override_rate', 0.02);
+            $override = round($order['total_amount'] * $rate, 2);
+            basics_wallet_credit($conn, $order['referred_by'], 'referral_override', $override, $order_id, null,
+                'Referral override (' . (int) ($rate * 100) . '%) on order #' . $order_id);
+        }
+    }
+
+    log_activity($conn, 'deliver_basics_order', 'Marked Basics order #' . $order_id . ' as delivered');
+    $member = basics_member_by_order_id($conn, $order_id);
+    if ($member) {
+        $due_date = date('Y-m-d', strtotime('+7 days'));
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics");
+    }
+    return true;
+}
+
 // full_name/address stay the authoritative columns every existing display,
 // SMS, email, and receipt already reads — these just keep them in sync
 // whenever the structured parts (first/middle/last, address_line/barangay/

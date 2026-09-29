@@ -33,6 +33,23 @@ $module_guest_nav_items = [
     'Home' => BASICS_URL . '/index.php',
 ];
 
+// Only Community Partners get "My Earnings" — queried directly against $conn
+// (rather than basics_get_member(), which isn't reliably loaded this early on
+// every page) since this file runs before member data is otherwise fetched.
+if (isset($conn) && $conn instanceof mysqli && function_exists('basics_is_logged_in') && basics_is_logged_in()) {
+    $stmt = $conn->prepare("SELECT bm.is_community_partner FROM basics_members bm
+                             JOIN basics_users u ON u.id = bm.user_id
+                             WHERE u.id = ?");
+    $basics_nav_user_id = basics_current_user_id();
+    $stmt->bind_param('i', $basics_nav_user_id);
+    $stmt->execute();
+    $partner_check = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($partner_check && $partner_check['is_community_partner']) {
+        $module_nav_items['My Earnings'] = BASICS_URL . '/wallet.php';
+    }
+}
+
 // Maintenance mode toggle (basics/admin/maintenance.php). This file is
 // required by every Basics member-facing page but no basics/admin/*.php
 // page, so gating here blocks members site-wide while leaving the admin

@@ -53,6 +53,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
         $stmt->execute();
         $stmt->close();
         log_activity($conn, 'terminate_basics_member', 'Terminated Basics member #' . $id);
+    } elseif ($action === 'toggle_partner') {
+        $stmt = $conn->prepare("SELECT is_community_partner, referral_code FROM basics_members WHERE id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $current = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if ($current) {
+            $activating = !$current['is_community_partner'];
+            // Generate the code once, on first-ever activation — re-toggling
+            // off and back on must not hand out a second code.
+            if ($activating && !$current['referral_code']) {
+                $new_code = basics_generate_referral_code($conn);
+                $stmt = $conn->prepare("UPDATE basics_members SET is_community_partner = 1, referral_code = ? WHERE id = ?");
+                $stmt->bind_param('si', $new_code, $id);
+            } else {
+                $stmt = $conn->prepare("UPDATE basics_members SET is_community_partner = ? WHERE id = ?");
+                $flag = $activating ? 1 : 0;
+                $stmt->bind_param('ii', $flag, $id);
+            }
+            $stmt->execute();
+            $stmt->close();
+            log_activity($conn, 'toggle_basics_partner', ($activating ? 'Designated' : 'Revoked') . ' Community Partner status for Basics member #' . $id);
+        }
     }
     redirect('/basics/admin/member_view.php?id=' . $id);
 }
@@ -330,6 +354,35 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Permanently terminate this membership? This cannot be undone.');">Terminate</button>
           </form>
         <?php endif; ?>
+      </div>
+
+      <div class="panel-card mt-4">
+        <h2 class="h6">Community Partner</h2>
+        <p class="mb-3">Status: <span class="pill pill-<?= $member['is_community_partner'] ? 'active' : 'pending' ?>"><?= $member['is_community_partner'] ? 'Community Partner' : 'Not a Partner' ?></span></p>
+        <?php if ($member['is_community_partner'] && $member['referral_code']): ?>
+          <div class="row g-2 align-items-center mb-3">
+            <div class="col-12 col-md-5">
+              <div class="refcode-box d-flex align-items-center justify-content-between gap-2">
+                <span id="partnerRefCode"><?= sanitize($member['referral_code']) ?></span>
+                <button type="button" class="btn-copy-icon" data-copy-target="partnerRefCode" aria-label="Copy referral code"><i class="fas fa-copy"></i></button>
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <input type="text" class="fctrl" id="partnerRefLink" value="<?= sanitize(basics_referral_link($member['referral_code'])) ?>" readonly>
+            </div>
+            <div class="col-12 col-md-1">
+              <button class="btn-outline-theme w-100 justify-content-center" data-copy-target="partnerRefLink">Copy</button>
+            </div>
+          </div>
+        <?php endif; ?>
+        <form method="post" class="d-inline">
+          <input type="hidden" name="action" value="toggle_partner">
+          <?php if ($member['is_community_partner']): ?>
+            <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Revoke Community Partner status for this member?');">Revoke Partner Status</button>
+          <?php else: ?>
+            <button type="submit" class="btn-chip btn-chip-success" onclick="return confirm('Designate this member as a Community Partner?');">Make Community Partner</button>
+          <?php endif; ?>
+        </form>
       </div>
 
       <div class="panel-card mt-4">

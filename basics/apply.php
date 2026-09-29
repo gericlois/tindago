@@ -29,6 +29,21 @@ $employer_name = '';
 $employer_contact = '';
 $position = '';
 $employer_address = '';
+// Optional, unlike Wellness's referral program (which requires one to
+// register at all) — Basics membership is open to any employee of a partner
+// company regardless of referral. An invalid/unknown code is never a hard
+// error, just silently treated as "no referral" (see the lookup below).
+$ref_code = trim($_GET['ref'] ?? $_POST['ref_code'] ?? '');
+$referrer = null;
+if ($ref_code !== '') {
+    $stmt = $conn->prepare("SELECT bm.id, u.full_name FROM basics_members bm
+                             JOIN basics_users u ON u.id = bm.user_id
+                             WHERE bm.referral_code = ? AND bm.is_community_partner = 1");
+    $stmt->bind_param('s', $ref_code);
+    $stmt->execute();
+    $referrer = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
@@ -125,8 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             $employer_address_to_store = $employer_address !== '' ? $employer_address : null;
-            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position, employer_address) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param('issss', $user_id, $employer_name, $employer_contact, $position, $employer_address_to_store);
+            $referred_by = $referrer['id'] ?? null;
+            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position, employer_address, referred_by) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param('issssi', $user_id, $employer_name, $employer_contact, $position, $employer_address_to_store, $referred_by);
             $stmt->execute();
             $member_id = $stmt->insert_id;
             $stmt->close();
@@ -188,6 +204,10 @@ require __DIR__ . '/../includes/navbar.php';
         <?php endif; ?>
 
         <form method="post" enctype="multipart/form-data" id="applyForm">
+          <input type="hidden" name="ref_code" value="<?= sanitize($ref_code) ?>">
+          <?php if ($referrer): ?>
+            <div class="alert alert-success py-2 px-3 mb-3 small">Referred by <strong><?= sanitize($referrer['full_name']) ?></strong>.</div>
+          <?php endif; ?>
           <h2 class="h6 mb-3">Your Account</h2>
           <div class="row">
             <div class="col-sm-4 mb-3">
