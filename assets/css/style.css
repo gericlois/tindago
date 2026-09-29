@@ -52,8 +52,8 @@
   color: var(--secondary);
 }
 
-/* Time-boxed promo strip above the hero (basics/index.php) — announces the
-   new minimum order for 24 hours from first deploy, see
+/* Time-boxed promo strip above the catalog hero (basics/catalog.php) —
+   announces the new minimum order for 24 hours from first deploy, see
    $show_purchase_limit_announcement. */
 .promo-banner {
   background: var(--secondary);

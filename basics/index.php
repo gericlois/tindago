@@ -14,31 +14,10 @@ if (basics_is_logged_in()) {
     redirect('/basics/pending.php');
 }
 
-// Announces the new (lower) minimum order for exactly 24 hours, starting
-// from whenever this code first actually goes live — not a hardcoded date,
-// since we don't know in advance which day it gets deployed/pushed. The
-// clock starts itself on the first page view after deploy and is stored in
-// the shared settings table (see setting()/save_setting(), includes/functions.php).
-$purchase_limit_announcement_started_at = setting($conn, 'basics_purchase_limit_announcement_started_at');
-if ($purchase_limit_announcement_started_at === null) {
-    $purchase_limit_announcement_started_at = date('Y-m-d H:i:s');
-    save_setting($conn, 'basics_purchase_limit_announcement_started_at', $purchase_limit_announcement_started_at);
-}
-$show_purchase_limit_announcement = strtotime($purchase_limit_announcement_started_at) > strtotime('-1 day');
-
 $page_title = 'Home';
 require __DIR__ . '/../includes/header.php';
 require __DIR__ . '/../includes/navbar.php';
 ?>
-
-<?php if ($show_purchase_limit_announcement): ?>
-  <div class="promo-banner">
-    <div class="container">
-      <i class="fas fa-bullhorn"></i>
-      <span>Great news! Our minimum order is now just <strong>&#8369;1,000</strong> <span class="promo-banner-was">(was &#8369;1,500)</span> &mdash; easier than ever to order your groceries.</span>
-    </div>
-  </div>
-<?php endif; ?>
 
 <section id="hero" style="background:linear-gradient(rgba(13, 40, 24, 0.8), rgba(13, 40, 24, 0.72)), url('<?= BASE_URL ?>/assets/img/head_bg.jpg') center/cover no-repeat;">
   <div class="container">
