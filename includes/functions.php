@@ -277,12 +277,34 @@ function smtp_deliver($socket, $to, $subject, $body) {
     return substr($data_response, 0, 3) === '250';
 }
 
+// Retries a fresh SMTP login a few times with a short backoff before giving
+// up. Gmail can briefly refuse a new login ("too many login attempts") after
+// a burst of sends from the same account within one bulk run, even though
+// the account/credentials are fine — a real case observed in production
+// after ~200 messages (5 reconnects at the 40-message interval below).
+// Without this, one such refusal used to be treated as fatal for the entire
+// rest of the batch (send_email_bulk() would mark every remaining recipient
+// "failed" instantly, with no further attempt) — this gives it a few chances
+// to recover first.
+function smtp_open_with_retry($attempts = 3, $backoff_seconds = 5) {
+    for ($i = 1; $i <= $attempts; $i++) {
+        $socket = smtp_open();
+        if ($socket) {
+            return $socket;
+        }
+        if ($i < $attempts) {
+            sleep($backoff_seconds * $i);
+        }
+    }
+    return false;
+}
+
 // Announcement / bulk email: every recipient gets their own individual
 // message (nobody sees anyone else's address), all through one SMTP login.
 // Duplicate and invalid addresses are skipped, the session is refreshed every
-// 40 messages, and if the connection drops it reconnects once instead of
-// failing the rest of the list. Each attempt is logged like a normal send.
-// Returns ['sent' => n, 'failed' => n].
+// 40 messages, and if a login/reconnect fails it's retried (see
+// smtp_open_with_retry()) instead of failing the rest of the list outright.
+// Each attempt is logged like a normal send. Returns ['sent' => n, 'failed' => n].
 function send_email_bulk(array $addresses, $subject, $body) {
     $subject = str_replace(["\r", "\n"], ' ', (string) $subject);
     $seen = [];
@@ -310,10 +332,10 @@ function send_email_bulk(array $addresses, $subject, $body) {
             $socket = null;
         }
         if (!$socket && !$connect_failed) {
-            $socket = smtp_open();
+            $socket = smtp_open_with_retry();
             $on_this_session = 0;
             if (!$socket) {
-                $connect_failed = true; // don't wait out a 10s timeout per remaining recipient
+                $connect_failed = true; // retries were already exhausted — give up for the rest of the batch
             }
         }
 
@@ -321,11 +343,11 @@ function send_email_bulk(array $addresses, $subject, $body) {
         if ($socket) {
             $result = smtp_deliver($socket, $address, $subject, $body);
             if ($result === null) {
-                // The connection died (no reply). Reconnect once and retry this
-                // recipient. A plain refusal (false, e.g. "no such user") does
-                // NOT trigger this — the session is fine, just move on.
+                // The connection died (no reply). Reconnect (with retry) and
+                // retry this recipient. A plain refusal (false, e.g. "no such
+                // user") does NOT trigger this — the session is fine, just move on.
                 @fclose($socket);
-                $socket = smtp_open();
+                $socket = smtp_open_with_retry();
                 $on_this_session = 0;
                 $result = $socket ? smtp_deliver($socket, $address, $subject, $body) : null;
             }
