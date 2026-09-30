@@ -117,6 +117,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail note on Basics order #' . $id);
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'backfill_current_status_note') {
+    // Turns the synthetic "not yet recorded in the trail" row into a real
+    // one — for orders placed before this feature existed, or ones updated
+    // directly, so there was never a matching status-transition call to
+    // record it automatically.
+    $stmt = $conn->prepare("SELECT status FROM basics_orders WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $current_status = $stmt->get_result()->fetch_assoc()['status'] ?? null;
+    $stmt->close();
+
+    if ($current_status) {
+        $note = trim($_POST['note'] ?? '');
+        basics_record_order_status($conn, $id, $current_status, basics_current_admin_name() . ' (backfilled)', $note !== '' ? $note : null);
+        log_activity($conn, 'backfill_basics_order_status', 'Backfilled a status trail entry on Basics order #' . $id);
+    }
+    redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archive') {
     $stmt = $conn->prepare("UPDATE basics_orders SET archived_at = NOW() WHERE id = ? AND status IN ('delivered', 'cancelled')");
     $stmt->bind_param('i', $id);
@@ -375,13 +392,40 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 </td>
                 <td class="text-muted">&mdash;</td>
                 <td class="text-muted">&mdash;</td>
-                <td class="no-print"></td>
+                <td class="no-print">
+                  <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#backfillNoteModal"><i class="fas fa-pen"></i></button>
+                </td>
               </tr>
             <?php endif; ?>
             </tbody>
           </table>
         </div>
       </div>
+
+      <?php if (!$trail_matches_current): ?>
+      <div class="modal fade" id="backfillNoteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form method="post">
+              <input type="hidden" name="action" value="backfill_current_status_note">
+              <div class="modal-header">
+                <h5 class="modal-title">Add Reason — <?= basics_order_status_label($order['status']) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p class="text-muted small">This status isn't in the trail yet — saving here records it now, with today's date and your name.</p>
+                <label class="flbl">Reason / Note (optional)</label>
+                <textarea name="note" class="fctrl" rows="3"></textarea>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn-chip btn-chip-success">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <?php endif; ?>
 
       <?php foreach ($status_history as $h): ?>
       <div class="modal fade" id="editNoteModal-<?= (int) $h['id'] ?>" tabindex="-1" aria-hidden="true">
