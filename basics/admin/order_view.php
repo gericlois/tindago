@@ -128,16 +128,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     // Turns the synthetic "not yet recorded in the trail" row into a real
     // one — for orders placed before this feature existed, or ones updated
     // directly, so there was never a matching status-transition call to
-    // record it automatically.
+    // record it automatically. Defaults to the order's actual live status,
+    // but the admin can pick a different one to backfill instead (e.g. an
+    // in-between stage that was also never recorded).
+    $valid_statuses = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
     $stmt = $conn->prepare("SELECT status FROM basics_orders WHERE id = ?");
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $current_status = $stmt->get_result()->fetch_assoc()['status'] ?? null;
     $stmt->close();
 
-    if ($current_status) {
+    $status = in_array($_POST['status'] ?? '', $valid_statuses, true) ? $_POST['status'] : $current_status;
+
+    if ($status) {
         $note = trim($_POST['note'] ?? '');
-        basics_record_order_status($conn, $id, $current_status, basics_current_admin_name() . ' (backfilled)', $note !== '' ? $note : null);
+        basics_record_order_status($conn, $id, $status, basics_current_admin_name() . ' (backfilled)', $note !== '' ? $note : null);
         log_activity($conn, 'backfill_basics_order_status', 'Backfilled a status trail entry on Basics order #' . $id);
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
@@ -421,6 +426,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
               </div>
               <div class="modal-body">
                 <p class="text-muted small">This status isn't in the trail yet — saving here records it now, with today's date and your name.</p>
+                <label class="flbl">Status</label>
+                <select name="status" class="fctrl mb-3">
+                  <?php foreach (['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'] as $status_option): ?>
+                    <option value="<?= $status_option ?>" <?= $order['status'] === $status_option ? 'selected' : '' ?>><?= basics_order_status_label($status_option) ?></option>
+                  <?php endforeach; ?>
+                </select>
                 <label class="flbl">Reason / Note (optional)</label>
                 <textarea name="note" class="fctrl" rows="3"></textarea>
               </div>
