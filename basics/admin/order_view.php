@@ -103,10 +103,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_status_note') {
     // Corrects a trail entry after the fact (e.g. it was logged as the wrong
     // stage, or a cancellation reason had a typo) — the actor and date stay
-    // untouched (that's still a true record of who acted and when); only
-    // the status and note are editable. This never touches the order's own
-    // live status/timestamps (basics_orders) — only the trail's record of
-    // what that entry was.
+    // untouched (that's still a true record of who acted and when).
+    // Editing the LAST (current) row also corrects the order's real live
+    // status via basics_force_order_status() — that row is the only one
+    // that actually represents the order's present state; older rows stay
+    // annotation-only since the order has already moved past them.
     $valid_statuses = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
     $history_id = (int) ($_POST['history_id'] ?? 0);
     $status = $_POST['status'] ?? '';
@@ -114,6 +115,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     $note_to_store = $note !== '' ? $note : null;
 
     if (in_array($status, $valid_statuses, true)) {
+        $stmt = $conn->prepare("SELECT MAX(id) AS max_id FROM basics_order_status_history WHERE order_id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $is_latest = ((int) $stmt->get_result()->fetch_assoc()['max_id']) === $history_id;
+        $stmt->close();
+
         $stmt = $conn->prepare("UPDATE basics_order_status_history SET status = ?, note = ? WHERE id = ? AND order_id = ?");
         $stmt->bind_param('ssii', $status, $note_to_store, $history_id, $id);
         $stmt->execute();
@@ -121,6 +128,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         $stmt->close();
         if ($edited) {
             log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail entry on Basics order #' . $id);
+            if ($is_latest) {
+                basics_force_order_status($conn, $id, $status, basics_current_admin_name(), $note_to_store);
+            }
         }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
@@ -129,8 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     // one — for orders placed before this feature existed, or ones updated
     // directly, so there was never a matching status-transition call to
     // record it automatically. Defaults to the order's actual live status,
-    // but the admin can pick a different one to backfill instead (e.g. an
-    // in-between stage that was also never recorded).
+    // but the admin can pick a different one instead — which also corrects
+    // the order's real live status, same as editing the last trail row does.
     $valid_statuses = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
     $stmt = $conn->prepare("SELECT status FROM basics_orders WHERE id = ?");
     $stmt->bind_param('i', $id);
@@ -142,8 +152,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
 
     if ($status) {
         $note = trim($_POST['note'] ?? '');
-        basics_record_order_status($conn, $id, $status, basics_current_admin_name() . ' (backfilled)', $note !== '' ? $note : null);
+        $note_to_store = $note !== '' ? $note : null;
+        basics_record_order_status($conn, $id, $status, basics_current_admin_name() . ' (backfilled)', $note_to_store);
         log_activity($conn, 'backfill_basics_order_status', 'Backfilled a status trail entry on Basics order #' . $id);
+        if ($status !== $current_status) {
+            basics_force_order_status($conn, $id, $status, basics_current_admin_name(), $note_to_store);
+        }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archive') {
@@ -425,7 +439,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
-                <p class="text-muted small">This status isn't in the trail yet — saving here records it now, with today's date and your name.</p>
+                <p class="text-muted small">This status isn't in the trail yet — saving here records it now, with today's date and your name. Choosing a status other than the order's current one will also update the real order.</p>
                 <label class="flbl">Status</label>
                 <select name="status" class="fctrl mb-3">
                   <?php foreach (['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'] as $status_option): ?>
@@ -457,6 +471,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
+                <?php if ($h === end($status_history)): ?>
+                  <p class="text-muted small">This is the order's current stage — changing the status here also updates the real order (shown on the Orders list and above), not just this record.</p>
+                <?php endif; ?>
                 <label class="flbl">Status</label>
                 <select name="status" class="fctrl mb-3">
                   <?php foreach (['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'] as $status_option): ?>

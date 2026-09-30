@@ -416,6 +416,80 @@ function basics_cancel_order($conn, $order_id, $actor_label, $cancel_reason = nu
     return true;
 }
 
+// Directly sets an order's LIVE status — used only when an admin edits the
+// current (last) row of the Order Trail on order_view.php, since that's the
+// only row that actually represents "what state is this order in right
+// now". Unlike basics_confirm_order()/basics_send_order_out_for_delivery()/
+// basics_cancel_order()/basics_deliver_order(), this has no
+// WHERE status = '<prior stage>' guard and can jump to any status in either
+// direction — the admin is asserting a correction, not performing a fresh
+// pipeline action. For the same reason it never notifies the member (this
+// is a data fix, not a new event happening to them right now).
+// Still credits the referral override exactly once if newly set to
+// Delivered — guarded by checking no override row already exists for this
+// order, so toggling the status back and forth can't double-credit.
+function basics_force_order_status($conn, $order_id, $new_status, $actor_label, $note = null) {
+    $stmt = $conn->prepare("SELECT * FROM basics_orders WHERE id = ?");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $order = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$order) {
+        return false;
+    }
+
+    $timestamp_columns = ['confirmed' => 'confirmed_at', 'out_for_delivery' => 'out_for_delivery_at', 'delivered' => 'delivered_at'];
+    $timestamp_column = $timestamp_columns[$new_status] ?? null;
+
+    if ($new_status === 'cancelled') {
+        $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled', cancel_reason = ? WHERE id = ?");
+        $stmt->bind_param('si', $note, $order_id);
+    } elseif ($timestamp_column && empty($order[$timestamp_column])) {
+        // Only fills the timestamp if it was never set — a correction
+        // shouldn't overwrite a real historical date with "now".
+        $stmt = $conn->prepare("UPDATE basics_orders SET status = ?, $timestamp_column = NOW() WHERE id = ?");
+        $stmt->bind_param('si', $new_status, $order_id);
+    } else {
+        $stmt = $conn->prepare("UPDATE basics_orders SET status = ? WHERE id = ?");
+        $stmt->bind_param('si', $new_status, $order_id);
+    }
+    $stmt->execute();
+    $stmt->close();
+
+    if ($new_status === 'delivered' && (float) $order['total_amount'] > 0) {
+        $stmt = $conn->prepare("SELECT id FROM basics_wallet_transactions WHERE type = 'referral_override' AND reference_order_id = ?");
+        $stmt->bind_param('i', $order_id);
+        $stmt->execute();
+        $already_credited = (bool) $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$already_credited) {
+            $stmt = $conn->prepare("SELECT referred_by FROM basics_members WHERE id = ?");
+            $stmt->bind_param('i', $order['member_id']);
+            $stmt->execute();
+            $referred_by = $stmt->get_result()->fetch_assoc()['referred_by'] ?? null;
+            $stmt->close();
+
+            if ($referred_by) {
+                $stmt = $conn->prepare("SELECT is_community_partner FROM basics_members WHERE id = ?");
+                $stmt->bind_param('i', $referred_by);
+                $stmt->execute();
+                $partner = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($partner && $partner['is_community_partner']) {
+                    $rate = (float) setting($conn, 'basics_partner_override_rate', 0.02);
+                    $override = round($order['total_amount'] * $rate, 2);
+                    basics_wallet_credit($conn, $referred_by, 'referral_override', $override, $order_id, null,
+                        'Referral override (' . (int) ($rate * 100) . '%) on order #' . $order_id . ' (status corrected)');
+                }
+            }
+        }
+    }
+
+    log_activity($conn, 'force_basics_order_status', 'Corrected the live status of Basics order #' . $order_id . ' to ' . $new_status . ' (' . $actor_label . ')');
+    return true;
+}
+
 // full_name/address stay the authoritative columns every existing display,
 // SMS, email, and receipt already reads — these just keep them in sync
 // whenever the structured parts (first/middle/last, address_line/barangay/
