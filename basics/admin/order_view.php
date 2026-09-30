@@ -334,6 +334,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endwhile; ?>
       </div>
 
+      <?php
+        // The last trail row is "current" only if its status actually
+        // matches the order's live status — for an order placed before this
+        // feature existed, the trail can lag behind (e.g. no rows at all, or
+        // stuck on an older status) since it only records what happens from
+        // here on, not what already happened.
+        $last_history_status = !empty($status_history) ? end($status_history)['status'] : null;
+        $trail_matches_current = $last_history_status === $order['status'];
+      ?>
       <div class="panel-card mt-4">
         <h2 class="h6">Order Trail</h2>
         <div class="table-responsive">
@@ -347,6 +356,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <tr>
                 <td>
                   <span class="pill pill-<?= basics_order_status_pill($h['status']) ?>"><?= basics_order_status_label($h['status']) ?></span>
+                  <?php if ($trail_matches_current && $h === end($status_history)): ?><span class="pill pill-active ms-1">Current</span><?php endif; ?>
                   <?php if ($h['note']): ?><div class="text-muted small mt-1"><?= sanitize($h['note']) ?></div><?php endif; ?>
                 </td>
                 <td><?= date('M j, Y g:i A', strtotime($h['created_at'])) ?></td>
@@ -356,6 +366,18 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 </td>
               </tr>
             <?php endforeach; ?>
+            <?php if (!$trail_matches_current): ?>
+              <tr>
+                <td>
+                  <span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span>
+                  <span class="pill pill-active ms-1">Current</span>
+                  <div class="text-muted small mt-1">Not yet recorded in the trail (order predates this feature, or was updated directly).</div>
+                </td>
+                <td class="text-muted">&mdash;</td>
+                <td class="text-muted">&mdash;</td>
+                <td class="no-print"></td>
+              </tr>
+            <?php endif; ?>
             </tbody>
           </table>
         </div>
