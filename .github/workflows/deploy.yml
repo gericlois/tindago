@@ -42,7 +42,7 @@ jobs:
           protocol: ftp
           port: 21
           local-dir: ./
-          server-dir: /
+          server-dir: /public_html/
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
           # Setting `exclude` replaces the action's defaults, so those are repeated first.
           exclude: |
