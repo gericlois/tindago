@@ -1,4 +1,4 @@
-name: Deploy to InfinityFree
+name: Deploy to iFastnet
 
 # Pushes to main deploy automatically. Run it by hand from the Actions tab
 # ("Run workflow") to deploy any branch — manual runs default to a dry run,
@@ -14,7 +14,7 @@ on:
         default: true
 
 concurrency:
-  group: deploy-infinityfree
+  group: deploy-ifastnet
   cancel-in-progress: false
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
           protocol: ftp
           port: 21
           local-dir: ./
-          server-dir: /htdocs/
+          server-dir: /
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
           # Setting `exclude` replaces the action's defaults, so those are repeated first.
           exclude: |
