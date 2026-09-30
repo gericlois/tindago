@@ -101,20 +101,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     basics_cancel_order($conn, $id, basics_current_admin_name(), $cancel_reason);
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_status_note') {
-    // Corrects/annotates a trail entry after the fact (e.g. fixing a typo in
-    // a cancellation reason) — the status, actor, and date stay untouched;
-    // only the note is editable, so the trail's actual history can't be
-    // rewritten, just clarified.
+    // Corrects a trail entry after the fact (e.g. it was logged as the wrong
+    // stage, or a cancellation reason had a typo) — the actor and date stay
+    // untouched (that's still a true record of who acted and when); only
+    // the status and note are editable. This never touches the order's own
+    // live status/timestamps (basics_orders) — only the trail's record of
+    // what that entry was.
+    $valid_statuses = ['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
     $history_id = (int) ($_POST['history_id'] ?? 0);
+    $status = $_POST['status'] ?? '';
     $note = trim($_POST['note'] ?? '');
     $note_to_store = $note !== '' ? $note : null;
-    $stmt = $conn->prepare("UPDATE basics_order_status_history SET note = ? WHERE id = ? AND order_id = ?");
-    $stmt->bind_param('sii', $note_to_store, $history_id, $id);
-    $stmt->execute();
-    $edited = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($edited) {
-        log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail note on Basics order #' . $id);
+
+    if (in_array($status, $valid_statuses, true)) {
+        $stmt = $conn->prepare("UPDATE basics_order_status_history SET status = ?, note = ? WHERE id = ? AND order_id = ?");
+        $stmt->bind_param('ssii', $status, $note_to_store, $history_id, $id);
+        $stmt->execute();
+        $edited = $stmt->affected_rows > 0;
+        $stmt->close();
+        if ($edited) {
+            log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail entry on Basics order #' . $id);
+        }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'backfill_current_status_note') {
@@ -439,6 +446,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
+                <label class="flbl">Status</label>
+                <select name="status" class="fctrl mb-3">
+                  <?php foreach (['pending', 'confirmed', 'out_for_delivery', 'delivered', 'cancelled'] as $status_option): ?>
+                    <option value="<?= $status_option ?>" <?= $h['status'] === $status_option ? 'selected' : '' ?>><?= basics_order_status_label($status_option) ?></option>
+                  <?php endforeach; ?>
+                </select>
                 <label class="flbl">Reason / Note</label>
                 <textarea name="note" class="fctrl" rows="3"><?= sanitize($h['note'] ?? '') ?></textarea>
               </div>
