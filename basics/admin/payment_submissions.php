@@ -134,7 +134,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <tr>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $s['member_id'] ?>"><?= sanitize($s['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($s['username']) ?>)</span></td>
           <td><?= $for_labels[$s['payment_for']] ?? sanitize($s['payment_for']) ?><?= $s['order_id'] ? ' #' . (int) $s['order_id'] : '' ?><?= $s['loan_request_id'] ? ' #' . (int) $s['loan_request_id'] : '' ?></td>
-          <td><?= $s['payment_method'] === 'gcash' ? 'GCash' : 'Bank' ?></td>
+          <td><?= sanitize($s['payment_method']) ?></td>
           <td class="small"><?= sanitize($s['destination_account']) ?></td>
           <td><?= format_price($s['amount']) ?></td>
           <td><?= sanitize($s['reference_number']) ?></td>

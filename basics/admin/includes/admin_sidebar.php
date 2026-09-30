@@ -70,6 +70,7 @@ $nav_groups = [
                 '/basics/admin/payments.php'     => ['icon' => 'fa-money-bill-wave', 'label' => 'Payments'],
                 '/basics/admin/payment_reminders.php' => ['icon' => 'fa-bell',       'label' => 'Payment Reminders', 'badge' => $pending_basics_overdue_count],
                 '/basics/admin/payment_submissions.php' => ['icon' => 'fa-receipt', 'label' => 'Payment Submissions', 'badge' => $pending_basics_payments_count],
+                '/basics/admin/payment_banks.php' => ['icon' => 'fa-building-columns', 'label' => 'Payment Banks'],
                 '/basics/admin/dormancy.php'     => ['icon' => 'fa-user-clock',     'label' => 'Dormancy Report'],
             ],
         ],

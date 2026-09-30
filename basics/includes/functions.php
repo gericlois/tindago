@@ -659,3 +659,35 @@ function handle_benefit_document_upload($file_key) {
     resize_image_if_needed($dest, $mime);
     return [$new_filename, null];
 }
+
+// Optional QR code for a payment bank (basics/admin/payment_banks.php) —
+// unlike KYC/benefit docs, no file is a valid choice, not every bank shows
+// a QR to members. Publicly servable, unlike the private upload dirs above.
+function handle_payment_bank_qr_upload($file_key) {
+    if (empty($_FILES[$file_key]['name'])) {
+        return [null, null];
+    }
+    if ($_FILES[$file_key]['error'] !== UPLOAD_ERR_OK) {
+        return [null, 'Upload failed.'];
+    }
+    if ($_FILES[$file_key]['size'] > 5 * 1024 * 1024) {
+        return [null, 'QR image must be smaller than 5MB.'];
+    }
+
+    $allowed_types = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $_FILES[$file_key]['tmp_name']);
+    finfo_close($finfo);
+
+    if (!isset($allowed_types[$mime])) {
+        return [null, 'QR image must be a JPG, PNG, or WEBP.'];
+    }
+
+    $new_filename = bin2hex(random_bytes(16)) . '.' . $allowed_types[$mime];
+    $dest = UPLOAD_PATH . 'basics_payment_bank_qrs/' . $new_filename;
+    if (!move_uploaded_file($_FILES[$file_key]['tmp_name'], $dest)) {
+        return [null, 'Failed to save the uploaded QR image.'];
+    }
+    resize_image_if_needed($dest, $mime);
+    return [$new_filename, null];
+}

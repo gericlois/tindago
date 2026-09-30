@@ -15,8 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
     $payment_for = $_POST['payment_for'] ?? '';
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $loan_request_id = (int) ($_POST['loan_request_id'] ?? 0);
-    $payment_method = $_POST['payment_method'] ?? '';
-    $bank_choice = $_POST['bank_choice'] ?? '';
+    $bank_id = (int) ($_POST['bank_id'] ?? 0);
     $amount = round((float) ($_POST['amount'] ?? 0), 2);
     $reference_number = trim($_POST['reference_number'] ?? '');
     $paid_at = trim($_POST['paid_at'] ?? '');
@@ -24,11 +23,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
     if (!in_array($payment_for, ['grocery', 'loan', 'other'], true)) {
         $errors[] = 'Choose what this payment is for.';
     }
-    if (!in_array($payment_method, ['gcash', 'bank'], true)) {
-        $errors[] = 'Choose a payment method.';
+
+    $selected_bank = null;
+    if ($bank_id > 0) {
+        $stmt = $conn->prepare("SELECT * FROM basics_payment_banks WHERE id = ? AND is_enabled = 1");
+        $stmt->bind_param('i', $bank_id);
+        $stmt->execute();
+        $selected_bank = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
     }
-    if ($payment_method === 'bank' && !in_array($bank_choice, ['pnb', 'eastwest'], true)) {
-        $errors[] = 'Choose which bank you transferred to.';
+    if (!$selected_bank) {
+        $errors[] = 'Choose a valid payment bank.';
     }
     if ($amount <= 0) {
         $errors[] = 'Enter a valid amount.';
@@ -91,15 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
         $loan_request_id = null;
     }
 
-    if ($payment_method === 'gcash') {
-        $destination_account = 'GCash — ' . setting($conn, 'basics_gcash_number', '(not yet configured)') . ' (' . setting($conn, 'basics_gcash_name', 'JMC Foodies Basics') . ')';
-    } elseif ($payment_method === 'bank' && $bank_choice === 'pnb') {
-        $destination_account = 'PNB — ' . setting($conn, 'basics_pnb_account_number', '(not yet configured)') . ' (' . setting($conn, 'basics_pnb_account_name', 'JMC Foodies Basics') . ')';
-    } elseif ($payment_method === 'bank' && $bank_choice === 'eastwest') {
-        $destination_account = 'EastWest — ' . setting($conn, 'basics_eastwest_account_number', '(not yet configured)') . ' (' . setting($conn, 'basics_eastwest_account_name', 'JMC Foodies Basics') . ')';
-    } else {
-        $destination_account = '';
-    }
+    $payment_method = $selected_bank ? $selected_bank['name'] : '';
+    $destination_account = $selected_bank
+        ? $selected_bank['name'] . ' — ' . $selected_bank['account_number'] . ' (' . $selected_bank['account_name'] . ')'
+        : '';
 
     $proof_filename = null;
     if (empty($errors)) {
@@ -148,12 +148,7 @@ $stmt->bind_param('i', $member['id']);
 $stmt->execute();
 $submissions = $stmt->get_result();
 
-$gcash_number = setting($conn, 'basics_gcash_number', '');
-$gcash_name = setting($conn, 'basics_gcash_name', 'JMC Foodies Basics');
-$pnb_account_number = setting($conn, 'basics_pnb_account_number', '');
-$pnb_account_name = setting($conn, 'basics_pnb_account_name', 'JMC Foodies Basics');
-$eastwest_account_number = setting($conn, 'basics_eastwest_account_number', '');
-$eastwest_account_name = setting($conn, 'basics_eastwest_account_name', 'JMC Foodies Basics');
+$payment_banks = $conn->query("SELECT * FROM basics_payment_banks WHERE is_enabled = 1 ORDER BY sort_order ASC, name ASC")->fetch_all(MYSQLI_ASSOC);
 
 $page_title = 'Payments';
 require __DIR__ . '/../includes/header.php';
@@ -284,35 +279,23 @@ require __DIR__ . '/../includes/navbar.php';
         </div>
 
         <div class="mb-3">
-          <label class="flbl">Payment Method</label>
-          <select name="payment_method" id="payment_method" class="fctrl" required>
+          <label class="flbl">Payment Bank</label>
+          <select name="bank_id" id="bank_id" class="fctrl" required>
             <option value="">Select...</option>
-            <option value="gcash">GCash</option>
-            <option value="bank">Bank Transfer</option>
+            <?php foreach ($payment_banks as $bank): ?>
+              <option value="<?= (int) $bank['id'] ?>"><?= sanitize($bank['name']) ?></option>
+            <?php endforeach; ?>
           </select>
         </div>
 
-        <div class="mb-3 errmsg" id="gcash-info" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
-          <p class="mb-0">Send payment to GCash <strong><?= sanitize($gcash_number ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($gcash_name) ?>).</p>
-        </div>
-
-        <div class="mb-3" id="bank-field" style="display:none;">
-          <label class="flbl">Which bank did you transfer to?</label>
-          <select name="bank_choice" id="bank_choice" class="fctrl">
-            <option value="">Select...</option>
-            <option value="pnb">PNB</option>
-            <option value="eastwest">EastWest</option>
-          </select>
-        </div>
-
-        <div class="mb-3 errmsg text-center" id="bank-info-pnb" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
-          <img src="<?= BASE_URL ?>/assets/img/basics/qr_pnb.jpg" alt="PNB QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
-          <p class="mb-0 mt-2">Send payment to PNB, account <strong><?= sanitize($pnb_account_number ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($pnb_account_name) ?>).</p>
-        </div>
-        <div class="mb-3 errmsg text-center" id="bank-info-eastwest" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
-          <img src="<?= BASE_URL ?>/assets/img/basics/qr_eastwest.jpg" alt="EastWest QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
-          <p class="mb-0 mt-2">Send payment to EastWest, account <strong><?= sanitize($eastwest_account_number ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($eastwest_account_name) ?>).</p>
-        </div>
+        <?php foreach ($payment_banks as $bank): ?>
+          <div class="mb-3 errmsg text-center bank-info" id="bank-info-<?= (int) $bank['id'] ?>" style="display:none; background:#eef6ff; color:#1a3d5c; border-color:#bcdcf5;">
+            <?php if ($bank['qr_image']): ?>
+              <img src="<?= BASE_URL ?>/uploads/basics_payment_bank_qrs/<?= sanitize($bank['qr_image']) ?>" alt="<?= sanitize($bank['name']) ?> QR code" style="max-width:220px;width:100%;border-radius:10px;border:1px solid #eee;">
+            <?php endif; ?>
+            <p class="mb-0 mt-2">Send payment to <?= sanitize($bank['name']) ?>, account <strong><?= sanitize($bank['account_number'] ?: 'not yet configured — contact support') ?></strong> (<?= sanitize($bank['account_name']) ?>).</p>
+          </div>
+        <?php endforeach; ?>
 
         <div class="row">
           <div class="col-sm-6 mb-3">
@@ -399,12 +382,8 @@ document.addEventListener('DOMContentLoaded', function () {
   var paymentFor = document.getElementById('payment_for');
   var orderField = document.getElementById('order-field');
   var loanField = document.getElementById('loan-field');
-  var paymentMethod = document.getElementById('payment_method');
-  var gcashInfo = document.getElementById('gcash-info');
-  var bankField = document.getElementById('bank-field');
-  var bankChoice = document.getElementById('bank_choice');
-  var bankInfoPnb = document.getElementById('bank-info-pnb');
-  var bankInfoEastwest = document.getElementById('bank-info-eastwest');
+  var bankSelect = document.getElementById('bank_id');
+  var bankInfos = document.querySelectorAll('.bank-info');
   var orderSelect = orderField.querySelector('select[name="order_id"]');
   var amountInput = document.getElementById('amount');
 
@@ -427,21 +406,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  function updateBankInfo() {
-    bankInfoPnb.style.display = bankChoice.value === 'pnb' ? '' : 'none';
-    bankInfoEastwest.style.display = bankChoice.value === 'eastwest' ? '' : 'none';
-  }
-
-  paymentMethod.addEventListener('change', function () {
-    gcashInfo.style.display = paymentMethod.value === 'gcash' ? '' : 'none';
-    bankField.style.display = paymentMethod.value === 'bank' ? '' : 'none';
-    if (paymentMethod.value !== 'bank') {
-      bankChoice.value = '';
+  bankSelect.addEventListener('change', function () {
+    bankInfos.forEach(function (el) { el.style.display = 'none'; });
+    if (bankSelect.value) {
+      var el = document.getElementById('bank-info-' + bankSelect.value);
+      if (el) el.style.display = '';
     }
-    updateBankInfo();
   });
-
-  bankChoice.addEventListener('change', updateBankInfo);
 });
 </script>
 
