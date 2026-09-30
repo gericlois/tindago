@@ -12,12 +12,16 @@ $member = basics_get_member($conn, basics_current_user_id());
 $id = (int) ($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel') {
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled' WHERE id = ? AND member_id = ? AND status = 'pending'");
+    // Confirm this order actually belongs to the member before cancelling —
+    // basics_cancel_order() itself has no member_id check (it's also called
+    // from the admin side), so that ownership check stays here.
+    $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND member_id = ? AND status = 'pending'");
     $stmt->bind_param('ii', $id, $member['id']);
     $stmt->execute();
-    $cancelled = $stmt->affected_rows > 0;
+    $owns_order = (bool) $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    if ($cancelled) {
+
+    if ($owns_order && basics_cancel_order($conn, $id, $member['full_name'] . ' (member)')) {
         redirect('/basics/order_view.php?id=' . $id . '&cancelled=1');
     }
     redirect('/basics/order_view.php?id=' . $id);

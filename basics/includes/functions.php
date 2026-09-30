@@ -291,10 +291,127 @@ function basics_deliver_order($conn, $order_id, $admin_id) {
     }
 
     log_activity($conn, 'deliver_basics_order', 'Marked Basics order #' . $order_id . ' as delivered');
+    basics_record_order_status($conn, $order_id, 'delivered', basics_admin_name_by_id($conn, $admin_id));
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
         $due_date = date('Y-m-d', strtotime('+7 days'));
         basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics");
+    }
+    return true;
+}
+
+function basics_current_admin_name() {
+    return $_SESSION['basics_admin_name'] ?? 'Admin';
+}
+
+function basics_admin_name_by_id($conn, $admin_id) {
+    if (!$admin_id) {
+        return 'Admin';
+    }
+    $stmt = $conn->prepare("SELECT name FROM basics_admins WHERE id = ?");
+    $stmt->bind_param('i', $admin_id);
+    $stmt->execute();
+    $name = $stmt->get_result()->fetch_assoc()['name'] ?? null;
+    $stmt->close();
+    return $name ?: 'Admin';
+}
+
+// Appends one row to the order's status trail (basics_order_status_history)
+// — shown as the "Order Trail" card on basics/admin/order_view.php.
+// $actor_label is a precomputed human string (admin name, or a member's
+// full name for self-service actions like placing/cancelling their own
+// order) rather than an id, since the two kinds of actor live in entirely
+// separate tables/sessions.
+function basics_record_order_status($conn, $order_id, $status, $actor_label, $note = null) {
+    $stmt = $conn->prepare("INSERT INTO basics_order_status_history (order_id, status, actor_label, note) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param('isss', $order_id, $status, $actor_label, $note);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Shared with basics/admin/order_view.php and basics/admin/orders.php so the
+// empty-gift safeguard and status-trail recording can't be missed from
+// either entry point (previously only order_view.php checked for an empty
+// gift order before approving it).
+// Returns 'confirmed', 'empty_gift', or 'not_found'.
+function basics_confirm_order($conn, $order_id, $actor_label) {
+    $stmt = $conn->prepare("SELECT is_gift, (SELECT COUNT(*) FROM basics_order_items WHERE order_id = basics_orders.id) AS item_count FROM basics_orders WHERE id = ? AND status = 'pending'");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $check = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$check) {
+        return 'not_found';
+    }
+    if ($check['is_gift'] && (int) $check['item_count'] === 0) {
+        return 'empty_gift';
+    }
+
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'confirmed', confirmed_at = NOW() WHERE id = ? AND status = 'pending'");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $confirmed = $stmt->affected_rows > 0;
+    $stmt->close();
+
+    if (!$confirmed) {
+        return 'not_found';
+    }
+
+    basics_record_order_status($conn, $order_id, 'confirmed', $actor_label);
+    log_activity($conn, 'confirm_basics_order', 'Approved Basics order #' . $order_id);
+    $member = basics_member_by_order_id($conn, $order_id);
+    if ($member) {
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been approved and is being prepared. - JMC Foodies Basics");
+    }
+    return 'confirmed';
+}
+
+// Shared with basics/admin/order_view.php and basics/admin/orders.php.
+function basics_send_order_out_for_delivery($conn, $order_id, $actor_label) {
+    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'out_for_delivery', out_for_delivery_at = NOW() WHERE id = ? AND status = 'confirmed'");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $moved = $stmt->affected_rows > 0;
+    $stmt->close();
+    if (!$moved) {
+        return false;
+    }
+
+    basics_record_order_status($conn, $order_id, 'out_for_delivery', $actor_label);
+    log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $order_id . ' as out for delivery');
+    $member = basics_member_by_order_id($conn, $order_id);
+    if ($member) {
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} is out for delivery! - JMC Foodies Basics");
+    }
+    return true;
+}
+
+// Shared with basics/admin/order_view.php, basics/admin/orders.php, and the
+// member-facing basics/order_view.php (self-cancel while still Checking).
+// $cancel_reason is optional — orders.php's list-page Cancel button and the
+// member's self-cancel don't collect one, only order_view.php's modal does.
+function basics_cancel_order($conn, $order_id, $actor_label, $cancel_reason = null) {
+    if ($cancel_reason !== null) {
+        $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled', cancel_reason = ? WHERE id = ? AND status IN ('pending', 'confirmed')");
+        $stmt->bind_param('si', $cancel_reason, $order_id);
+    } else {
+        $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'confirmed')");
+        $stmt->bind_param('i', $order_id);
+    }
+    $stmt->execute();
+    $cancelled = $stmt->affected_rows > 0;
+    $stmt->close();
+    if (!$cancelled) {
+        return false;
+    }
+
+    basics_record_order_status($conn, $order_id, 'cancelled', $actor_label, $cancel_reason);
+    log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $order_id . ($cancel_reason ? ': ' . $cancel_reason : ''));
+    $member = basics_member_by_order_id($conn, $order_id);
+    if ($member) {
+        $reason_note = $cancel_reason ? " Reason: {$cancel_reason}" : '';
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been cancelled.{$reason_note} - JMC Foodies Basics");
     }
     return true;
 }

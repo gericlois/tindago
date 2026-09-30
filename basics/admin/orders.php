@@ -9,33 +9,15 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm') {
     $id = (int) ($_POST['id'] ?? 0);
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'confirmed', confirmed_at = NOW() WHERE id = ? AND status = 'pending'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $confirmed = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($confirmed) {
-        log_activity($conn, 'confirm_basics_order', 'Approved Basics order #' . $id);
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been approved and is being prepared. - JMC Foodies Basics");
-        }
-    }
+    // basics_confirm_order() (basics/includes/functions.php) is the single
+    // place this transition happens — also called from order_view.php's own
+    // confirm action — so the empty-gift safeguard and status trail can't be
+    // missed from either entry point.
+    basics_confirm_order($conn, $id, basics_current_admin_name());
     redirect('/basics/admin/orders.php');
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'out_for_delivery') {
     $id = (int) ($_POST['id'] ?? 0);
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'out_for_delivery', out_for_delivery_at = NOW() WHERE id = ? AND status = 'confirmed'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $moved = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($moved) {
-        log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $id . ' as out for delivery');
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} is out for delivery! - JMC Foodies Basics");
-        }
-    }
+    basics_send_order_out_for_delivery($conn, $id, basics_current_admin_name());
     redirect('/basics/admin/orders.php');
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deliver') {
     $id = (int) ($_POST['id'] ?? 0);
@@ -46,18 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     redirect('/basics/admin/orders.php');
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel') {
     $id = (int) ($_POST['id'] ?? 0);
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled' WHERE id = ? AND status IN ('pending', 'confirmed')");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $cancelled = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($cancelled) {
-        log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $id);
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been cancelled. - JMC Foodies Basics");
-        }
-    }
+    basics_cancel_order($conn, $id, basics_current_admin_name());
     redirect('/basics/admin/orders.php');
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['archive', 'unarchive'], true)) {
     $id = (int) ($_POST['id'] ?? 0);

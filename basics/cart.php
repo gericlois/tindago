@@ -132,6 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
                 $stmt->execute();
                 $stmt->close();
 
+                basics_record_order_status($conn, $order['id'], 'pending', $member['full_name']);
+
                 $stmt = $conn->prepare("UPDATE basics_members SET last_activity_at = NOW() WHERE id = ?");
                 $stmt->bind_param('i', $member['id']);
                 $stmt->execute();

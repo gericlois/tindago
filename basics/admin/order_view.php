@@ -10,43 +10,17 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 $id = (int) ($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm') {
-    // A gift order with no items yet has nothing to actually deliver — block
-    // approval until the admin has picked what goes in the package.
-    $stmt = $conn->prepare("SELECT is_gift, (SELECT COUNT(*) FROM basics_order_items WHERE order_id = basics_orders.id) AS item_count FROM basics_orders WHERE id = ? AND status = 'pending'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $gift_check = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    if ($gift_check && $gift_check['is_gift'] && (int) $gift_check['item_count'] === 0) {
+    // basics_confirm_order() (basics/includes/functions.php) is the single
+    // place this transition happens — also called from orders.php's own
+    // confirm action — so the empty-gift safeguard and status trail can't be
+    // missed from either entry point.
+    $result = basics_confirm_order($conn, $id, basics_current_admin_name());
+    if ($result === 'empty_gift') {
         redirect('/basics/admin/order_view.php?id=' . $id . '&error=empty_gift');
-    }
-
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'confirmed', confirmed_at = NOW() WHERE id = ? AND status = 'pending'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $confirmed = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($confirmed) {
-        log_activity($conn, 'confirm_basics_order', 'Approved Basics order #' . $id);
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been approved and is being prepared. - JMC Foodies Basics");
-        }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'out_for_delivery') {
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'out_for_delivery', out_for_delivery_at = NOW() WHERE id = ? AND status = 'confirmed'");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $moved = $stmt->affected_rows > 0;
-    $stmt->close();
-    if ($moved) {
-        log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $id . ' as out for delivery');
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} is out for delivery! - JMC Foodies Basics");
-        }
-    }
+    basics_send_order_out_for_delivery($conn, $id, basics_current_admin_name());
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_item') {
     // Only while Checking — admin adjusts quantities/removes out-of-stock
@@ -124,17 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         redirect('/basics/admin/order_view.php?id=' . $id . '&error=missing_cancel_reason');
     }
 
-    $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled', cancel_reason = ? WHERE id = ? AND status IN ('pending', 'confirmed')");
-    $stmt->bind_param('si', $cancel_reason, $id);
+    basics_cancel_order($conn, $id, basics_current_admin_name(), $cancel_reason);
+    redirect('/basics/admin/order_view.php?id=' . $id);
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_status_note') {
+    // Corrects/annotates a trail entry after the fact (e.g. fixing a typo in
+    // a cancellation reason) — the status, actor, and date stay untouched;
+    // only the note is editable, so the trail's actual history can't be
+    // rewritten, just clarified.
+    $history_id = (int) ($_POST['history_id'] ?? 0);
+    $note = trim($_POST['note'] ?? '');
+    $note_to_store = $note !== '' ? $note : null;
+    $stmt = $conn->prepare("UPDATE basics_order_status_history SET note = ? WHERE id = ? AND order_id = ?");
+    $stmt->bind_param('sii', $note_to_store, $history_id, $id);
     $stmt->execute();
-    $cancelled = $stmt->affected_rows > 0;
+    $edited = $stmt->affected_rows > 0;
     $stmt->close();
-    if ($cancelled) {
-        log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $id . ': ' . $cancel_reason);
-        $member = basics_member_by_order_id($conn, $id);
-        if ($member) {
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$id} has been cancelled. Reason: {$cancel_reason} - JMC Foodies Basics");
-        }
+    if ($edited) {
+        log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail note on Basics order #' . $id);
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'archive') {
@@ -180,6 +160,11 @@ $stmt->execute();
 $payments = $stmt->get_result();
 
 $amount_paid = (float) $conn->query("SELECT COALESCE(SUM(amount_paid),0) AS s FROM basics_payments WHERE order_id = $id")->fetch_assoc()['s'];
+
+$stmt = $conn->prepare("SELECT * FROM basics_order_status_history WHERE order_id = ? ORDER BY created_at ASC, id ASC");
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$status_history = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 $page_title = 'Order #' . $order['id'];
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -348,6 +333,58 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </div>
         <?php endwhile; ?>
       </div>
+
+      <div class="panel-card mt-4">
+        <h2 class="h6">Order Trail</h2>
+        <div class="table-responsive">
+          <table class="table-theme no-datatable">
+            <thead><tr><th>Status</th><th>Date</th><th>Action By</th><th class="no-print"></th></tr></thead>
+            <tbody>
+            <?php if (empty($status_history)): ?>
+              <tr><td colspan="4" class="text-muted">No status history recorded for this order.</td></tr>
+            <?php endif; ?>
+            <?php foreach ($status_history as $h): ?>
+              <tr>
+                <td>
+                  <span class="pill pill-<?= basics_order_status_pill($h['status']) ?>"><?= basics_order_status_label($h['status']) ?></span>
+                  <?php if ($h['note']): ?><div class="text-muted small mt-1"><?= sanitize($h['note']) ?></div><?php endif; ?>
+                </td>
+                <td><?= date('M j, Y g:i A', strtotime($h['created_at'])) ?></td>
+                <td><?= sanitize($h['actor_label']) ?></td>
+                <td class="no-print">
+                  <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#editNoteModal-<?= (int) $h['id'] ?>"><i class="fas fa-pen"></i></button>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <?php foreach ($status_history as $h): ?>
+      <div class="modal fade" id="editNoteModal-<?= (int) $h['id'] ?>" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <form method="post">
+              <input type="hidden" name="action" value="edit_status_note">
+              <input type="hidden" name="history_id" value="<?= (int) $h['id'] ?>">
+              <div class="modal-header">
+                <h5 class="modal-title">Edit Reason — <?= basics_order_status_label($h['status']) ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <label class="flbl">Reason / Note</label>
+                <textarea name="note" class="fctrl" rows="3"><?= sanitize($h['note'] ?? '') ?></textarea>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn-chip btn-chip-success">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <?php endforeach; ?>
     </div>
   </div>
 </div>
