@@ -111,9 +111,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
         'certificate_of_employment' => 'Certificate of Employment / Work Clearance',
     ];
-    // All documents are optional at application time — an admin can still
-    // request/collect them separately before approving the application.
-    $optional_doc_fields = array_keys($doc_fields);
+    // Both valid IDs and Barangay Clearance are required up front — the
+    // remaining paperwork (membership form, certificate of employment) can
+    // still be collected separately before an admin approves the application.
+    $optional_doc_fields = ['membership_application_form', 'membership_application_form_back', 'certificate_of_employment'];
     foreach ($doc_fields as $field => $label) {
         if (in_array($field, $optional_doc_fields, true)) {
             continue;
@@ -302,19 +303,19 @@ require __DIR__ . '/../includes/navbar.php';
             <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($employer_address) ?>" placeholder="Lets you choose company delivery at checkout later">
           </div>
 
-          <h2 class="h6 mb-3 mt-2">Documents (optional)</h2>
-          <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each. Optional, but submitting them now may speed up your application's approval.</div>
+          <h2 class="h6 mb-3 mt-2">Required Documents</h2>
+          <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
           <div class="mb-3">
-            <label class="flbl">Valid ID #1 (optional)</label>
-            <input type="file" name="valid_id_1" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            <label class="flbl">Valid ID #1</label>
+            <input type="file" name="valid_id_1" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
           </div>
           <div class="mb-3">
-            <label class="flbl">Valid ID #2 (optional)</label>
-            <input type="file" name="valid_id_2" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            <label class="flbl">Valid ID #2</label>
+            <input type="file" name="valid_id_2" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
           </div>
           <div class="mb-3">
-            <label class="flbl">Barangay Clearance (optional)</label>
-            <input type="file" name="barangay_clearance" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf">
+            <label class="flbl">Barangay Clearance</label>
+            <input type="file" name="barangay_clearance" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" required>
           </div>
           <div class="mb-3">
             <label class="flbl">Membership Application Form (signed) - Front Page (optional)</label>

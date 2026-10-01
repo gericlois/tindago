@@ -13,11 +13,20 @@ $user = basics_get_member($conn, $user_id);
 
 $errors = [];
 $saved = false;
+// Name is editable exactly once — only for a legacy member whose name was
+// recorded as a single field before structured first/middle/last existed.
+// Once set, it's locked (matches the KYC identity documents verified at
+// application time); changing a legal name afterward goes through support.
+$name_is_editable = empty($user['first_name']) && empty($user['last_name']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
+    if ($name_is_editable) {
+        $first_name = trim($_POST['first_name'] ?? '');
+        $middle_name = trim($_POST['middle_name'] ?? '');
+        $last_name = trim($_POST['last_name'] ?? '');
+        if ($first_name === '') $errors[] = 'First name is required.';
+        if ($last_name === '') $errors[] = 'Last name is required.';
+    }
     $address_line = trim($_POST['address_line'] ?? '');
     $barangay = trim($_POST['barangay'] ?? '');
     $city = trim($_POST['city'] ?? '');
@@ -26,8 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $employer_address = trim($_POST['employer_address'] ?? '');
 
-    if ($first_name === '') $errors[] = 'First name is required.';
-    if ($last_name === '') $errors[] = 'Last name is required.';
     if ($address_line === '') $errors[] = 'House #/Street is required.';
     if ($barangay === '') $errors[] = 'Barangay is required.';
     if ($city === '') $errors[] = 'City/Municipality is required.';
@@ -45,16 +52,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $full_name = basics_compose_full_name($first_name, $middle_name, $last_name);
         $address = basics_compose_address($address_line, $barangay, $city, $province);
         $email_to_store = $email !== '' ? $email : null;
-        $stmt = $conn->prepare("UPDATE basics_users SET
-            full_name = ?, first_name = ?, middle_name = ?, last_name = ?,
-            address = ?, address_line = ?, barangay = ?, city = ?, province = ?,
-            contact_number = ?, email = ?
-            WHERE id = ?");
-        $stmt->bind_param('sssssssssssi', $full_name, $first_name, $middle_name, $last_name,
-            $address, $address_line, $barangay, $city, $province, $contact_number, $email_to_store, $user_id);
+        if ($name_is_editable) {
+            $full_name = basics_compose_full_name($first_name, $middle_name, $last_name);
+            $stmt = $conn->prepare("UPDATE basics_users SET
+                full_name = ?, first_name = ?, middle_name = ?, last_name = ?,
+                address = ?, address_line = ?, barangay = ?, city = ?, province = ?,
+                contact_number = ?, email = ?
+                WHERE id = ?");
+            $stmt->bind_param('sssssssssssi', $full_name, $first_name, $middle_name, $last_name,
+                $address, $address_line, $barangay, $city, $province, $contact_number, $email_to_store, $user_id);
+        } else {
+            $stmt = $conn->prepare("UPDATE basics_users SET
+                address = ?, address_line = ?, barangay = ?, city = ?, province = ?,
+                contact_number = ?, email = ?
+                WHERE id = ?");
+            $stmt->bind_param('sssssssi',
+                $address, $address_line, $barangay, $city, $province, $contact_number, $email_to_store, $user_id);
+        }
         $stmt->execute();
         $stmt->close();
 
@@ -102,19 +118,21 @@ require __DIR__ . '/../includes/navbar.php';
           <div class="row">
             <div class="col-sm-4 mb-3">
               <label class="flbl">First Name</label>
-              <input type="text" name="first_name" class="fctrl" value="<?= sanitize($user['first_name'] ?? '') ?>" required>
+              <input type="text" name="first_name" class="fctrl" value="<?= sanitize($user['first_name'] ?? '') ?>" <?= $name_is_editable ? 'required' : 'disabled' ?>>
             </div>
             <div class="col-sm-4 mb-3">
               <label class="flbl">Middle Name</label>
-              <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($user['middle_name'] ?? '') ?>">
+              <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($user['middle_name'] ?? '') ?>" <?= $name_is_editable ? '' : 'disabled' ?>>
             </div>
             <div class="col-sm-4 mb-3">
               <label class="flbl">Surname</label>
-              <input type="text" name="last_name" class="fctrl" value="<?= sanitize($user['last_name'] ?? '') ?>" required>
+              <input type="text" name="last_name" class="fctrl" value="<?= sanitize($user['last_name'] ?? '') ?>" <?= $name_is_editable ? 'required' : 'disabled' ?>>
             </div>
           </div>
-          <?php if (empty($user['first_name']) && empty($user['last_name'])): ?>
+          <?php if ($name_is_editable): ?>
             <p class="text-muted small mb-3">Your name was recorded as a single field when you joined — fill in the boxes above to split it out.</p>
+          <?php else: ?>
+            <p class="text-muted small mb-3">Your name is locked to match your verified ID on file. Contact support if it needs to be corrected.</p>
           <?php endif; ?>
 
           <h2 class="h6 mb-3 mt-2">Address</h2>
