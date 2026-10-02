@@ -25,10 +25,10 @@ function basics_order_status_label($status) {
 function basics_order_status_pill($status) {
     $pills = [
         'draft' => 'pending',
-        'pending' => 'processing',
-        'confirmed' => 'approved',
-        'out_for_delivery' => 'approved',
-        'delivered' => 'completed',
+        'pending' => 'checking',
+        'confirmed' => 'preparing',
+        'out_for_delivery' => 'intransit',
+        'delivered' => 'delivered',
         'cancelled' => 'cancelled',
     ];
     return $pills[$status] ?? 'pending';

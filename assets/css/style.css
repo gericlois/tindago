@@ -484,6 +484,13 @@
 .pill-suspended { background: #999; }
 .pill-active { background: var(--green); }
 .pill-paid { background: var(--secondary); }
+/* Basics order pipeline (Checking/Preparing/In Transit/Delivered/Cancelled)
+   — its own dedicated colors so every stage is visually distinct, instead
+   of 3 of the 5 stages sharing the same green via pill-approved/completed. */
+.pill-checking { background: #3b82f6; }
+.pill-preparing { background: #f59e0b; }
+.pill-intransit { background: #8b5cf6; }
+.pill-delivered { background: var(--green); }
 
 .amount-credit { color: var(--green); font-weight: 600; }
 .amount-debit { color: var(--primary); font-weight: 600; }
