@@ -160,7 +160,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <td><?= $r['due_date'] ? date('M j, Y', strtotime($r['due_date'])) : '—' ?></td>
             <td class="no-print">
               <?php while ($doc = $docs->fetch_assoc()): ?>
-                <a href="<?= BASE_URL ?>/basics/admin/benefit_document_view.php?id=<?= (int) $doc['id'] ?>" target="_blank" class="d-block small"><?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?></a>
+                <button type="button" class="btn btn-link p-0 d-block small" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/benefit_document_view.php?id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>"><?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?></button>
               <?php endwhile; ?>
             </td>
             <td><span class="pill pill-<?= $status_pill[$r['status']] ?? 'pending' ?>"><?= ucfirst($r['status']) ?></span></td>

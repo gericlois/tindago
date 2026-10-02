@@ -5,6 +5,43 @@
 <?php endif; ?>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="<?= BASE_URL ?>/assets/js/main.js?v=<?= @filemtime(__DIR__ . '/../../assets/js/main.js') ?>"></script>
+
+  <!-- Shared document/image/proof viewer — any link with
+       data-bs-toggle="modal" data-bs-target="#docViewerModal" plus
+       data-doc-url (and optionally data-doc-title) opens its file here
+       instead of a new tab. One modal reused by every such link on the
+       page; the iframe src is only set while the modal is open so a large
+       PDF isn't left loaded in the background. -->
+  <div class="modal fade" id="docViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="docViewerModalTitle">Document</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-0" style="height:80vh;">
+          <iframe id="docViewerModalFrame" src="" style="width:100%;height:100%;border:0;"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var modalEl = document.getElementById('docViewerModal');
+      if (!modalEl) return;
+      var frame = document.getElementById('docViewerModalFrame');
+      var title = document.getElementById('docViewerModalTitle');
+      modalEl.addEventListener('show.bs.modal', function (e) {
+        var trigger = e.relatedTarget;
+        if (!trigger) return;
+        frame.src = trigger.getAttribute('data-doc-url') || '';
+        title.textContent = trigger.getAttribute('data-doc-title') || 'Document';
+      });
+      modalEl.addEventListener('hidden.bs.modal', function () {
+        frame.src = '';
+      });
+    })();
+  </script>
 <?php if (!empty($is_basics_admin_page)): ?>
   <!-- DataTables (search/sort) + Buttons (print) — every table on the Basics admin side. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>

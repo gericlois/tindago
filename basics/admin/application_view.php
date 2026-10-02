@@ -115,9 +115,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endif; ?>
         <?php while ($doc = $documents->fetch_assoc()): ?>
           <p class="mb-2">
-            <a href="<?= BASE_URL ?>/basics/admin/kyc_view.php?doc_id=<?= (int) $doc['id'] ?>" target="_blank" class="btn-chip btn-chip-outline">
+            <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/kyc_view.php?doc_id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>">
               <i class="fas fa-file-arrow-down"></i> <?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>
-            </a>
+            </button>
           </p>
         <?php endwhile; ?>
       </div>

@@ -139,7 +139,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= format_price($s['amount']) ?></td>
           <td><?= sanitize($s['reference_number']) ?></td>
           <td><?= date('M j, Y g:i A', strtotime($s['paid_at'])) ?></td>
-          <td class="no-print"><?php if ($s['proof_image']): ?><a href="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" target="_blank">View</a><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <td class="no-print"><?php if ($s['proof_image']): ?><button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" data-doc-title="Payment Proof — <?= sanitize($s['full_name']) ?>">View</button><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
           <td><span class="pill pill-<?= $status_pill[$s['status']] ?? 'pending' ?>"><?= ucfirst($s['status']) ?></span></td>
           <td class="small"><?= $s['admin_notes'] ? sanitize($s['admin_notes']) : '<span class="text-muted">—</span>' ?></td>
           <td class="no-print">
