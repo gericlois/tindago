@@ -781,6 +781,108 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
 }
 
 // ---------------------------------------------------------------
+// AI-assisted payment proof review (basics/admin/payment_submissions.php).
+// Sends the member's uploaded screenshot/PDF to Google Gemini's vision API
+// (free tier, no billing required), asking it to read back the amount and
+// reference number so an admin can spot a mismatch before confirming —
+// this is advisory only, never auto-confirms or auto-rejects a payment,
+// and only ever runs when an admin explicitly clicks "Analyze" on one
+// submission (never automatically, never in bulk).
+// Returns ['success' => bool, 'error' => string|null, plus the extracted
+// fields on success] and persists a successful result onto the submission
+// row so the page doesn't need to re-run the analysis on every reload.
+// ---------------------------------------------------------------
+function basics_analyze_payment_proof($conn, $submission_id) {
+    if (GEMINI_API_KEY === '') {
+        return ['success' => false, 'error' => 'AI review is not configured (no Gemini API key set).'];
+    }
+
+    $stmt = $conn->prepare("SELECT * FROM basics_payment_submissions WHERE id = ?");
+    $stmt->bind_param('i', $submission_id);
+    $stmt->execute();
+    $submission = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$submission || !$submission['proof_image']) {
+        return ['success' => false, 'error' => 'No proof image on file for this submission.'];
+    }
+
+    $path = UPLOAD_PATH . 'basics_payment_proofs/' . $submission['proof_image'];
+    if (!is_file($path)) {
+        return ['success' => false, 'error' => 'Proof file is missing on disk.'];
+    }
+    if (filesize($path) > 5 * 1024 * 1024) {
+        return ['success' => false, 'error' => 'Proof file is too large to analyze.'];
+    }
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $media_types = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'];
+    $media_type = $media_types[$extension] ?? null;
+    if (!$media_type) {
+        return ['success' => false, 'error' => 'Unsupported file type for AI review.'];
+    }
+
+    $base64 = base64_encode(file_get_contents($path));
+
+    $prompt = "This is a screenshot or PDF of a GCash/bank payment receipt. "
+        . "Read the amount paid and the transaction/reference number exactly as shown. "
+        . "Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: "
+        . '{"amount": <number or null>, "reference_number": "<string or null>", "notes": "<one short sentence, e.g. image is blurry, or amount not visible, or blank if nothing to flag>"}';
+
+    $payload = json_encode([
+        'contents' => [[
+            'parts' => [
+                ['inline_data' => ['mime_type' => $media_type, 'data' => $base64]],
+                ['text' => $prompt],
+            ],
+        ]],
+        'generationConfig' => ['response_mime_type' => 'application/json'],
+    ]);
+
+    $model = 'gemini-2.5-flash';
+    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . urlencode(GEMINI_API_KEY));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['content-type: application/json']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($response === false || $http_code < 200 || $http_code >= 300) {
+        return ['success' => false, 'error' => 'AI request failed (HTTP ' . $http_code . ').'];
+    }
+
+    $decoded = json_decode($response, true);
+    $text = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (!$text) {
+        return ['success' => false, 'error' => 'AI returned an unexpected response.'];
+    }
+
+    // response_mime_type: application/json should guarantee clean JSON, but
+    // strip a ```json fence defensively in case the model adds one anyway.
+    $text = trim(preg_replace('/^```(?:json)?|```$/m', '', trim($text)));
+    $extracted = json_decode($text, true);
+    if (!is_array($extracted)) {
+        return ['success' => false, 'error' => 'Could not parse the AI\'s response.'];
+    }
+
+    $extracted_amount = isset($extracted['amount']) && is_numeric($extracted['amount']) ? round((float) $extracted['amount'], 2) : null;
+    $extracted_reference = !empty($extracted['reference_number']) ? trim((string) $extracted['reference_number']) : null;
+    $notes = !empty($extracted['notes']) ? trim((string) $extracted['notes']) : null;
+
+    $stmt = $conn->prepare("UPDATE basics_payment_submissions SET ai_analyzed_at = NOW(), ai_extracted_amount = ?, ai_extracted_reference = ?, ai_notes = ? WHERE id = ?");
+    $stmt->bind_param('dssi', $extracted_amount, $extracted_reference, $notes, $submission_id);
+    $stmt->execute();
+    $stmt->close();
+
+    log_activity($conn, 'ai_analyze_payment_proof', 'Ran AI review on Basics payment submission #' . $submission_id);
+
+    return ['success' => true, 'amount' => $extracted_amount, 'reference_number' => $extracted_reference, 'notes' => $notes];
+}
+
+// ---------------------------------------------------------------
 // Phase 2 benefit programs (program manual section 10): Electric Bill Cash
 // Subsidy, Hospital Financial Assistance, Burial Financial Assistance, Baon
 // Eskwela Subsidy. One shared request table + doc table for all four — see

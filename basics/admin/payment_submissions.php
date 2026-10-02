@@ -50,6 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_proof') {
+    $id = (int) ($_POST['id'] ?? 0);
+    $result = basics_analyze_payment_proof($conn, $id);
+    if ($result['success']) {
+        redirect('/basics/admin/payment_submissions.php' . (isset($_GET['status']) ? '?status=' . urlencode($_GET['status']) : ''));
+    }
+    $errors[] = $result['error'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reject') {
     $id = (int) ($_POST['id'] ?? 0);
     $notes = trim($_POST['admin_notes'] ?? '');
@@ -123,14 +132,19 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th class="no-print">AI Check</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if (empty($submissions)): ?>
-        <tr><td colspan="11" class="text-muted">No submissions.</td></tr>
+        <tr><td colspan="12" class="text-muted">No submissions.</td></tr>
       <?php endif; ?>
       <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
       <?php foreach ($submissions as $s): ?>
+        <?php
+          $amount_matches = $s['ai_analyzed_at'] && $s['ai_extracted_amount'] !== null && abs((float) $s['ai_extracted_amount'] - (float) $s['amount']) <= 0.01;
+          $reference_matches = $s['ai_analyzed_at'] && $s['ai_extracted_reference'] !== null
+              && strcasecmp(trim((string) $s['ai_extracted_reference']), trim((string) $s['reference_number'])) === 0;
+        ?>
         <tr>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $s['member_id'] ?>"><?= sanitize($s['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($s['username']) ?>)</span></td>
           <td><?= $for_labels[$s['payment_for']] ?? sanitize($s['payment_for']) ?><?= $s['order_id'] ? ' #' . (int) $s['order_id'] : '' ?><?= $s['loan_request_id'] ? ' #' . (int) $s['loan_request_id'] : '' ?></td>
@@ -140,6 +154,25 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= sanitize($s['reference_number']) ?></td>
           <td><?= date('M j, Y g:i A', strtotime($s['paid_at'])) ?></td>
           <td class="no-print"><?php if ($s['proof_image']): ?><button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" data-doc-title="Payment Proof — <?= sanitize($s['full_name']) ?>">View</button><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <td class="no-print small">
+            <?php if (!$s['proof_image']): ?>
+              <span class="text-muted">&mdash;</span>
+            <?php elseif (!$s['ai_analyzed_at']): ?>
+              <form method="post" class="d-inline">
+                <input type="hidden" name="action" value="analyze_proof">
+                <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
+                <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-wand-magic-sparkles"></i> Analyze</button>
+              </form>
+            <?php else: ?>
+              <div>Amount: <?= $s['ai_extracted_amount'] !== null ? format_price($s['ai_extracted_amount']) : '<span class="text-muted">not read</span>' ?>
+                <?php if ($s['ai_extracted_amount'] !== null): ?><span class="pill pill-<?= $amount_matches ? 'approved' : 'rejected' ?>"><?= $amount_matches ? 'Match' : 'Mismatch' ?></span><?php endif; ?>
+              </div>
+              <div>Ref: <?= $s['ai_extracted_reference'] !== null ? sanitize($s['ai_extracted_reference']) : '<span class="text-muted">not read</span>' ?>
+                <?php if ($s['ai_extracted_reference'] !== null): ?><span class="pill pill-<?= $reference_matches ? 'approved' : 'rejected' ?>"><?= $reference_matches ? 'Match' : 'Mismatch' ?></span><?php endif; ?>
+              </div>
+              <?php if ($s['ai_notes']): ?><div class="text-muted"><?= sanitize($s['ai_notes']) ?></div><?php endif; ?>
+            <?php endif; ?>
+          </td>
           <td><span class="pill pill-<?= $status_pill[$s['status']] ?? 'pending' ?>"><?= ucfirst($s['status']) ?></span></td>
           <td class="small"><?= $s['admin_notes'] ? sanitize($s['admin_notes']) : '<span class="text-muted">—</span>' ?></td>
           <td class="no-print">
@@ -164,6 +197,21 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body d-flex flex-column gap-3">
+          <?php if ($s['ai_analyzed_at']): ?>
+            <?php
+              $amount_matches = $s['ai_extracted_amount'] !== null && abs((float) $s['ai_extracted_amount'] - (float) $s['amount']) <= 0.01;
+              $reference_matches = $s['ai_extracted_reference'] !== null
+                  && strcasecmp(trim((string) $s['ai_extracted_reference']), trim((string) $s['reference_number'])) === 0;
+            ?>
+            <div class="errmsg" style="background:#f5f0ff; color:#3d2a66; border-color:#d9c8f5;">
+              <p class="mb-1"><strong>AI Review</strong> (not a decision — just a cross-check against what the member typed)</p>
+              <p class="mb-1">Amount read: <?= $s['ai_extracted_amount'] !== null ? format_price($s['ai_extracted_amount']) : 'not legible' ?>
+                <?php if ($s['ai_extracted_amount'] !== null): ?> — <?= $amount_matches ? 'matches' : 'does NOT match' ?> the submitted amount (<?= format_price($s['amount']) ?>)<?php endif; ?></p>
+              <p class="mb-1">Reference read: <?= $s['ai_extracted_reference'] !== null ? sanitize($s['ai_extracted_reference']) : 'not legible' ?>
+                <?php if ($s['ai_extracted_reference'] !== null): ?> — <?= $reference_matches ? 'matches' : 'does NOT match' ?> the submitted reference (<?= sanitize($s['reference_number']) ?>)<?php endif; ?></p>
+              <?php if ($s['ai_notes']): ?><p class="mb-0 small text-muted">Note: <?= sanitize($s['ai_notes']) ?></p><?php endif; ?>
+            </div>
+          <?php endif; ?>
           <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
             <input type="hidden" name="action" value="confirm">
             <input type="hidden" name="id" value="<?= (int) $s['id'] ?>">

@@ -57,6 +57,7 @@ jobs:
             config/database.php
             config/sms.php
             config/email.php
+            config/gemini.php
             config/*.example.php
             uploads/products/**
             uploads/basics_products/**

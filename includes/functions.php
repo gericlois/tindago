@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/sms.php';
 require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/../config/gemini.php';
 require_once __DIR__ . '/birthday.php';
 
 function format_price($amount) {
