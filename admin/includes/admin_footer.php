@@ -10,17 +10,21 @@
        data-bs-toggle="modal" data-bs-target="#docViewerModal" plus
        data-doc-url (and optionally data-doc-title) opens its file here
        instead of a new tab. One modal reused by every such link on the
-       page; the iframe src is only set while the modal is open so a large
-       PDF isn't left loaded in the background. -->
+       page; the body's content is only set while the modal is open so a
+       large PDF/image isn't left loaded in the background.
+       An <img> is used for images (fills the modal at 100% width/height,
+       object-fit:contain so it scales up to fill the space without
+       cropping or distorting) and an <iframe> for anything else (PDFs) —
+       which type it is isn't known until the response headers come back,
+       so a HEAD request decides before swapping the content in. -->
   <div class="modal fade" id="docViewerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:95vw;">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="docViewerModalTitle">Document</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body p-0" style="height:80vh;">
-          <iframe id="docViewerModalFrame" src="" style="width:100%;height:100%;border:0;"></iframe>
+        <div class="modal-body p-0 d-flex align-items-center justify-content-center" id="docViewerModalBody" style="height:90vh;background:#222;">
         </div>
       </div>
     </div>
@@ -29,16 +33,27 @@
     (function () {
       var modalEl = document.getElementById('docViewerModal');
       if (!modalEl) return;
-      var frame = document.getElementById('docViewerModalFrame');
+      var body = document.getElementById('docViewerModalBody');
       var title = document.getElementById('docViewerModalTitle');
       modalEl.addEventListener('show.bs.modal', function (e) {
         var trigger = e.relatedTarget;
         if (!trigger) return;
-        frame.src = trigger.getAttribute('data-doc-url') || '';
+        var url = trigger.getAttribute('data-doc-url') || '';
         title.textContent = trigger.getAttribute('data-doc-title') || 'Document';
+        body.innerHTML = '<div class="text-white-50">Loading…</div>';
+        fetch(url, { method: 'HEAD' }).then(function (res) {
+          var contentType = res.headers.get('Content-Type') || '';
+          if (contentType.indexOf('image/') === 0) {
+            body.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:contain;">';
+          } else {
+            body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:0;"></iframe>';
+          }
+        }).catch(function () {
+          body.innerHTML = '<iframe src="' + url + '" style="width:100%;height:100%;border:0;"></iframe>';
+        });
       });
       modalEl.addEventListener('hidden.bs.modal', function () {
-        frame.src = '';
+        body.innerHTML = '';
       });
     })();
   </script>
