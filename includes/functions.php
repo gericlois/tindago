@@ -983,7 +983,7 @@ function gemini_generate_json($prompt, $file_path = null) {
     curl_close($ch);
 
     if ($http_code === 429 || $http_code === 503) {
-        return ['success' => false, 'error' => 'The AI service is busy right now. Please try again in a minute.'];
+        return ['success' => false, 'busy' => true, 'error' => 'The AI service is busy right now. Please try again in a minute.'];
     }
     if ($response === false || $http_code < 200 || $http_code >= 300) {
         return ['success' => false, 'error' => 'AI request failed (HTTP ' . $http_code . ').'];

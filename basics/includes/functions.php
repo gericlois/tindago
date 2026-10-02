@@ -905,7 +905,7 @@ function basics_analyze_kyc_document($conn, $doc_id) {
         . '"employer_on_document": "<employer/company name, or null>", '
         . '"employer_matches": <true, false, or null if no employer is shown>, '
         . '"signed": <true if a handwritten signature is visible, false if there is a signature line left blank, null if not applicable>, '
-        . '"concerns": [<short strings for anything an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry, wrong person — empty array if none>]}';
+        . '"concerns": [<short strings for anything else an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry — empty array if none. Don\'t repeat name, birthdate, expiry, employer or signature mismatches here; those are compared separately>]}';
 
     $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_kyc/' . $doc['file_path']);
     if (!$result['success']) {
