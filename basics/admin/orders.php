@@ -60,7 +60,7 @@ if ($status_filter === 'paid') {
 } elseif (in_array($status_filter, $valid_statuses, true)) {
     $sql .= " AND o.status = '" . $conn->real_escape_string($status_filter) . "'";
 }
-$sql .= " ORDER BY o.created_at DESC";
+$sql .= " ORDER BY o.placed_at DESC";
 $orders = $conn->query($sql);
 
 $page_title = 'Basics Orders';
@@ -107,7 +107,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= format_price($o['amount_paid']) ?></td>
           <td><?php if ($o['is_gift']): ?><?= basics_gift_pill() ?><?php elseif (basics_order_is_paid($o['total_amount'], $o['amount_paid'])): ?><span class="pill pill-paid">Paid</span><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
           <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
-          <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
+          <td><?= date('M j, Y', strtotime($o['placed_at'])) ?></td>
           <td class="no-print">
             <a href="<?= BASE_URL ?>/basics/admin/order_view.php?id=<?= (int) $o['id'] ?>" class="btn-chip btn-chip-outline">View</a>
             <?php if ($o['status'] === 'pending'): ?>

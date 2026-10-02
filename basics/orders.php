@@ -12,7 +12,7 @@ $member = basics_get_member($conn, basics_current_user_id());
 
 $stmt = $conn->prepare("SELECT o.* FROM basics_orders o
                          WHERE o.member_id = ? AND o.status != 'draft'
-                         ORDER BY o.created_at DESC");
+                         ORDER BY o.placed_at DESC");
 $stmt->bind_param('i', $member['id']);
 $stmt->execute();
 $orders = $stmt->get_result();
@@ -49,7 +49,7 @@ require __DIR__ . '/../includes/navbar.php';
             <td>#<?= (int) $order['id'] ?></td>
             <td><?= format_price($order['total_amount']) ?><?php if ($order['is_gift']): ?> <span class="text-muted small">(Gift)</span><?php endif; ?></td>
             <td><span class="pill pill-<?= basics_order_status_pill($order['status']) ?>"><?= basics_order_status_label($order['status']) ?></span></td>
-            <td><?= date('M j, Y', strtotime($order['created_at'])) ?></td>
+            <td><?= date('M j, Y', strtotime($order['placed_at'])) ?></td>
             <td><a href="<?= BASICS_URL ?>/order_view.php?id=<?= (int) $order['id'] ?>" class="btn-chip btn-chip-outline">View</a></td>
           </tr>
         <?php endwhile; ?>

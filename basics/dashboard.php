@@ -20,7 +20,7 @@ $outstanding = basics_outstanding_balance($conn, $member['id']);
 $available = basics_credit_available($conn, $member);
 
 $stmt = $conn->prepare("SELECT o.* FROM basics_orders o
-                         WHERE o.member_id = ? ORDER BY o.created_at DESC LIMIT 5");
+                         WHERE o.member_id = ? AND o.status != 'draft' ORDER BY o.placed_at DESC LIMIT 5");
 $stmt->bind_param('i', $member['id']);
 $stmt->execute();
 $recent_orders = $stmt->get_result();
@@ -123,7 +123,7 @@ require __DIR__ . '/../includes/navbar.php';
                 <td>#<?= (int) $o['id'] ?></td>
                 <td><?= format_price($o['total_amount']) ?></td>
                 <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
-                <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
+                <td><?= date('M j, Y', strtotime($o['placed_at'])) ?></td>
               </tr>
             <?php endwhile; ?>
             </tbody>

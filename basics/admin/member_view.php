@@ -239,7 +239,7 @@ $outstanding = basics_outstanding_balance($conn, $member['id']);
 $stmt = $conn->prepare("SELECT o.*,
                                 (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
                          FROM basics_orders o
-                         WHERE o.member_id = ? AND o.status != 'draft' ORDER BY o.created_at DESC LIMIT 10");
+                         WHERE o.member_id = ? AND o.status != 'draft' ORDER BY o.placed_at DESC LIMIT 10");
 $stmt->bind_param('i', $id);
 $stmt->execute();
 $orders = $stmt->get_result();
@@ -685,7 +685,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               $order_projection = (!$o['is_gift'] && !$order_is_paid) ? basics_projected_penalty($conn, $o, $member['offense_count']) : null;
             ?>
             <tr>
-              <td><?= date('M j, Y', strtotime($o['created_at'])) ?></td>
+              <td><?= date('M j, Y', strtotime($o['placed_at'])) ?></td>
               <td><?= format_price($o['total_amount']) ?><?php if ($o['is_gift']): ?> <span class="text-muted small">(Gift)</span><?php endif; ?></td>
               <td><span class="pill pill-<?= basics_order_status_pill($o['status']) ?>"><?= basics_order_status_label($o['status']) ?></span></td>
               <td>
