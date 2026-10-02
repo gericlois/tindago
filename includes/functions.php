@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../config/sms.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/../config/gemini.php';
+// Optional — backups stay server-only until this file is created on the server.
+if (is_file(__DIR__ . '/../config/gdrive.php')) {
+    require_once __DIR__ . '/../config/gdrive.php';
+}
 require_once __DIR__ . '/birthday.php';
 
 function format_price($amount) {
@@ -596,11 +600,61 @@ function write_database_backup($conn) {
         // Write-then-rename so a concurrent download never reads a half-written file.
         rename($tmp_path, $final_path);
         file_put_contents($log_path, date('Y-m-d H:i:s') . ' OK (' . strlen($sql) . " bytes)\n", LOCK_EX);
+
+        // Off-site copy. A Drive failure is logged separately and never
+        // fails the backup itself — the server copy is already safe.
+        if (defined('GDRIVE_BACKUP_URL') && GDRIVE_BACKUP_URL !== '') {
+            $drive_result = upload_backup_to_drive($sql);
+            file_put_contents($backup_dir . '/drive_last_run.txt', date('Y-m-d H:i:s') . ' ' . $drive_result . "\n", LOCK_EX);
+        }
         return true;
     } catch (Throwable $e) {
         file_put_contents($log_path, date('Y-m-d H:i:s') . ' FAILED: ' . $e->getMessage() . "\n", LOCK_EX);
         return false;
     }
+}
+
+// Sends one backup to Google Drive through the Apps Script web app in
+// database/gdrive_backup_apps_script.gs (which saves it into the backup
+// folder and trashes copies older than its KEEP_DAYS). Gzipped first — a
+// SQL dump shrinks roughly 5-10x. Returns a short status line for
+// database/backups/drive_last_run.txt ("OK ..." or "FAILED: ...").
+function upload_backup_to_drive($sql) {
+    $filename = 'jmcfoodies-backup-' . date('Y-m-d_H-i') . '.sql.gz';
+    $gzipped = gzencode($sql, 9);
+    if ($gzipped === false) {
+        return 'FAILED: could not compress the backup.';
+    }
+
+    $ch = curl_init(GDRIVE_BACKUP_URL);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+        'secret' => GDRIVE_BACKUP_SECRET,
+        'filename' => $filename,
+        'data' => base64_encode($gzipped),
+    ]));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['content-type: application/json']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    // Apps Script answers a POST with a redirect to where the response is
+    // waiting; following it (as a GET) is how the result is read.
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        return 'FAILED: could not reach Google (' . $curl_error . ').';
+    }
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded)) {
+        return 'FAILED: unexpected reply from the Apps Script (HTTP ' . $http_code . ') — check the web app URL and that it is deployed with access "Anyone".';
+    }
+    if (empty($decoded['ok'])) {
+        return 'FAILED: ' . ($decoded['error'] ?? 'unknown error from the Apps Script.');
+    }
+    return 'OK ' . $filename . ' (' . round(strlen($gzipped) / 1024, 1) . ' KB)';
 }
 
 // ---------------------------------------------------------------

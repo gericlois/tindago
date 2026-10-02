@@ -10,6 +10,7 @@
 
 $backup_file = __DIR__ . '/../../database/backups/latest.sql';
 $log_file = __DIR__ . '/../../database/backups/last_run.txt';
+$drive_log_file = __DIR__ . '/../../database/backups/drive_last_run.txt';
 
 if (($_GET['download'] ?? '') === '1') {
     if (!file_exists($backup_file)) {
@@ -30,6 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'run_n
 }
 
 $last_run = file_exists($log_file) ? trim(file_get_contents($log_file)) : 'Never run yet.';
+$drive_enabled = defined('GDRIVE_BACKUP_URL') && GDRIVE_BACKUP_URL !== '';
+$drive_last_run = file_exists($drive_log_file) ? trim(file_get_contents($drive_log_file)) : 'No upload yet.';
 $backup_exists = file_exists($backup_file);
 $backup_size_kb = $backup_exists ? round(filesize($backup_file) / 1024, 1) : 0;
 $backup_modified = $backup_exists ? date('M j, Y g:i A', filemtime($backup_file)) : null;
@@ -51,8 +54,13 @@ require $db_backup_sidebar;
   <?php endif; ?>
   <div class="panel-card">
     <h2 class="h6">Automatic Backup</h2>
-    <p class="text-muted small">Runs on its own every 1 hour — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file each time so it never accumulates disk space. The backup covers the whole database — Wellness and Basics together.</p>
+    <p class="text-muted small">Runs on its own every 1 hour — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file on the server each time so it never accumulates disk space. When Google Drive upload is set up, each run also saves a compressed copy to Drive, keeping the last 7 days. The backup covers the whole database — Wellness and Basics together.</p>
     <p class="mb-1">Last run: <?= sanitize($last_run) ?></p>
+    <?php if ($drive_enabled): ?>
+      <p class="mb-1">Google Drive copy: <span class="<?= strpos($drive_last_run, 'FAILED') !== false ? 'text-danger' : '' ?>"><?= sanitize($drive_last_run) ?></span></p>
+    <?php else: ?>
+      <p class="mb-1 text-muted">Google Drive copy: not set up (see config/gdrive.example.php).</p>
+    <?php endif; ?>
     <?php if ($backup_exists): ?>
       <p class="mb-1">Backup file date: <?= sanitize($backup_modified) ?></p>
       <p class="mb-3">Size: <?= sanitize($backup_size_kb) ?> KB</p>

@@ -29,6 +29,10 @@ config/email.php
 # See config/gemini.example.php for the structure to recreate it.
 config/gemini.php
 
+# Google Drive backup upload secret — never track this file.
+# See config/gdrive.example.php for the structure to recreate it.
+config/gdrive.php
+
 # KYC documents (government ID scans, employment certificates) uploaded by
 # Basics applicants — real PII, never committed. The .htaccess deny-all in
 # this folder is the one exception, tracked so it always ships with the app.
