@@ -9,14 +9,27 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
 $type_labels = basics_benefit_type_labels();
+$payout_method_labels = ['gcash' => 'GCash', 'gotyme' => 'GoTyme', 'bank' => 'Bank transfer'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'approve') {
     $id = (int) ($_POST['id'] ?? 0);
     $amount_paid = round((float) ($_POST['amount_paid'] ?? 0), 2);
     $notes = trim($_POST['admin_notes'] ?? '') ?: null;
 
+    // The payout is a manual transfer to the member's enrolled account, so
+    // there must be one to send to before this can be marked paid out.
+    $stmt = $conn->prepare("SELECT pa.id FROM basics_benefit_requests r
+                             JOIN basics_payout_accounts pa ON pa.member_id = r.member_id
+                             WHERE r.id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $has_payout_account = (bool) $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
     if ($amount_paid <= 0) {
         $errors[] = 'Enter a valid amount to pay out.';
+    } elseif (!$has_payout_account) {
+        $errors[] = 'This member has no payout account enrolled yet, so there is nowhere to send the payout. Ask them to enroll one under Payout Account first.';
     } else {
         $admin_id = basics_current_admin_id();
         $stmt = $conn->prepare("UPDATE basics_benefit_requests
@@ -85,9 +98,13 @@ if (!isset($type_labels[$type_filter])) {
     $type_filter = '';
 }
 
-$sql = "SELECT r.*, u.full_name, u.username FROM basics_benefit_requests r
+$sql = "SELECT r.*, u.full_name, u.username,
+               pa.method AS payout_method, pa.bank_name AS payout_bank_name,
+               pa.account_name AS payout_account_name, pa.account_number AS payout_account_number
+        FROM basics_benefit_requests r
         JOIN basics_members bm ON bm.id = r.member_id
         JOIN basics_users u ON u.id = bm.user_id
+        LEFT JOIN basics_payout_accounts pa ON pa.member_id = r.member_id
         WHERE 1=1";
 if ($status_filter !== 'all') {
     $sql .= " AND r.status = '" . $conn->real_escape_string($status_filter) . "'";
@@ -211,19 +228,32 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body d-flex flex-column gap-3">
-          <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
-            <input type="hidden" name="action" value="approve">
-            <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
-            <div>
-              <label class="flbl">Amount to Pay Out</label>
-              <input type="number" step="0.01" min="0.01" name="amount_paid" class="fctrl" value="<?= sanitize($r['amount_due']) ?>" style="width:140px;">
+          <?php if ($r['payout_method']): ?>
+            <div class="panel-card mb-0" style="padding:12px 16px;">
+              <p class="mb-1"><strong>Send the payout to</strong></p>
+              <p class="mb-1"><?= sanitize($payout_method_labels[$r['payout_method']] ?? $r['payout_method']) ?><?= $r['payout_bank_name'] ? ' — ' . sanitize($r['payout_bank_name']) : '' ?></p>
+              <p class="mb-1">Account name: <strong><?= sanitize($r['payout_account_name']) ?></strong></p>
+              <p class="mb-0">Account number: <strong><?= sanitize($r['payout_account_number']) ?></strong></p>
             </div>
-            <div>
-              <label class="flbl">Notes (optional)</label>
-              <input type="text" name="admin_notes" class="fctrl">
+            <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
+              <input type="hidden" name="action" value="approve">
+              <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+              <div>
+                <label class="flbl">Amount to Pay Out</label>
+                <input type="number" step="0.01" min="0.01" name="amount_paid" class="fctrl" value="<?= sanitize($r['amount_due']) ?>" style="width:140px;">
+              </div>
+              <div>
+                <label class="flbl">Transfer ref # / Notes (optional)</label>
+                <input type="text" name="admin_notes" class="fctrl">
+              </div>
+              <button type="submit" class="btn-red" onclick="return confirm('Have you already sent this amount to the member\'s <?= sanitize($payout_method_labels[$r['payout_method']] ?? $r['payout_method']) ?> account?\n\nApproving marks it as paid out and texts the member that the money has been released.');"><i class="fas fa-check"></i>Approve &amp; Mark Paid Out</button>
+            </form>
+            <p class="small text-muted mb-0">Send the money first, then approve &mdash; approving texts the member that it's been released.</p>
+          <?php else: ?>
+            <div class="errmsg mb-0">
+              <p class="mb-0"><strong>No payout account enrolled.</strong> This member hasn't added a GCash, GoTyme or bank account yet, so there's nowhere to send the payout. Ask them to enroll one under <em>Payout Account</em> in their Basics account, then approve. You can still deny the request below.</p>
             </div>
-            <button type="submit" class="btn-red" onclick="return confirm('Approve and mark this benefit as paid out?');"><i class="fas fa-check"></i>Approve</button>
-          </form>
+          <?php endif; ?>
           <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
             <input type="hidden" name="action" value="deny">
             <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
