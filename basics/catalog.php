@@ -140,7 +140,7 @@ function basics_catalog_card($product, $badge = null) {
       <?php if ($product['image']): ?>
         <img src="<?= UPLOAD_URL ?>basics_products/<?= sanitize($product['image']) ?>" alt="<?= sanitize($product['name']) ?>" class="basics-product-tile">
       <?php else: ?>
-        <div class="basics-product-tile-empty"><i class="fas fa-basket-shopping"></i></div>
+        <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="<?= sanitize($product['name']) ?>" class="basics-product-tile">
       <?php endif; ?>
       <div class="basics-product-body">
         <div class="basics-product-name"><?= sanitize($product['name']) ?></div>
