@@ -68,6 +68,42 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
     $errors[] = $result['error'];
 }
 
+// "Remind to add payout account" — shown in the Review modal when the
+// member has no payout account, since approval is blocked until they do.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remind_payout') {
+    $id = (int) ($_POST['id'] ?? 0);
+    $stmt = $conn->prepare("SELECT member_id, benefit_type FROM basics_benefit_requests WHERE id = ? AND status = 'pending'");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $req_row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $member = $req_row ? basics_member_by_id($conn, $req_row['member_id']) : null;
+
+    if (!$member) {
+        $errors[] = 'Request not found or already reviewed.';
+    } else {
+        // BASICS_URL is a site-relative path — texts and emails need the full
+        // address (same approach as referral_link()).
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $link = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . BASICS_URL . '/payout_account.php';
+        $benefit = $type_labels[$req_row['benefit_type']] ?? 'benefit';
+        $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - JMC Foodies Basics");
+        $email_sent = !empty($member['email']) && send_email($member['email'], 'Add your payout account to receive your ' . $benefit,
+            "Hi {$member['full_name']},\r\n\r\n"
+            . "Your {$benefit} request is being reviewed, but we can't send the payout yet because you haven't added a payout account.\r\n\r\n"
+            . "Please add your GCash, GoTyme or bank account here:\r\n{$link}\r\n\r\n"
+            . "Once it's added, we can release your payout.\r\n\r\n"
+            . '— JMC Foodies Basics Team');
+
+        $channels = array_keys(array_filter(['SMS' => $sms_sent, 'email' => $email_sent]));
+        if ($channels) {
+            log_activity($conn, 'remind_payout_account', 'Reminded member #' . $req_row['member_id'] . ' to add a payout account (benefit request #' . $id . ') via ' . implode(' and ', $channels));
+            redirect('/basics/admin/benefit_requests.php?' . http_build_query(['status' => $_GET['status'] ?? 'pending', 'type' => $_GET['type'] ?? '', 'reminded' => implode(' and ', $channels)]));
+        }
+        $errors[] = 'The reminder could not be sent — the member has no email on file and SMS failed or is turned off (Settings → SMS notifications).';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deny') {
     $id = (int) ($_POST['id'] ?? 0);
     $notes = trim($_POST['admin_notes'] ?? '');
@@ -133,6 +169,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php endif; ?>
   <?php if (isset($_GET['denied'])): ?>
     <div class="sucmsg is-visible"><p>Request denied.</p></div>
+  <?php endif; ?>
+  <?php if (isset($_GET['reminded'])): ?>
+    <div class="sucmsg is-visible"><p>Payout account reminder sent by <?= sanitize($_GET['reminded']) ?>.</p></div>
   <?php endif; ?>
   <?php if ($errors): ?>
     <div class="errmsg">
@@ -251,7 +290,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <p class="small text-muted mb-0">Send the money first, then approve &mdash; approving texts the member that it's been released.</p>
           <?php else: ?>
             <div class="errmsg mb-0">
-              <p class="mb-0"><strong>No payout account enrolled.</strong> This member hasn't added a GCash, GoTyme or bank account yet, so there's nowhere to send the payout. Ask them to enroll one under <em>Payout Account</em> in their Basics account, then approve. You can still deny the request below.</p>
+              <p class="mb-2"><strong>No payout account enrolled.</strong> This member hasn't added a GCash, GoTyme or bank account yet, so there's nowhere to send the payout. Ask them to enroll one under <em>Payout Account</em> in their Basics account, then approve. You can still deny the request below.</p>
+              <form method="post" class="mb-0">
+                <input type="hidden" name="action" value="remind_payout">
+                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                <button type="submit" class="btn-outline-theme" onclick="return confirm('Text and email this member a link to add their payout account?');"><i class="fas fa-bell"></i>Remind to Add Payout Account</button>
+              </form>
             </div>
           <?php endif; ?>
           <form method="post" class="d-flex flex-wrap gap-2 align-items-end">

@@ -27,6 +27,7 @@ $module_nav_items = [
     'Payments'          => BASICS_URL . '/payments.php',
     'Emergency Loan'    => BASICS_URL . '/emergency_credit.php',
     'Benefits'          => BASICS_URL . '/benefits.php',
+    'Payout Account'    => BASICS_URL . '/payout_account.php',
     'My Account'        => BASICS_URL . '/account.php',
 ];
 $module_guest_nav_items = [

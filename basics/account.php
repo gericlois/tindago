@@ -187,6 +187,7 @@ require __DIR__ . '/../includes/navbar.php';
 
           <button type="submit" class="btn-red"><i class="fas fa-floppy-disk"></i>Save Changes</button>
           <a href="<?= BASICS_URL ?>/change_password.php" class="btn-outline-theme"><i class="fas fa-key"></i>Change Password</a>
+          <a href="<?= BASICS_URL ?>/payout_account.php" class="btn-outline-theme"><i class="fas fa-wallet"></i>Payout Account</a>
         </form>
       </div>
     </div>
