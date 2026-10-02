@@ -20,6 +20,27 @@ if ($id) {
 
 $errors = [];
 
+// "Write with AI" — called by fetch() from the Description field. Uses the
+// photo just picked in the form if there is one (not saved yet), otherwise
+// the product's saved image. Only returns text for the admin to edit.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ai_description') {
+    $name = trim($_POST['name'] ?? '');
+    $image_path = null;
+    if (!empty($_FILES['ai_image']['tmp_name']) && $_FILES['ai_image']['error'] === UPLOAD_ERR_OK) {
+        $image_path = $_FILES['ai_image']['tmp_name'];
+    } elseif ($product['image'] && is_file(UPLOAD_PATH . 'products/' . $product['image'])) {
+        $image_path = UPLOAD_PATH . 'products/' . $product['image'];
+    }
+
+    header('Content-Type: application/json');
+    if ($name === '' && !$image_path) {
+        echo json_encode(['success' => false, 'error' => 'Enter a product name or choose a photo first.']);
+    } else {
+        echo json_encode(ai_write_product_description($name, $image_path));
+    }
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_highlight' && $id) {
     [$new_image, $upload_error] = handle_product_image_upload('highlight_image', null);
     if ($upload_error) {
@@ -130,7 +151,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </div>
           <div class="mb-3">
             <label class="flbl">Description</label>
-            <textarea name="description" class="fctrl" rows="3"><?= sanitize($product['description']) ?></textarea>
+            <textarea name="description" id="descriptionField" class="fctrl" rows="3"><?= sanitize($product['description']) ?></textarea>
+            <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+              <button type="button" class="btn-chip btn-chip-outline" id="aiDescriptionBtn" onclick="aiWriteDescription();"><i class="fas fa-wand-magic-sparkles"></i> Write with AI</button>
+              <span id="aiDescriptionStatus" class="small text-muted">Uses the product name and photo. Review it before saving.</span>
+            </div>
           </div>
           <div class="mb-3">
             <label class="flbl">SRP (Suggested Retail Price)</label>
@@ -192,4 +217,30 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   </div>
 </div>
+<script>
+function aiWriteDescription() {
+  var form = document.getElementById('descriptionField').form;
+  var status = document.getElementById('aiDescriptionStatus');
+  var button = document.getElementById('aiDescriptionBtn');
+  var body = new FormData();
+  body.append('action', 'ai_description');
+  body.append('name', form.elements.name.value.trim());
+  if (form.elements.image.files[0]) body.append('ai_image', form.elements.image.files[0]);
+
+  button.disabled = true;
+  status.textContent = 'Writing…';
+  fetch(window.location.href, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (response) { return response.json(); })
+    .then(function (data) {
+      if (!data.success) {
+        status.textContent = data.error;
+        return;
+      }
+      document.getElementById('descriptionField').value = data.description;
+      status.textContent = 'Draft ready — edit it if needed, then Save Product.';
+    })
+    .catch(function () { status.textContent = 'Could not reach the AI. Please try again.'; })
+    .finally(function () { button.disabled = false; });
+}
+</script>
 <?php require __DIR__ . '/includes/admin_footer.php'; ?>

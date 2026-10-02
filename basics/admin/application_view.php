@@ -9,8 +9,9 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $id = (int) ($_GET['id'] ?? 0);
 $errors = [];
+$ai_allowed = basics_ai_review_allowed();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
     $result = basics_analyze_kyc_document($conn, (int) ($_POST['doc_id'] ?? 0));
     if ($result['success']) {
         redirect('/basics/admin/application_view.php?id=' . $id);
@@ -130,7 +131,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/kyc_view.php?doc_id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>">
               <i class="fas fa-file-arrow-down"></i> <?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>
             </button>
-            <?php if ($doc['ai_analyzed_at']): ?>
+            <?php if (!$ai_allowed): ?>
+            <?php elseif ($doc['ai_analyzed_at']): ?>
               <?= basics_ai_doc_result_html($doc['ai_result']) ?>
             <?php else: ?>
               <form method="post" class="d-inline">
@@ -141,7 +143,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <?php endif; ?>
           </div>
         <?php endwhile; ?>
-        <p class="small text-muted mb-0 mt-2">AI checks are a cross-check against the application, not a decision.</p>
+        <?php if ($ai_allowed): ?>
+          <p class="small text-muted mb-0 mt-2">AI checks are a cross-check against the application, not a decision.</p>
+        <?php endif; ?>
       </div>
     </div>
 

@@ -43,6 +43,22 @@ $audiences = [
     'all'     => 'All Basics Accounts',
 ];
 
+$ai_allowed = basics_ai_review_allowed();
+
+// "Draft with AI" — called by fetch() from the form below; only returns a
+// draft for the admin to edit, never sends anything.
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ai_draft') {
+    $instruction = trim($_POST['instruction'] ?? '');
+    header('Content-Type: application/json');
+    if ($instruction === '' || strlen($instruction) > 500) {
+        echo json_encode(['success' => false, 'error' => 'Describe what you want to say (up to 500 characters).']);
+    } else {
+        $language = ($_POST['language'] ?? '') === 'taglish' ? 'taglish' : 'english';
+        echo json_encode(ai_draft_broadcast($instruction, $language, !empty($_POST['for_sms']), 'JMC Foodies Basics'));
+    }
+    exit;
+}
+
 $errors = [];
 $sent_count = null;
 $email_sent_count = null;
@@ -137,6 +153,21 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php if (!defined('SEMAPHORE_API_KEY') || SEMAPHORE_API_KEY === ''): ?>
           <div class="errmsg mb-3"><p class="mb-0">SMS is not configured yet — set up your Semaphore API key first (see Settings).</p></div>
         <?php endif; ?>
+        <?php if ($ai_allowed): ?>
+          <div class="mb-4 p-3 rounded" style="background:#f5f0ff; border:1px solid #d9c8f5;">
+            <label class="flbl" for="aiInstruction"><i class="fas fa-wand-magic-sparkles"></i> Draft with AI (optional)</label>
+            <textarea id="aiInstruction" class="fctrl mb-2" rows="2" maxlength="500" placeholder="e.g. remind members payment is due Friday"></textarea>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <select id="aiLanguage" class="fctrl" style="width:auto;">
+                <option value="english">English</option>
+                <option value="taglish">Taglish</option>
+              </select>
+              <button type="button" class="btn-outline-theme" id="aiDraftBtn" onclick="aiDraftBroadcast();"><i class="fas fa-pen-nib"></i>Write Draft</button>
+              <span id="aiDraftStatus" class="small text-muted"></span>
+            </div>
+            <div class="form-text">Fills in the message below for you to review and edit &mdash; nothing is sent until you click Send Announcement.</div>
+          </div>
+        <?php endif; ?>
         <form method="post">
           <input type="hidden" name="action" value="send">
           <div class="mb-3">
@@ -187,5 +218,38 @@ function updateBroadcastLimit() {
   }
 }
 updateBroadcastLimit();
+
+<?php if ($ai_allowed): ?>
+function aiDraftBroadcast() {
+  var instruction = document.getElementById('aiInstruction').value.trim();
+  var status = document.getElementById('aiDraftStatus');
+  var button = document.getElementById('aiDraftBtn');
+  if (!instruction) {
+    status.textContent = 'Type what you want to say first.';
+    return;
+  }
+  var body = new FormData();
+  body.append('action', 'ai_draft');
+  body.append('instruction', instruction);
+  body.append('language', document.getElementById('aiLanguage').value);
+  if (document.getElementById('sendSms').checked) body.append('for_sms', '1');
+
+  button.disabled = true;
+  status.textContent = 'Writing…';
+  fetch(window.location.href, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function (response) { return response.json(); })
+    .then(function (data) {
+      if (!data.success) {
+        status.textContent = data.error;
+        return;
+      }
+      document.getElementById('messageField').value = data.message;
+      if (data.subject) document.querySelector('input[name="email_subject"]').value = data.subject;
+      status.textContent = 'Draft ready — review and edit it below before sending.';
+    })
+    .catch(function () { status.textContent = 'Could not reach the AI. Please try again.'; })
+    .finally(function () { button.disabled = false; });
+}
+<?php endif; ?>
 </script>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>

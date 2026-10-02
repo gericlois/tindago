@@ -932,6 +932,134 @@ function cancel_order($conn, $order_id) {
 }
 
 // ---------------------------------------------------------------
+// Google Gemini (free tier, key in config/gemini.php). One shared call used
+// by every AI helper — the admin-side writing aids below and the Basics
+// document/loan reviews in basics/includes/functions.php. Everything AI in
+// the app is an aid for an admin, never a decision-maker.
+// ---------------------------------------------------------------
+
+// Sends a prompt (plus optionally one image/PDF) and asks for a JSON object
+// back. Returns ['success' => true, 'data' => array] or
+// ['success' => false, 'error' => string].
+function gemini_generate_json($prompt, $file_path = null) {
+    if (GEMINI_API_KEY === '') {
+        return ['success' => false, 'error' => 'AI is not configured (no Gemini API key set).'];
+    }
+
+    $parts = [];
+    if ($file_path !== null) {
+        if (!is_file($file_path)) {
+            return ['success' => false, 'error' => 'File is missing on disk.'];
+        }
+        if (filesize($file_path) > 5 * 1024 * 1024) {
+            return ['success' => false, 'error' => 'File is too large to analyze.'];
+        }
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $media_type = finfo_file($finfo, $file_path);
+        finfo_close($finfo);
+        if (!in_array($media_type, ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'], true)) {
+            return ['success' => false, 'error' => 'Unsupported file type for AI review.'];
+        }
+        $parts[] = ['inline_data' => ['mime_type' => $media_type, 'data' => base64_encode(file_get_contents($file_path))]];
+    }
+    $parts[] = ['text' => $prompt];
+
+    $payload = json_encode([
+        'contents' => [['parts' => $parts]],
+        // No "thinking" — none of these tasks need it, and it keeps each
+        // call well inside shared hosting's PHP time limit.
+        'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0.2, 'thinkingConfig' => ['thinkingBudget' => 0]],
+    ]);
+
+    $model = 'gemini-2.5-flash';
+    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . urlencode(GEMINI_API_KEY));
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['content-type: application/json']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($http_code === 429 || $http_code === 503) {
+        return ['success' => false, 'error' => 'The AI service is busy right now. Please try again in a minute.'];
+    }
+    if ($response === false || $http_code < 200 || $http_code >= 300) {
+        return ['success' => false, 'error' => 'AI request failed (HTTP ' . $http_code . ').'];
+    }
+
+    $decoded = json_decode($response, true);
+    $text = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
+    if (!$text) {
+        return ['success' => false, 'error' => 'AI returned an unexpected response.'];
+    }
+
+    // response_mime_type: application/json should guarantee clean JSON, but
+    // strip a ```json fence defensively in case the model adds one anyway.
+    $text = trim(preg_replace('/^```(?:json)?|```$/m', '', trim($text)));
+    $data = json_decode($text, true);
+    if (!is_array($data)) {
+        return ['success' => false, 'error' => 'Could not parse the AI\'s response.'];
+    }
+    return ['success' => true, 'data' => $data];
+}
+
+// Broadcast pages' "Draft with AI": turns a rough instruction ("remind
+// members payment is due Friday") into a ready-to-edit announcement. Only
+// fills the form — the admin still reads it and clicks Send themselves.
+// $language is 'english' or 'taglish'. Returns ['success', 'message',
+// 'subject'] or ['success' => false, 'error'].
+function ai_draft_broadcast($instruction, $language, $for_sms, $program_name) {
+    $language_rule = $language === 'taglish'
+        ? 'Write in natural, friendly Taglish (a casual mix of Tagalog and English, the way Filipinos text).'
+        : 'Write in simple, friendly English.';
+    $length_rule = $for_sms
+        ? 'It will be sent as an SMS: keep the message under 300 characters, plain text, no emojis, no links unless the instruction includes one.'
+        : 'It will be sent by email: keep it to one to three short paragraphs of plain text, no emojis.';
+
+    $prompt = "Write an announcement from {$program_name} (a Philippine member program) to its members.\n"
+        . "What the admin wants to say: {$instruction}\n\n"
+        . "{$language_rule} {$length_rule} Keep every fact (dates, times, amounts) exactly as given and don't invent new ones. "
+        . "End the message with \" - {$program_name}\".\n\n"
+        . 'Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: '
+        . '{"message": "<the announcement>", "subject": "<a short email subject line, under 60 characters>"}';
+
+    $result = gemini_generate_json($prompt);
+    if (!$result['success']) {
+        return $result;
+    }
+    $message = trim((string) ($result['data']['message'] ?? ''));
+    if ($message === '') {
+        return ['success' => false, 'error' => 'The AI returned an empty message. Try rewording your instruction.'];
+    }
+    return ['success' => true, 'message' => $message, 'subject' => trim((string) ($result['data']['subject'] ?? ''))];
+}
+
+// Wellness product page's "Write with AI": a short catalog description from
+// the product name and/or photo. Returns ['success', 'description'] or
+// ['success' => false, 'error'].
+function ai_write_product_description($name, $image_path = null) {
+    $prompt = "Write a short product description for a Philippine online catalog of wellness food and drink products (JMC Foodies Wellness).\n"
+        . ($name !== '' ? "Product name: {$name}\n" : '')
+        . ($image_path ? "The attached image is the product photo — use what's printed on the packaging (flavor, size, key ingredients).\n" : '')
+        . "\nKeep it to two or three sentences of plain, friendly English. Describe what it is and who it's for. "
+        . "Don't make any health or medical claims — no symptom relief, detox, healing, or \"supports/helps/improves\" a body function — even if the packaging prints them. "
+        . "Don't invent ingredients, certifications or prices you can't see.\n\n"
+        . 'Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: {"description": "<the description>"}';
+
+    $result = gemini_generate_json($prompt, $image_path);
+    if (!$result['success']) {
+        return $result;
+    }
+    $description = trim((string) ($result['data']['description'] ?? ''));
+    if ($description === '') {
+        return ['success' => false, 'error' => 'The AI returned an empty description.'];
+    }
+    return ['success' => true, 'description' => $description];
+}
+
+// ---------------------------------------------------------------
 // Every page in the app requires this file right after config/database.php
 // (which is where $conn comes from), so this is the one place guaranteed
 // to run on every request — see maybe_run_scheduled_backup() above for why

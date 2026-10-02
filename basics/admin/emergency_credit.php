@@ -8,6 +8,17 @@ require __DIR__ . '/../includes/functions.php';
 require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
+$ai_allowed = basics_ai_review_allowed();
+
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'prescreen') {
+    $id = (int) ($_POST['id'] ?? 0);
+    $result = basics_prescreen_emergency_request($conn, $id);
+    if ($result['success']) {
+        // Reopen the same Review modal so the admin lands right on the result.
+        redirect('/basics/admin/emergency_credit.php?' . http_build_query(['status' => $_GET['status'] ?? 'pending', 'open' => $id]));
+    }
+    $errors[] = $result['error'];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'approve') {
     $id = (int) ($_POST['id'] ?? 0);
@@ -173,6 +184,33 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body d-flex flex-column gap-3">
+          <?php if ($ai_allowed): ?>
+            <?php $prescreen = $r['ai_analyzed_at'] ? json_decode((string) $r['ai_result'], true) : null; ?>
+            <?php if (is_array($prescreen)): ?>
+              <div class="errmsg" style="background:#f5f0ff; color:#3d2a66; border-color:#d9c8f5;">
+                <p class="mb-2"><strong><i class="fas fa-wand-magic-sparkles"></i> AI Pre-screen</strong> <span class="small">(a summary of the records, not a decision &mdash; as of <?= date('M j, g:i A', strtotime($r['ai_analyzed_at'])) ?>)</span></p>
+                <?php if ($prescreen['summary']): ?><p class="mb-2"><?= sanitize($prescreen['summary']) ?></p><?php endif; ?>
+                <?php foreach ($prescreen['positives'] as $point): ?>
+                  <div class="small text-success"><i class="fas fa-circle-check"></i> <?= sanitize($point) ?></div>
+                <?php endforeach; ?>
+                <?php foreach ($prescreen['risks'] as $point): ?>
+                  <div class="small text-danger"><i class="fas fa-triangle-exclamation"></i> <?= sanitize($point) ?></div>
+                <?php endforeach; ?>
+                <details class="small mt-2">
+                  <summary>Records used</summary>
+                  <?php foreach ($prescreen['facts'] as $label => $value): ?>
+                    <div><?= sanitize($label) ?>: <?= sanitize($value) ?></div>
+                  <?php endforeach; ?>
+                </details>
+              </div>
+            <?php else: ?>
+              <form method="post">
+                <input type="hidden" name="action" value="prescreen">
+                <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+                <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-wand-magic-sparkles"></i> AI Pre-screen Payment History</button>
+              </form>
+            <?php endif; ?>
+          <?php endif; ?>
           <form method="post" class="d-flex flex-wrap gap-2 align-items-end">
             <input type="hidden" name="action" value="approve">
             <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
@@ -200,4 +238,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   </div>
 <?php endforeach; ?>
+<?php if (isset($_GET['open'])): ?>
+<script>
+window.addEventListener('load', function () {
+  var modal = document.getElementById('reviewModal-<?= (int) $_GET['open'] ?>');
+  if (modal && window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).show();
+});
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/../../admin/includes/admin_footer.php'; ?>

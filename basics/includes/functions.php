@@ -781,84 +781,24 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
 }
 
 // ---------------------------------------------------------------
-// AI-assisted document review — Google Gemini's vision API (free tier,
-// no billing required) reads an uploaded screenshot/PDF and the admin
-// pages compare what it read against what the member entered. Advisory
-// only: nothing here ever approves, confirms, denies or rejects anything,
-// and it only runs when an admin explicitly clicks "Analyze" on one
-// document (never automatically, never in bulk). Each result is saved on
-// its row so pages don't re-run the analysis on every reload.
+// AI-assisted review — Google Gemini (via gemini_generate_json() in
+// includes/functions.php) reads an uploaded screenshot/PDF, or summarizes
+// a member's records, and the admin pages compare that against what the
+// member entered. Advisory only: nothing here ever approves, confirms,
+// denies or rejects anything, and it only runs when an admin explicitly
+// clicks for one item (never automatically, never in bulk). Each result
+// is saved on its row so pages don't re-run it on every reload.
 //
-//   basics_analyze_payment_proof()     — basics/admin/payment_submissions.php
-//   basics_analyze_kyc_document()      — basics/admin/application_view.php
-//   basics_analyze_benefit_document()  — basics/admin/benefit_requests.php
+//   basics_analyze_payment_proof()         — basics/admin/payment_submissions.php
+//   basics_analyze_kyc_document()          — basics/admin/application_view.php
+//   basics_analyze_benefit_document()      — basics/admin/benefit_requests.php
+//   basics_prescreen_emergency_request()   — basics/admin/emergency_credit.php
 // ---------------------------------------------------------------
 
-// Shared Gemini call: sends one file plus a prompt asking for a JSON object
-// back. Returns ['success' => true, 'data' => array] or
-// ['success' => false, 'error' => string].
-function basics_gemini_read_document($path, $prompt) {
-    if (GEMINI_API_KEY === '') {
-        return ['success' => false, 'error' => 'AI review is not configured (no Gemini API key set).'];
-    }
-    if (!is_file($path)) {
-        return ['success' => false, 'error' => 'File is missing on disk.'];
-    }
-    if (filesize($path) > 5 * 1024 * 1024) {
-        return ['success' => false, 'error' => 'File is too large to analyze.'];
-    }
-
-    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-    $media_types = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'];
-    $media_type = $media_types[$extension] ?? null;
-    if (!$media_type) {
-        return ['success' => false, 'error' => 'Unsupported file type for AI review.'];
-    }
-
-    $payload = json_encode([
-        'contents' => [[
-            'parts' => [
-                ['inline_data' => ['mime_type' => $media_type, 'data' => base64_encode(file_get_contents($path))]],
-                ['text' => $prompt],
-            ],
-        ]],
-        // No "thinking" — reading text off a document doesn't need it, and
-        // it keeps the call well inside shared hosting's PHP time limit.
-        'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0, 'thinkingConfig' => ['thinkingBudget' => 0]],
-    ]);
-
-    $model = 'gemini-2.5-flash';
-    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/' . $model . ':generateContent?key=' . urlencode(GEMINI_API_KEY));
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['content-type: application/json']);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($http_code === 429 || $http_code === 503) {
-        return ['success' => false, 'error' => 'The AI service is busy right now. Please try again in a minute.'];
-    }
-    if ($response === false || $http_code < 200 || $http_code >= 300) {
-        return ['success' => false, 'error' => 'AI request failed (HTTP ' . $http_code . ').'];
-    }
-
-    $decoded = json_decode($response, true);
-    $text = $decoded['candidates'][0]['content']['parts'][0]['text'] ?? null;
-    if (!$text) {
-        return ['success' => false, 'error' => 'AI returned an unexpected response.'];
-    }
-
-    // response_mime_type: application/json should guarantee clean JSON, but
-    // strip a ```json fence defensively in case the model adds one anyway.
-    $text = trim(preg_replace('/^```(?:json)?|```$/m', '', trim($text)));
-    $data = json_decode($text, true);
-    if (!is_array($data)) {
-        return ['success' => false, 'error' => 'Could not parse the AI\'s response.'];
-    }
-    return ['success' => true, 'data' => $data];
+// AI review is super-admin only: other roles never see the Analyze buttons
+// or results, and the analyze actions refuse them server-side too.
+function basics_ai_review_allowed() {
+    return basics_admin_role() === 'super_admin';
 }
 
 // Gemini returns dates as YYYY-MM-DD; anything else is treated as unread.
@@ -883,7 +823,7 @@ function basics_analyze_payment_proof($conn, $submission_id) {
         . "Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: "
         . '{"amount": <number or null>, "reference_number": "<string or null>", "notes": "<one short sentence, e.g. image is blurry, or amount not visible, or blank if nothing to flag>"}';
 
-    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_payment_proofs/' . $submission['proof_image'], $prompt);
+    $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_payment_proofs/' . $submission['proof_image']);
     if (!$result['success']) {
         return $result;
     }
@@ -967,7 +907,7 @@ function basics_analyze_kyc_document($conn, $doc_id) {
         . '"signed": <true if a handwritten signature is visible, false if there is a signature line left blank, null if not applicable>, '
         . '"concerns": [<short strings for anything an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry, wrong person — empty array if none>]}';
 
-    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_kyc/' . $doc['file_path'], $prompt);
+    $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_kyc/' . $doc['file_path']);
     if (!$result['success']) {
         return $result;
     }
@@ -1058,7 +998,7 @@ function basics_analyze_benefit_document($conn, $doc_id) {
         . '"document_date": "<YYYY-MM-DD of the bill, issue, death or enrollment, or null>", '
         . '"concerns": [<short strings for anything an admin should double-check: signs of editing or tampering, cropped or cut-off, blurry, an old or outdated document, the member\'s name missing where it would be expected (e.g. as a parent on a birth certificate), details that contradict the member\'s stated relationship or address — empty array if none>]}';
 
-    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_benefit_docs/' . $doc['file_path'], $prompt);
+    $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_benefit_docs/' . $doc['file_path']);
     if (!$result['success']) {
         return $result;
     }
@@ -1094,6 +1034,116 @@ function basics_analyze_benefit_document($conn, $doc_id) {
     $stmt->close();
 
     log_activity($conn, 'ai_analyze_benefit_document', 'Ran AI review on benefit document #' . $doc_id . ' (request #' . $doc['request_id'] . ')');
+
+    return ['success' => true] + $stored;
+}
+
+// Emergency Cash Loan pre-screen (basics/admin/emergency_credit.php). The
+// facts are all computed here from the database — the AI only turns them
+// into a short read-out of strengths and risks, so it can't invent payment
+// history, and it's told not to recommend approve/deny. Saved on the
+// request row as ai_result JSON: ['facts' => [label => value], 'summary',
+// 'positives' => [...], 'risks' => [...]].
+function basics_prescreen_emergency_request($conn, $request_id) {
+    $stmt = $conn->prepare("SELECT r.*, m.weekly_credit_limit, m.emergency_credit_limit, m.membership_status, m.offense_count,
+                                   m.consecutive_on_time_payments, m.credit_limit_frozen, m.reviewed_at AS approved_at, m.applied_at
+                             FROM basics_emergency_credit_requests r
+                             JOIN basics_members m ON m.id = r.member_id
+                             WHERE r.id = ?");
+    $stmt->bind_param('i', $request_id);
+    $stmt->execute();
+    $request = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$request) {
+        return ['success' => false, 'error' => 'Request not found.'];
+    }
+    $member_id = (int) $request['member_id'];
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS total, COALESCE(SUM(is_late), 0) AS late, COALESCE(SUM(penalty_amount), 0) AS penalties, MAX(paid_at) AS last_paid
+                             FROM basics_payments WHERE member_id = ?");
+    $stmt->bind_param('i', $member_id);
+    $stmt->execute();
+    $payments = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT paid_at, amount_paid, is_late FROM basics_payments WHERE member_id = ? ORDER BY paid_at DESC LIMIT 6");
+    $stmt->bind_param('i', $member_id);
+    $stmt->execute();
+    $recent = [];
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $p) {
+        $recent[] = date('M j', strtotime($p['paid_at'])) . ' ' . format_price($p['amount_paid']) . ($p['is_late'] ? ' (late)' : ' (on time)');
+    }
+    $stmt->close();
+
+    // Same due rule as basics_payment_due_date(): 7 days after delivery.
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM basics_orders o
+                             WHERE o.member_id = ? AND o.status = 'delivered'
+                               AND DATE_ADD(DATE(o.delivered_at), INTERVAL 7 DAY) < CURDATE()
+                               AND o.total_amount - IFNULL((SELECT SUM(amount_paid) FROM basics_payments p WHERE p.order_id = o.id), 0) > 0");
+    $stmt->bind_param('i', $member_id);
+    $stmt->execute();
+    $overdue_orders = (int) $stmt->get_result()->fetch_assoc()['c'];
+    $stmt->close();
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE member_id = ? AND status = 'approved' AND id != ?");
+    $stmt->bind_param('ii', $member_id, $request_id);
+    $stmt->execute();
+    $previous_loans = (int) $stmt->get_result()->fetch_assoc()['c'];
+    $stmt->close();
+
+    $member_since = $request['approved_at'] ?: $request['applied_at'];
+    $loan_outstanding = basics_emergency_credit_outstanding($conn, $member_id);
+    $loan_available = basics_emergency_credit_available($conn, ['id' => $member_id, 'emergency_credit_limit' => $request['emergency_credit_limit']]);
+
+    $facts = [
+        'Requested' => format_price($request['amount_requested']) . ($request['reason'] ? ' — "' . $request['reason'] . '"' : ''),
+        'Member since' => date('M j, Y', strtotime($member_since)) . ' (' . max(0, (int) floor((time() - strtotime($member_since)) / 86400)) . ' days)',
+        'Membership status' => ucfirst($request['membership_status']) . ($request['credit_limit_frozen'] ? ', purchase limit frozen' : ''),
+        'Grocery payments' => (int) $payments['total'] . ' recorded, ' . (int) $payments['late'] . ' late',
+        'Late offenses' => (int) $request['offense_count'] . ' (penalties paid ' . format_price($payments['penalties']) . ')',
+        'On-time streak' => (int) $request['consecutive_on_time_payments'] . ' payment(s) in a row',
+        'Last payment' => $payments['last_paid'] ? date('M j, Y', strtotime($payments['last_paid'])) : 'None yet',
+        'Recent payments' => $recent ? implode('; ', $recent) : 'None yet',
+        'Unpaid grocery balance' => format_price(basics_outstanding_balance($conn, $member_id)) . ' (' . $overdue_orders . ' order(s) overdue)',
+        'Previous loans' => $previous_loans . ' approved, ' . format_price($loan_outstanding) . ' still owed',
+        'Loan limit available' => format_price($loan_available) . ' of ' . format_price($request['emergency_credit_limit']),
+    ];
+
+    $fact_lines = '';
+    foreach ($facts as $label => $value) {
+        $fact_lines .= "- {$label}: {$value}\n";
+    }
+    $prompt = "You are helping an admin of a Philippine grocery-credit member program review an Emergency Cash Loan request. "
+        . "Today is " . date('M j, Y') . ". Here are the facts about this member, taken from the program's records:\n{$fact_lines}\n"
+        . "Write a short, neutral pre-screen for the admin using ONLY these facts — don't assume anything that isn't listed. "
+        . "Do NOT recommend approving or denying; the admin decides. "
+        . "Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: "
+        . '{"summary": "<two or three plain-English sentences on the member\'s repayment track record>", '
+        . '"positives": [<short strings — points in the member\'s favor>], '
+        . '"risks": [<short strings — things the admin should weigh, e.g. late payments, overdue orders, an unpaid previous loan, a very new account>]}';
+
+    $result = gemini_generate_json($prompt);
+    if (!$result['success']) {
+        return $result;
+    }
+    $ai = $result['data'];
+    $strings = fn($list) => is_array($list) ? array_values(array_filter(array_map(fn($s) => trim((string) $s), $list))) : [];
+
+    $stored = [
+        'facts' => $facts,
+        'summary' => trim((string) ($ai['summary'] ?? '')),
+        'positives' => $strings($ai['positives'] ?? null),
+        'risks' => $strings($ai['risks'] ?? null),
+    ];
+
+    $json = json_encode($stored);
+    $stmt = $conn->prepare("UPDATE basics_emergency_credit_requests SET ai_analyzed_at = NOW(), ai_result = ? WHERE id = ?");
+    $stmt->bind_param('si', $json, $request_id);
+    $stmt->execute();
+    $stmt->close();
+
+    log_activity($conn, 'ai_prescreen_emergency_credit', 'Ran AI pre-screen on Emergency Cash Loan request #' . $request_id);
 
     return ['success' => true] + $stored;
 }

@@ -50,7 +50,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_proof') {
+$ai_allowed = basics_ai_review_allowed();
+
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_proof') {
     $id = (int) ($_POST['id'] ?? 0);
     $result = basics_analyze_payment_proof($conn, $id);
     if ($result['success']) {
@@ -132,10 +134,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><th class="no-print">AI Check</th><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Member</th><th>For</th><th>Method</th><th>Sent To</th><th>Amount</th><th>Reference #</th><th>Paid At</th><th class="no-print">Proof</th><?php if ($ai_allowed): ?><th class="no-print">AI Check</th><?php endif; ?><th>Status</th><th>Reason</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if (empty($submissions)): ?>
-        <tr><td colspan="12" class="text-muted">No submissions.</td></tr>
+        <tr><td colspan="<?= $ai_allowed ? 12 : 11 ?>" class="text-muted">No submissions.</td></tr>
       <?php endif; ?>
       <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
@@ -154,6 +156,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= sanitize($s['reference_number']) ?></td>
           <td><?= date('M j, Y g:i A', strtotime($s['paid_at'])) ?></td>
           <td class="no-print"><?php if ($s['proof_image']): ?><button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/payment_proof_view.php?id=<?= (int) $s['id'] ?>" data-doc-title="Payment Proof — <?= sanitize($s['full_name']) ?>">View</button><?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?></td>
+          <?php if ($ai_allowed): ?>
           <td class="no-print small">
             <?php if (!$s['proof_image']): ?>
               <span class="text-muted">&mdash;</span>
@@ -173,6 +176,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <?php if ($s['ai_notes']): ?><div class="text-muted"><?= sanitize($s['ai_notes']) ?></div><?php endif; ?>
             <?php endif; ?>
           </td>
+          <?php endif; ?>
           <td><span class="pill pill-<?= $status_pill[$s['status']] ?? 'pending' ?>"><?= ucfirst($s['status']) ?></span></td>
           <td class="small"><?= $s['admin_notes'] ? sanitize($s['admin_notes']) : '<span class="text-muted">—</span>' ?></td>
           <td class="no-print">
@@ -197,7 +201,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body d-flex flex-column gap-3">
-          <?php if ($s['ai_analyzed_at']): ?>
+          <?php if ($ai_allowed && $s['ai_analyzed_at']): ?>
             <?php
               $amount_matches = $s['ai_extracted_amount'] !== null && abs((float) $s['ai_extracted_amount'] - (float) $s['amount']) <= 0.01;
               $reference_matches = $s['ai_extracted_reference'] !== null

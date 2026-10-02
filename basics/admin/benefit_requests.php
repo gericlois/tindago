@@ -45,7 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
+$ai_allowed = basics_ai_review_allowed();
+
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
     $result = basics_analyze_benefit_document($conn, (int) ($_POST['doc_id'] ?? 0));
     if ($result['success']) {
         redirect('/basics/admin/benefit_requests.php?' . http_build_query(['status' => $_GET['status'] ?? 'pending', 'type' => $_GET['type'] ?? '']));
@@ -170,7 +172,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <?php while ($doc = $docs->fetch_assoc()): ?>
                 <div class="mb-2">
                   <button type="button" class="btn btn-link p-0 small" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/benefit_document_view.php?id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>"><?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?></button>
-                  <?php if ($doc['ai_analyzed_at']): ?>
+                  <?php if (!$ai_allowed): ?>
+                  <?php elseif ($doc['ai_analyzed_at']): ?>
                     <?= basics_ai_doc_result_html($doc['ai_result']) ?>
                   <?php else: ?>
                     <form method="post" class="d-inline">
