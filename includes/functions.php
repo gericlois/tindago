@@ -753,7 +753,7 @@ function send_account_approved_email($to_email, $full_name, $username) {
         . 'Good news! Your ' . $module_name . " account has been reviewed and confirmed by our team.\r\n"
         . "You can now log in with the username and password you set at registration:\r\n\r\n"
         . "Username: {$username}\r\n\r\n"
-        . 'Log in here: ' . BASE_URL . "/login.php\r\n\r\n"
+        . 'Log in here: ' . absolute_url(BASE_URL . '/login.php') . "\r\n\r\n"
         . '— ' . $module_name . ' Team';
     return send_email($to_email, $subject, $message);
 }
@@ -810,10 +810,17 @@ function generate_referral_code($conn) {
     return $code;
 }
 
-function referral_link($code) {
+// BASE_URL/BASICS_URL/WELLNESS_URL are site-relative paths, fine for links
+// on our own pages but not for anything read outside the site — emails,
+// SMS, shared referral links. This prefixes the current scheme and host.
+function absolute_url($path) {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    return $scheme . '://' . $host . WELLNESS_URL . '/register.php?ref=' . urlencode($code);
+    return $scheme . '://' . $host . $path;
+}
+
+function referral_link($code) {
+    return absolute_url(WELLNESS_URL . '/register.php?ref=' . urlencode($code));
 }
 
 // ---------------------------------------------------------------

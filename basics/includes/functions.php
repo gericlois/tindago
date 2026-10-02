@@ -115,7 +115,7 @@ function send_basics_account_approved_email($to_email, $full_name, $username, $w
         . 'Weekly Purchase Limit: ' . format_price($weekly_limit) . "\r\n\r\n"
         . "You can now log in and start ordering with the username and password you set at signup:\r\n\r\n"
         . "Username: {$username}\r\n\r\n"
-        . 'Log in here: ' . BASICS_URL . "/login.php\r\n\r\n"
+        . 'Log in here: ' . absolute_url(BASICS_URL . '/login.php') . "\r\n\r\n"
         . '— JMC Foodies Basics Team';
     return send_email($to_email, $subject, $message);
 }
@@ -217,9 +217,7 @@ function basics_generate_referral_code($conn) {
 }
 
 function basics_referral_link($code) {
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    return $scheme . '://' . $host . BASICS_URL . '/apply.php?ref=' . urlencode($code);
+    return absolute_url(BASICS_URL . '/apply.php?ref=' . urlencode($code));
 }
 
 function basics_wallet_balance($conn, $member_id) {

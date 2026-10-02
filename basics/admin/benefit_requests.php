@@ -82,10 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remin
     if (!$member) {
         $errors[] = 'Request not found or already reviewed.';
     } else {
-        // BASICS_URL is a site-relative path — texts and emails need the full
-        // address (same approach as referral_link()).
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $link = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . BASICS_URL . '/payout_account.php';
+        $link = absolute_url(BASICS_URL . '/payout_account.php');
         $benefit = $type_labels[$req_row['benefit_type']] ?? 'benefit';
         $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - JMC Foodies Basics");
         $email_sent = !empty($member['email']) && send_email($member['email'], 'Add your payout account to receive your ' . $benefit,
