@@ -8,8 +8,15 @@ require __DIR__ . '/../includes/functions.php';
 require_basics_admin_role(['super_admin', 'admin', 'staff_orders']);
 
 $id = (int) ($_GET['id'] ?? 0);
+$errors = [];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
+    $result = basics_analyze_kyc_document($conn, (int) ($_POST['doc_id'] ?? 0));
+    if ($result['success']) {
+        redirect('/basics/admin/application_view.php?id=' . $id);
+    }
+    $errors[] = $result['error'];
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $admin_id = basics_current_admin_id();
 
@@ -92,6 +99,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
+  <?php if ($errors): ?>
+    <div class="errmsg">
+      <ul class="mb-0"><?php foreach ($errors as $error): ?><li><?= sanitize($error) ?></li><?php endforeach; ?></ul>
+    </div>
+  <?php endif; ?>
   <div class="row g-4">
     <div class="col-12 col-md-6">
       <div class="panel-card mb-4">
@@ -114,12 +126,22 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <p class="text-muted mb-0">No documents on file.</p>
         <?php endif; ?>
         <?php while ($doc = $documents->fetch_assoc()): ?>
-          <p class="mb-2">
+          <div class="mb-3">
             <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/kyc_view.php?doc_id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>">
               <i class="fas fa-file-arrow-down"></i> <?= sanitize($doc_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>
             </button>
-          </p>
+            <?php if ($doc['ai_analyzed_at']): ?>
+              <?= basics_ai_doc_result_html($doc['ai_result']) ?>
+            <?php else: ?>
+              <form method="post" class="d-inline">
+                <input type="hidden" name="action" value="analyze_doc">
+                <input type="hidden" name="doc_id" value="<?= (int) $doc['id'] ?>">
+                <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-wand-magic-sparkles"></i> Analyze</button>
+              </form>
+            <?php endif; ?>
+          </div>
         <?php endwhile; ?>
+        <p class="small text-muted mb-0 mt-2">AI checks are a cross-check against the application, not a decision.</p>
       </div>
     </div>
 

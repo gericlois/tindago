@@ -45,6 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'analyze_doc') {
+    $result = basics_analyze_benefit_document($conn, (int) ($_POST['doc_id'] ?? 0));
+    if ($result['success']) {
+        redirect('/basics/admin/benefit_requests.php?' . http_build_query(['status' => $_GET['status'] ?? 'pending', 'type' => $_GET['type'] ?? '']));
+    }
+    $errors[] = $result['error'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deny') {
     $id = (int) ($_POST['id'] ?? 0);
     $notes = trim($_POST['admin_notes'] ?? '');
@@ -142,7 +150,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php $status_pill = ['pending' => 'pending', 'approved' => 'approved', 'denied' => 'rejected']; ?>
         <?php foreach ($requests as $r): ?>
           <?php
-            $doc_stmt = $conn->prepare("SELECT id, doc_type FROM basics_benefit_documents WHERE request_id = ?");
+            $doc_stmt = $conn->prepare("SELECT id, doc_type, ai_analyzed_at, ai_result FROM basics_benefit_documents WHERE request_id = ?");
             $doc_stmt->bind_param('i', $r['id']);
             $doc_stmt->execute();
             $docs = $doc_stmt->get_result();
@@ -160,7 +168,18 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <td><?= $r['due_date'] ? date('M j, Y', strtotime($r['due_date'])) : '—' ?></td>
             <td class="no-print">
               <?php while ($doc = $docs->fetch_assoc()): ?>
-                <button type="button" class="btn btn-link p-0 d-block small" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/benefit_document_view.php?id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>"><?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?></button>
+                <div class="mb-2">
+                  <button type="button" class="btn btn-link p-0 small" data-bs-toggle="modal" data-bs-target="#docViewerModal" data-doc-url="<?= BASE_URL ?>/basics/admin/benefit_document_view.php?id=<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>"><?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?></button>
+                  <?php if ($doc['ai_analyzed_at']): ?>
+                    <?= basics_ai_doc_result_html($doc['ai_result']) ?>
+                  <?php else: ?>
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="analyze_doc">
+                      <input type="hidden" name="doc_id" value="<?= (int) $doc['id'] ?>">
+                      <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-wand-magic-sparkles"></i> Analyze</button>
+                    </form>
+                  <?php endif; ?>
+                </div>
               <?php endwhile; ?>
             </td>
             <td><span class="pill pill-<?= $status_pill[$r['status']] ?? 'pending' ?>"><?= ucfirst($r['status']) ?></span></td>

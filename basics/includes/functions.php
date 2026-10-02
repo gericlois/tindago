@@ -781,38 +781,31 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
 }
 
 // ---------------------------------------------------------------
-// AI-assisted payment proof review (basics/admin/payment_submissions.php).
-// Sends the member's uploaded screenshot/PDF to Google Gemini's vision API
-// (free tier, no billing required), asking it to read back the amount and
-// reference number so an admin can spot a mismatch before confirming —
-// this is advisory only, never auto-confirms or auto-rejects a payment,
-// and only ever runs when an admin explicitly clicks "Analyze" on one
-// submission (never automatically, never in bulk).
-// Returns ['success' => bool, 'error' => string|null, plus the extracted
-// fields on success] and persists a successful result onto the submission
-// row so the page doesn't need to re-run the analysis on every reload.
+// AI-assisted document review — Google Gemini's vision API (free tier,
+// no billing required) reads an uploaded screenshot/PDF and the admin
+// pages compare what it read against what the member entered. Advisory
+// only: nothing here ever approves, confirms, denies or rejects anything,
+// and it only runs when an admin explicitly clicks "Analyze" on one
+// document (never automatically, never in bulk). Each result is saved on
+// its row so pages don't re-run the analysis on every reload.
+//
+//   basics_analyze_payment_proof()     — basics/admin/payment_submissions.php
+//   basics_analyze_kyc_document()      — basics/admin/application_view.php
+//   basics_analyze_benefit_document()  — basics/admin/benefit_requests.php
 // ---------------------------------------------------------------
-function basics_analyze_payment_proof($conn, $submission_id) {
+
+// Shared Gemini call: sends one file plus a prompt asking for a JSON object
+// back. Returns ['success' => true, 'data' => array] or
+// ['success' => false, 'error' => string].
+function basics_gemini_read_document($path, $prompt) {
     if (GEMINI_API_KEY === '') {
         return ['success' => false, 'error' => 'AI review is not configured (no Gemini API key set).'];
     }
-
-    $stmt = $conn->prepare("SELECT * FROM basics_payment_submissions WHERE id = ?");
-    $stmt->bind_param('i', $submission_id);
-    $stmt->execute();
-    $submission = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!$submission || !$submission['proof_image']) {
-        return ['success' => false, 'error' => 'No proof image on file for this submission.'];
-    }
-
-    $path = UPLOAD_PATH . 'basics_payment_proofs/' . $submission['proof_image'];
     if (!is_file($path)) {
-        return ['success' => false, 'error' => 'Proof file is missing on disk.'];
+        return ['success' => false, 'error' => 'File is missing on disk.'];
     }
     if (filesize($path) > 5 * 1024 * 1024) {
-        return ['success' => false, 'error' => 'Proof file is too large to analyze.'];
+        return ['success' => false, 'error' => 'File is too large to analyze.'];
     }
 
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
@@ -822,21 +815,16 @@ function basics_analyze_payment_proof($conn, $submission_id) {
         return ['success' => false, 'error' => 'Unsupported file type for AI review.'];
     }
 
-    $base64 = base64_encode(file_get_contents($path));
-
-    $prompt = "This is a screenshot or PDF of a GCash/bank payment receipt. "
-        . "Read the amount paid and the transaction/reference number exactly as shown. "
-        . "Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: "
-        . '{"amount": <number or null>, "reference_number": "<string or null>", "notes": "<one short sentence, e.g. image is blurry, or amount not visible, or blank if nothing to flag>"}';
-
     $payload = json_encode([
         'contents' => [[
             'parts' => [
-                ['inline_data' => ['mime_type' => $media_type, 'data' => $base64]],
+                ['inline_data' => ['mime_type' => $media_type, 'data' => base64_encode(file_get_contents($path))]],
                 ['text' => $prompt],
             ],
         ]],
-        'generationConfig' => ['response_mime_type' => 'application/json'],
+        // No "thinking" — reading text off a document doesn't need it, and
+        // it keeps the call well inside shared hosting's PHP time limit.
+        'generationConfig' => ['response_mime_type' => 'application/json', 'temperature' => 0, 'thinkingConfig' => ['thinkingBudget' => 0]],
     ]);
 
     $model = 'gemini-2.5-flash';
@@ -850,6 +838,9 @@ function basics_analyze_payment_proof($conn, $submission_id) {
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    if ($http_code === 429 || $http_code === 503) {
+        return ['success' => false, 'error' => 'The AI service is busy right now. Please try again in a minute.'];
+    }
     if ($response === false || $http_code < 200 || $http_code >= 300) {
         return ['success' => false, 'error' => 'AI request failed (HTTP ' . $http_code . ').'];
     }
@@ -863,10 +854,40 @@ function basics_analyze_payment_proof($conn, $submission_id) {
     // response_mime_type: application/json should guarantee clean JSON, but
     // strip a ```json fence defensively in case the model adds one anyway.
     $text = trim(preg_replace('/^```(?:json)?|```$/m', '', trim($text)));
-    $extracted = json_decode($text, true);
-    if (!is_array($extracted)) {
+    $data = json_decode($text, true);
+    if (!is_array($data)) {
         return ['success' => false, 'error' => 'Could not parse the AI\'s response.'];
     }
+    return ['success' => true, 'data' => $data];
+}
+
+// Gemini returns dates as YYYY-MM-DD; anything else is treated as unread.
+function basics_ai_date($value) {
+    $value = trim((string) ($value ?? ''));
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) && strtotime($value) ? $value : null;
+}
+
+function basics_analyze_payment_proof($conn, $submission_id) {
+    $stmt = $conn->prepare("SELECT * FROM basics_payment_submissions WHERE id = ?");
+    $stmt->bind_param('i', $submission_id);
+    $stmt->execute();
+    $submission = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$submission || !$submission['proof_image']) {
+        return ['success' => false, 'error' => 'No proof image on file for this submission.'];
+    }
+
+    $prompt = "This is a screenshot or PDF of a GCash/bank payment receipt. "
+        . "Read the amount paid and the transaction/reference number exactly as shown. "
+        . "Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: "
+        . '{"amount": <number or null>, "reference_number": "<string or null>", "notes": "<one short sentence, e.g. image is blurry, or amount not visible, or blank if nothing to flag>"}';
+
+    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_payment_proofs/' . $submission['proof_image'], $prompt);
+    if (!$result['success']) {
+        return $result;
+    }
+    $extracted = $result['data'];
 
     $extracted_amount = isset($extracted['amount']) && is_numeric($extracted['amount']) ? round((float) $extracted['amount'], 2) : null;
     $extracted_reference = !empty($extracted['reference_number']) ? trim((string) $extracted['reference_number']) : null;
@@ -880,6 +901,229 @@ function basics_analyze_payment_proof($conn, $submission_id) {
     log_activity($conn, 'ai_analyze_payment_proof', 'Ran AI review on Basics payment submission #' . $submission_id);
 
     return ['success' => true, 'amount' => $extracted_amount, 'reference_number' => $extracted_reference, 'notes' => $notes];
+}
+
+// KYC and benefit documents both store their result as one JSON blob in
+// ai_result, in this shape, so basics_ai_doc_result_html() can render
+// either:
+//   verdict  — 'ok' or 'check' ('check' whenever there's any concern)
+//   detected — what the AI thinks the document actually is
+//   fields   — [label => already-formatted value] of what it read
+//   concerns — short strings, each one a reason for 'check'
+function basics_ai_doc_result($detected, $fields, $concerns) {
+    $concerns = array_values(array_unique(array_filter(array_map('trim', $concerns))));
+    return [
+        'verdict' => $concerns ? 'check' : 'ok',
+        'detected' => $detected,
+        'fields' => array_filter($fields, fn($value) => $value !== null && $value !== ''),
+        'concerns' => $concerns,
+    ];
+}
+
+// What each KYC doc_type is supposed to be, phrased for the AI prompt.
+function basics_kyc_doc_expectations() {
+    $valid_id = "a Philippine government-issued ID card (e.g. PhilSys National ID, driver's license, passport, UMID/SSS, PRC, postal ID, voter's ID)";
+    return [
+        'valid_id_1' => $valid_id,
+        'valid_id_2' => $valid_id,
+        'barangay_clearance' => 'a barangay clearance certificate',
+        'membership_application_form' => 'the FRONT page of a filled-in, signed JMC Foodies Basics membership application form',
+        'membership_application_form_back' => 'the BACK page of a filled-in, signed JMC Foodies Basics membership application form',
+        'certificate_of_employment' => 'a certificate of employment or work clearance issued by an employer',
+    ];
+}
+
+function basics_analyze_kyc_document($conn, $doc_id) {
+    $stmt = $conn->prepare("SELECT d.*, u.full_name, u.birthdate, bm.employer_name
+                             FROM basics_kyc_documents d
+                             JOIN basics_members bm ON bm.id = d.member_id
+                             JOIN basics_users u ON u.id = bm.user_id
+                             WHERE d.id = ?");
+    $stmt->bind_param('i', $doc_id);
+    $stmt->execute();
+    $doc = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$doc) {
+        return ['success' => false, 'error' => 'Document not found.'];
+    }
+
+    $expected = basics_kyc_doc_expectations()[$doc['doc_type']] ?? $doc['doc_type'];
+    $prompt = "You are helping an admin check a membership applicant's KYC document. "
+        . "The applicant uploaded this as: {$expected}.\n"
+        . "Applicant's name: {$doc['full_name']}\n"
+        . "Applicant's birthdate: {$doc['birthdate']}\n"
+        . "Applicant's employer: {$doc['employer_name']}\n\n"
+        . "Read the document and respond with ONLY a JSON object (no markdown, no other text) in this exact shape:\n"
+        . '{"detected_document": "<what this document actually is, a few words>", '
+        . '"is_expected_document": <true if it is the kind of document described above, else false>, '
+        . '"legible": <true or false>, '
+        . '"name_on_document": "<the person\'s name as printed, or null>", '
+        . '"name_matches_applicant": <true, false, or null if no name is visible — allow for middle names, initials, suffixes and different name order>, '
+        . '"birthdate": "<YYYY-MM-DD as printed, or null>", '
+        . '"expiry_date": "<YYYY-MM-DD, or null if none>", '
+        . '"employer_on_document": "<employer/company name, or null>", '
+        . '"employer_matches": <true, false, or null if no employer is shown>, '
+        . '"signed": <true if a handwritten signature is visible, false if there is a signature line left blank, null if not applicable>, '
+        . '"concerns": [<short strings for anything an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry, wrong person — empty array if none>]}';
+
+    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_kyc/' . $doc['file_path'], $prompt);
+    if (!$result['success']) {
+        return $result;
+    }
+    $ai = $result['data'];
+
+    $birthdate = basics_ai_date($ai['birthdate'] ?? null);
+    $expiry = basics_ai_date($ai['expiry_date'] ?? null);
+    $concerns = is_array($ai['concerns'] ?? null) ? array_map('strval', $ai['concerns']) : [];
+
+    if (($ai['is_expected_document'] ?? true) === false) {
+        $concerns[] = 'Not the expected document';
+    }
+    if (($ai['legible'] ?? true) === false) {
+        $concerns[] = 'Hard to read';
+    }
+    if (($ai['name_matches_applicant'] ?? null) === false) {
+        $concerns[] = "Name doesn't match the applicant";
+    }
+    if ($birthdate && $doc['birthdate'] && $birthdate !== $doc['birthdate']) {
+        $concerns[] = "Birthdate doesn't match the applicant's (" . date('M j, Y', strtotime($doc['birthdate'])) . ')';
+    }
+    if ($expiry && $expiry < date('Y-m-d')) {
+        $concerns[] = 'Expired';
+    }
+    if ($doc['doc_type'] === 'certificate_of_employment' && ($ai['employer_matches'] ?? null) === false) {
+        $concerns[] = "Employer doesn't match the application";
+    }
+    if (($ai['signed'] ?? null) === false) {
+        $concerns[] = 'No signature visible';
+    }
+
+    $stored = basics_ai_doc_result(
+        trim((string) ($ai['detected_document'] ?? '')),
+        [
+            'Name' => trim((string) ($ai['name_on_document'] ?? '')),
+            'Birthdate' => $birthdate ? date('M j, Y', strtotime($birthdate)) : null,
+            'Expires' => $expiry ? date('M j, Y', strtotime($expiry)) : null,
+            'Employer' => trim((string) ($ai['employer_on_document'] ?? '')),
+        ],
+        $concerns
+    );
+
+    $json = json_encode($stored);
+    $stmt = $conn->prepare("UPDATE basics_kyc_documents SET ai_analyzed_at = NOW(), ai_result = ? WHERE id = ?");
+    $stmt->bind_param('si', $json, $doc_id);
+    $stmt->execute();
+    $stmt->close();
+
+    log_activity($conn, 'ai_analyze_kyc_document', 'Ran AI review on KYC document #' . $doc_id . ' (member #' . $doc['member_id'] . ')');
+
+    return ['success' => true] + $stored;
+}
+
+function basics_analyze_benefit_document($conn, $doc_id) {
+    $stmt = $conn->prepare("SELECT d.*, r.member_id, r.benefit_type, r.relationship_to_deceased, r.deceased_address, u.full_name
+                             FROM basics_benefit_documents d
+                             JOIN basics_benefit_requests r ON r.id = d.request_id
+                             JOIN basics_members bm ON bm.id = r.member_id
+                             JOIN basics_users u ON u.id = bm.user_id
+                             WHERE d.id = ?");
+    $stmt->bind_param('i', $doc_id);
+    $stmt->execute();
+    $doc = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$doc) {
+        return ['success' => false, 'error' => 'Document not found.'];
+    }
+
+    $program = basics_benefit_type_labels()[$doc['benefit_type']] ?? $doc['benefit_type'];
+    $expected = basics_benefit_doc_requirements($doc['benefit_type'])[$doc['doc_type']] ?? $doc['doc_type'];
+    $context = "Member's name: {$doc['full_name']}\n";
+    if ($doc['benefit_type'] === 'burial_assistance') {
+        $context .= "Member's stated relationship to the deceased: {$doc['relationship_to_deceased']}\n"
+            . "Stated address of the deceased: {$doc['deceased_address']}\n";
+    }
+
+    $prompt = "You are helping an admin check a document a member submitted for a \"{$program}\" benefit request "
+        . "(a Philippine member assistance program). The member uploaded this as: {$expected}.\n"
+        . $context . "\n"
+        . "Read the document and respond with ONLY a JSON object (no markdown, no other text) in this exact shape:\n"
+        . '{"detected_document": "<what this document actually is, a few words>", '
+        . '"is_expected_document": <true if it is the kind of document described above, else false>, '
+        . '"legible": <true or false>, '
+        . '"name_on_document": "<the main person the document is about — account holder, patient, deceased or student — or null>", '
+        . '"member_name_appears": <true if the member\'s name appears anywhere on it (e.g. as account holder, patient, parent, guardian or informant), else false>, '
+        . '"amount": <the total amount billed/due as a number, or null if none>, '
+        . '"document_date": "<YYYY-MM-DD of the bill, issue, death or enrollment, or null>", '
+        . '"concerns": [<short strings for anything an admin should double-check: signs of editing or tampering, cropped or cut-off, blurry, an old or outdated document, the member\'s name missing where it would be expected (e.g. as a parent on a birth certificate), details that contradict the member\'s stated relationship or address — empty array if none>]}';
+
+    $result = basics_gemini_read_document(UPLOAD_PATH . 'basics_benefit_docs/' . $doc['file_path'], $prompt);
+    if (!$result['success']) {
+        return $result;
+    }
+    $ai = $result['data'];
+
+    $document_date = basics_ai_date($ai['document_date'] ?? null);
+    $amount = isset($ai['amount']) && is_numeric($ai['amount']) ? round((float) $ai['amount'], 2) : null;
+    $concerns = is_array($ai['concerns'] ?? null) ? array_map('strval', $ai['concerns']) : [];
+
+    if (($ai['is_expected_document'] ?? true) === false) {
+        $concerns[] = 'Not the expected document';
+    }
+    if (($ai['legible'] ?? true) === false) {
+        $concerns[] = 'Hard to read';
+    }
+
+    $member_appears = $ai['member_name_appears'] ?? null;
+    $stored = basics_ai_doc_result(
+        trim((string) ($ai['detected_document'] ?? '')),
+        [
+            'Name' => trim((string) ($ai['name_on_document'] ?? '')),
+            'Member named' => is_bool($member_appears) ? ($member_appears ? 'Yes' : 'No') : null,
+            'Amount' => $amount !== null ? format_price($amount) : null,
+            'Date' => $document_date ? date('M j, Y', strtotime($document_date)) : null,
+        ],
+        $concerns
+    );
+
+    $json = json_encode($stored);
+    $stmt = $conn->prepare("UPDATE basics_benefit_documents SET ai_analyzed_at = NOW(), ai_result = ? WHERE id = ?");
+    $stmt->bind_param('si', $json, $doc_id);
+    $stmt->execute();
+    $stmt->close();
+
+    log_activity($conn, 'ai_analyze_benefit_document', 'Ran AI review on benefit document #' . $doc_id . ' (request #' . $doc['request_id'] . ')');
+
+    return ['success' => true] + $stored;
+}
+
+// Renders a saved ai_result (see basics_ai_doc_result()) as a compact block
+// under a document link: a Looks OK / Check pill, what was read, and any
+// concerns.
+function basics_ai_doc_result_html($ai_result_json) {
+    $result = json_decode((string) $ai_result_json, true);
+    if (!is_array($result)) {
+        return '';
+    }
+
+    $ok = ($result['verdict'] ?? '') === 'ok';
+    $html = '<div class="small mt-1">'
+        . '<span class="pill pill-' . ($ok ? 'approved' : 'rejected') . '"><i class="fas fa-wand-magic-sparkles"></i> ' . ($ok ? 'Looks OK' : 'Check') . '</span>';
+    if (!empty($result['detected'])) {
+        $html .= ' <span class="text-muted">' . sanitize($result['detected']) . '</span>';
+    }
+    $fields = [];
+    foreach ($result['fields'] ?? [] as $label => $value) {
+        $fields[] = sanitize($label) . ': ' . sanitize($value);
+    }
+    if ($fields) {
+        $html .= '<div>' . implode(' &middot; ', $fields) . '</div>';
+    }
+    foreach ($result['concerns'] ?? [] as $concern) {
+        $html .= '<div class="text-danger"><i class="fas fa-triangle-exclamation"></i> ' . sanitize($concern) . '</div>';
+    }
+    return $html . '</div>';
 }
 
 // ---------------------------------------------------------------
