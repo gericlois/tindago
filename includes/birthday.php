@@ -201,7 +201,7 @@ function basics_claim_birthday_gift($conn, $member) {
     basics_record_order_status($conn, $order_id, 'pending', $member['full_name'], 'Birthday gift claimed');
 
     log_activity($conn, 'claim_birthday_gift', 'Member #' . $member['id'] . ' claimed their Birthday Grocery Gift (' . $status['year'] . '), created order #' . $order_id);
-    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your Birthday Grocery Gift request (order #{$order_id}). Our team will review it and get it ready for you. - JMC Foodies Basics");
+    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your Birthday Grocery Gift request (order #{$order_id}). Our team will review it and get it ready for you. - JMC Foodies Basics", 'order', 'Birthday gift request received', '/order_view.php?id=' . $order_id);
     return true;
 }
 

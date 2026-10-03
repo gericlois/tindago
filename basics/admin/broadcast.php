@@ -120,6 +120,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
         if ($send_sms) $log_parts[] = $sent_count . ' SMS recipient(s)';
         if ($send_email) $log_parts[] = $email_sent_count . ' email recipient(s)';
         log_activity($conn, 'send_basics_broadcast', 'Sent Basics announcement to ' . implode(' and ', $log_parts) . ' (' . $audiences[$audience] . ')');
+        // Members also see it in their notification feed (applicants can't
+        // log in to one yet, so a pending-only broadcast skips this).
+        if ($audience !== 'pending') {
+            basics_notify_all_members($conn, 'announcement', $email_subject !== '' ? $email_subject : 'Announcement', basics_notification_text($message));
+        }
     }
 }
 

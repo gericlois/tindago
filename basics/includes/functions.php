@@ -92,11 +92,113 @@ function basics_gift_pill() {
 // basics_sms_notifications_enabled setting (basics/admin/settings.php) —
 // unlike an explicit admin broadcast, these are automatic triggers, so the
 // admin gets a master off-switch for them.
-function basics_notify($conn, $member, $message) {
+// When $title is given, the same message is also saved to the member's
+// in-app notification feed (basics_add_notification()) — always, even when
+// the SMS switch is off, since it costs nothing.
+function basics_notify($conn, $member, $message, $type = null, $title = null, $link = null) {
+    if ($title !== null && !empty($member['id'])) {
+        basics_add_notification($conn, $member['id'], $type ?? 'account', $title, basics_notification_text($message), $link);
+    }
     if (setting($conn, 'basics_sms_notifications_enabled', '1') !== '1') {
         return false;
     }
     return send_sms($member['contact_number'] ?? '', $message);
+}
+
+// ---------------------------------------------------------------
+// In-app notifications — the member's feed on basics/notifications.php,
+// with an unread count on the bell in includes/navbar.php. Every SMS
+// trigger above writes one (via basics_notify()), and events that never
+// had an SMS (denials, rejected payments, cash-outs, account changes)
+// write one directly. $type picks the icon (basics_notification_types());
+// $link is a path under BASICS_URL, e.g. '/order_view.php?id=12'.
+// Wrapped so a notification problem (e.g. the table not created yet) can
+// never break the order/payment/approval action that triggered it.
+// ---------------------------------------------------------------
+function basics_notification_types() {
+    return [
+        'order' => 'fa-bag-shopping',
+        'payment' => 'fa-money-bill-wave',
+        'benefit' => 'fa-hand-holding-heart',
+        'loan' => 'fa-hand-holding-dollar',
+        'earnings' => 'fa-coins',
+        'account' => 'fa-user-check',
+        'announcement' => 'fa-bullhorn',
+        'message' => 'fa-envelope',
+    ];
+}
+
+// True once database/live_add_basics_notifications.sql has been run. Checked
+// (once per request) before every notification query rather than relying on
+// catching a failed query: a failed query here can surface as an error in
+// the page's own, unrelated database reads afterwards.
+function basics_notifications_ready($conn) {
+    static $ready = null;
+    if ($ready === null) {
+        $result = $conn->query("SHOW TABLES LIKE 'basics_notifications'");
+        $ready = $result && $result->num_rows > 0;
+    }
+    return $ready;
+}
+
+function basics_add_notification($conn, $member_id, $type, $title, $message, $link = null) {
+    if (!basics_notifications_ready($conn)) {
+        return;
+    }
+    try {
+        $stmt = $conn->prepare("INSERT INTO basics_notifications (member_id, type, title, message, link) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param('issss', $member_id, $type, $title, $message, $link);
+        $stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+        // Never block the action that triggered it.
+    }
+}
+
+// Same notification for every approved active/dormant member (the Basics
+// broadcast audience) in one INSERT ... SELECT.
+function basics_notify_all_members($conn, $type, $title, $message, $link = null) {
+    if (!basics_notifications_ready($conn)) {
+        return;
+    }
+    try {
+        $stmt = $conn->prepare("INSERT INTO basics_notifications (member_id, type, title, message, link)
+                                 SELECT id, ?, ?, ?, ? FROM basics_members
+                                 WHERE application_status = 'approved' AND membership_status IN ('active','dormant')");
+        $stmt->bind_param('ssss', $type, $title, $message, $link);
+        $stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+        // Never block the broadcast itself.
+    }
+}
+
+// SMS wording → feed wording: drops the "Hi Name, " greeting and the
+// " - JMC Foodies Basics" sign-off, which read oddly in a list.
+function basics_notification_text($sms_message) {
+    $text = preg_replace('/^Hi [^,]+, /', '', trim($sms_message));
+    $text = preg_replace('/\s*-\s*JMC Foodies Basics$/', '', $text);
+    return ucfirst($text);
+}
+
+// Keyed by the logged-in basics_users.id, since that's what the shared
+// navbar has on hand (basics_current_user_id()).
+function basics_unread_notification_count($conn, $user_id) {
+    if (!basics_notifications_ready($conn)) {
+        return 0;
+    }
+    try {
+        $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM basics_notifications n
+                                 JOIN basics_members bm ON bm.id = n.member_id
+                                 WHERE bm.user_id = ? AND n.read_at IS NULL");
+        $stmt->bind_param('i', $user_id);
+        $stmt->execute();
+        $count = (int) $stmt->get_result()->fetch_assoc()['c'];
+        $stmt->close();
+        return $count;
+    } catch (Throwable $e) {
+        return 0;
+    }
 }
 
 // Sent alongside the existing approval SMS (basics_notify() in
@@ -293,7 +395,7 @@ function basics_deliver_order($conn, $order_id, $admin_id) {
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
         $due_date = date('Y-m-d', strtotime('+7 days'));
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics");
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics", 'order', 'Order delivered', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -360,7 +462,7 @@ function basics_confirm_order($conn, $order_id, $actor_label) {
     log_activity($conn, 'confirm_basics_order', 'Approved Basics order #' . $order_id);
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been approved and is being prepared. - JMC Foodies Basics");
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been approved and is being prepared. - JMC Foodies Basics", 'order', 'Order approved', '/order_view.php?id=' . $order_id);
     }
     return 'confirmed';
 }
@@ -380,7 +482,7 @@ function basics_send_order_out_for_delivery($conn, $order_id, $actor_label) {
     log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $order_id . ' as out for delivery');
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} is out for delivery! - JMC Foodies Basics");
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} is out for delivery! - JMC Foodies Basics", 'order', 'Out for delivery', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -409,7 +511,7 @@ function basics_cancel_order($conn, $order_id, $actor_label, $cancel_reason = nu
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
         $reason_note = $cancel_reason ? " Reason: {$cancel_reason}" : '';
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been cancelled.{$reason_note} - JMC Foodies Basics");
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been cancelled.{$reason_note} - JMC Foodies Basics", 'order', 'Order cancelled', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -775,11 +877,11 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $notify_member = basics_get_member($conn, $member['user_id']);
     if ($notify_member) {
         if ($new_status === 'active') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - JMC Foodies Basics");
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - JMC Foodies Basics", 'payment', 'Payment received', '/order_view.php?id=' . $order_id);
         } elseif ($new_status === 'suspended') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your membership has been suspended until " . date('M j, Y', strtotime($new_suspended_until)) . ". - JMC Foodies Basics");
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your membership has been suspended until " . date('M j, Y', strtotime($new_suspended_until)) . ". - JMC Foodies Basics", 'account', 'Payment received — membership suspended', '/order_view.php?id=' . $order_id);
         } elseif ($new_status === 'terminated') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your JMC Foodies Basics membership has been terminated. - JMC Foodies Basics");
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your JMC Foodies Basics membership has been terminated. - JMC Foodies Basics", 'account', 'Payment received — membership terminated', '/order_view.php?id=' . $order_id);
         }
     }
 

@@ -67,6 +67,10 @@ $module_logout_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/logo
             <a href="<?= BASICS_URL ?>/cart.php" class="nav-link nav-cta" id="basicsCartLink">
               <i class="fas fa-cart-shopping me-1"></i>Cart<?php if ($basics_cart_count > 0): ?><span class="nav-cart-badge" id="basicsCartBadge"><?= $basics_cart_count ?></span><?php endif; ?>
             </a>
+            <?php $basics_unread_count = basics_unread_notification_count($conn, basics_current_user_id()); ?>
+            <a href="<?= BASICS_URL ?>/notifications.php" class="nav-link nav-cta" title="Notifications" aria-label="Notifications<?= $basics_unread_count ? ' (' . $basics_unread_count . ' unread)' : '' ?>">
+              <i class="fas fa-bell"></i><span class="d-lg-none ms-1">Notifications</span><?php if ($basics_unread_count > 0): ?><span class="nav-cart-badge"><?= $basics_unread_count > 99 ? '99+' : $basics_unread_count ?></span><?php endif; ?>
+            </a>
           <?php endif; ?>
           <a href="<?= $module_logout_url ?>" class="nav-link nav-cta"><i class="fas fa-right-from-bracket me-1"></i>Logout</a>
         <?php else: ?>

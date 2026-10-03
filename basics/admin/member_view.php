@@ -35,24 +35,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
         $stmt->execute();
         $stmt->close();
         log_activity($conn, 'update_basics_credit', 'Updated purchase limit for Basics member #' . $id . ' (weekly ' . format_price($weekly_limit) . ', emergency ' . format_price($emergency_limit) . ')');
+        basics_add_notification($conn, $id, 'account', 'Purchase limit updated', 'Your weekly purchase limit is now ' . format_price($weekly_limit) . ' and your Emergency Cash Loan limit is ' . format_price($emergency_limit) . '.', '/dashboard.php');
     } elseif ($action === 'suspend') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'suspended' WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
         log_activity($conn, 'suspend_basics_member', 'Suspended Basics member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership suspended', 'Your JMC Foodies Basics membership has been suspended. For questions, please contact us.');
     } elseif ($action === 'reinstate') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'active', suspended_until = NULL WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
         log_activity($conn, 'reinstate_basics_member', 'Reinstated Basics member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership reinstated', 'Your JMC Foodies Basics membership is active again. You can place orders as usual.', '/catalog.php');
     } elseif ($action === 'terminate') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'terminated' WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
         log_activity($conn, 'terminate_basics_member', 'Terminated Basics member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership terminated', 'Your JMC Foodies Basics membership has been terminated. For questions, please contact us.');
     } elseif ($action === 'toggle_partner') {
         $stmt = $conn->prepare("SELECT is_community_partner, referral_code FROM basics_members WHERE id = ?");
         $stmt->bind_param('i', $id);
@@ -130,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
     if (empty($email_errors)) {
         if (send_email($member['email'], $email_subject, "Hi {$member['full_name']},\r\n\r\n{$email_message}\r\n\r\n— JMC Foodies Basics Team")) {
             log_activity($conn, 'send_basics_member_email', 'Emailed Basics member "' . $member['full_name'] . '" (subject: ' . $email_subject . ')');
+            basics_add_notification($conn, $id, 'message', $email_subject, $email_message);
             redirect('/basics/admin/member_view.php?id=' . $id . '&email_sent=1');
         } else {
             $email_errors[] = 'Failed to send — check the Gmail SMTP configuration (config/email.php).';
@@ -152,6 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
     if (empty($sms_errors)) {
         if (send_sms($member['contact_number'], $sms_message)) {
             log_activity($conn, 'send_basics_member_sms', 'Texted Basics member "' . $member['full_name'] . '"');
+            basics_add_notification($conn, $id, 'message', 'Message from JMC Foodies Basics', basics_notification_text($sms_message));
             redirect('/basics/admin/member_view.php?id=' . $id . '&sms_sent=1');
         } else {
             $sms_errors[] = 'Failed to send — check the Semaphore SMS configuration (config/sms.php).';

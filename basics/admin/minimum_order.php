@@ -70,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
             }
         }
 
+        basics_notify_all_members($conn, 'announcement', 'Minimum order is now ' . format_price($new_minimum), basics_notification_text($message), '/catalog.php');
+
         $sent_parts = [];
         if ($sms_count !== null) $sent_parts[] = $sms_count . ' SMS';
         if ($email_count !== null) $sent_parts[] = $email_count . ' email';

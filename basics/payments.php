@@ -116,6 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
         $stmt->bind_param('isiissdsss', $member['id'], $payment_for, $order_id, $loan_request_id, $payment_method, $destination_account, $amount, $reference_number, $paid_at, $proof_filename);
         $stmt->execute();
         $stmt->close();
+        basics_add_notification($conn, $member['id'], 'payment', 'Payment submitted',
+            'We received your payment of ' . format_price($amount) . ' (ref ' . $reference_number . '). We\'ll let you know once it\'s confirmed.', '/payments.php');
         redirect('/basics/payments.php?submitted=1');
     }
 }

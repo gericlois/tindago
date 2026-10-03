@@ -82,6 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
         if (send_sms($o['contact_number'] ?? '', $message)) {
             $sent++;
         }
+        $reminder_titles = ['overdue' => 'Payment overdue', 'due_today' => 'Payment due today', 'due_tomorrow' => 'Payment due tomorrow'];
+        basics_add_notification($conn, $o['member_id'], 'payment', $reminder_titles[$kind] ?? 'Payment reminder',
+            basics_notification_text(str_replace('URGENT: ', '', $message)), '/order_view.php?id=' . (int) $o['order_id']);
 
         // Email goes out alongside the SMS for due-today and overdue (the two
         // urgent cases); due-tomorrow stays an SMS-only heads-up.

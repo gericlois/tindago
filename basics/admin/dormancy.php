@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'flag_
     $stmt->close();
     if ($flagged) {
         log_activity($conn, 'flag_dormant_basics_member', 'Flagged Basics member #' . $id . ' as dormant');
+        basics_add_notification($conn, $id, 'account', 'We miss you!', 'Your account has been marked inactive because there were no orders for a while. Place an order anytime to stay active.', '/catalog.php');
     }
     redirect('/basics/admin/dormancy.php');
 }

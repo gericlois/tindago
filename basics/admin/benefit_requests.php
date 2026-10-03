@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
             if ($req_row) {
                 $member = basics_member_by_id($conn, $req_row['member_id']);
                 if ($member) {
-                    basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$req_row['benefit_type']] . " of " . format_price($amount_paid) . " has been released to your registered account. - JMC Foodies Basics");
+                    basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$req_row['benefit_type']] . " of " . format_price($amount_paid) . " has been released to your registered account. - JMC Foodies Basics", 'benefit', 'Benefit released', '/benefits.php');
                 }
             }
             redirect('/basics/admin/benefit_requests.php?approved=1');
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remin
     } else {
         $link = absolute_url(BASICS_URL . '/payout_account.php');
         $benefit = $type_labels[$req_row['benefit_type']] ?? 'benefit';
-        $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - JMC Foodies Basics");
+        $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - JMC Foodies Basics", 'benefit', 'Add your payout account', '/payout_account.php');
         $email_sent = !empty($member['email']) && send_email($member['email'], 'Add your payout account to receive your ' . $benefit,
             "Hi {$member['full_name']},\r\n\r\n"
             . "Your {$benefit} request is being reviewed, but we can't send the payout yet because you haven't added a payout account.\r\n\r\n"
@@ -116,6 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'deny'
         $stmt->close();
         if ($denied) {
             log_activity($conn, 'deny_benefit_request', 'Denied benefit request #' . $id . ': ' . $notes);
+            $row = $conn->query("SELECT member_id, benefit_type FROM basics_benefit_requests WHERE id = " . (int) $id)->fetch_assoc();
+            basics_add_notification($conn, $row['member_id'], 'benefit', 'Benefit request not approved',
+                'Your ' . ($type_labels[$row['benefit_type']] ?? 'benefit') . ' request was not approved. Reason: ' . $notes, '/benefits.php');
             redirect('/basics/admin/benefit_requests.php?denied=1');
         }
         $errors[] = 'Request not found or already reviewed.';
