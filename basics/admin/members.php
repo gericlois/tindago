@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'admin']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders', 'staff_payments', 'staff_registration']);
 
 $valid_statuses = ['active', 'suspended', 'dormant', 'terminated'];
 $status_filter = $_GET['status'] ?? '';

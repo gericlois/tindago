@@ -43,6 +43,45 @@ function basics_super_admin_count($conn) {
     return (int) $conn->query("SELECT COUNT(*) AS c FROM basics_admins WHERE role = 'super_admin'")->fetch_assoc()['c'];
 }
 
+// The admin pages each restricted staff role can open — must match that
+// page's own require_basics_admin_role() list. Drives the sidebar (only
+// shows a staff member what they can open) and basics_admin_can_open().
+function basics_staff_role_paths() {
+    // Every staff role gets the Dashboard and Members (profiles are
+    // view-only for staff — see basics/admin/member_view.php).
+    $shared = ['/basics/admin/index.php', '/basics/admin/members.php', '/basics/admin/member_view.php', '/basics/admin/communication_log.php'];
+    return [
+        'staff_orders' => array_merge($shared, [
+            '/basics/admin/applications.php', '/basics/admin/application_view.php', '/basics/admin/products.php',
+            '/basics/admin/orders.php', '/basics/admin/supplier_summary.php',
+        ]),
+        'staff_payments' => array_merge($shared, [
+            '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
+            '/basics/admin/payment_submissions.php', '/basics/admin/emergency_credit.php',
+            '/basics/admin/benefit_requests.php', '/basics/admin/dormancy.php', '/basics/admin/cashouts.php',
+        ]),
+        'staff_registration' => array_merge($shared, [
+            '/basics/admin/users.php', '/basics/admin/register_member.php',
+        ]),
+    ];
+}
+
+// Whether the logged-in Basics admin can open an admin page (a path like
+// '/basics/admin/payments.php', query string allowed) — so pages can show
+// a link only when following it won't just bounce the user back.
+function basics_admin_can_open($path) {
+    $path = strtok($path, '?');
+    $role = basics_admin_role();
+    if ($role === 'super_admin') {
+        return true;
+    }
+    if ($role === 'admin') {
+        return !in_array($path, ['/basics/admin/db_backup.php', '/basics/admin/admins.php', '/basics/admin/login_attempts.php',
+                                 '/basics/admin/maintenance.php', '/basics/admin/minimum_order.php'], true);
+    }
+    return in_array($path, basics_staff_role_paths()[$role] ?? [], true);
+}
+
 function basics_admin_role_label($role) {
     $labels = [
         'super_admin' => 'Super Admin',

@@ -5,12 +5,13 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'admin', 'staff_registration']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders', 'staff_payments', 'staff_registration']);
 
 $id = (int) ($_GET['id'] ?? 0);
-// Registration staff get a read-only profile + submitted documents: no credit,
-// orders, payments, messaging or status changes — and no POST at all.
-$is_view_only = basics_admin_role() === 'staff_registration';
+// All staff roles (orders, payments, registration) get a read-only profile +
+// submitted documents: no credit, orders, payments, messaging or status
+// changes — and no POST at all. Only admin and super_admin can act here.
+$is_view_only = !in_array(basics_admin_role(), ['super_admin', 'admin'], true);
 if ($is_view_only && $_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('/basics/admin/member_view.php?id=' . $id);
 }
@@ -308,11 +309,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 ?>
 <div class="inner-hero">
   <div class="container">
-    <?php if ($is_view_only): ?>
-      <a href="<?= BASE_URL ?>/basics/admin/users.php" class="small">&larr; Back to Users</a>
-    <?php else: ?>
-      <a href="<?= BASE_URL ?>/basics/admin/members.php" class="small">&larr; Back to Members</a>
-    <?php endif; ?>
+    <a href="<?= BASE_URL ?>/basics/admin/members.php" class="small">&larr; Back to Members</a>
     <h1 class="stitle" style="font-size:2rem;"><?= sanitize($member['full_name']) ?></h1>
   </div>
 </div>

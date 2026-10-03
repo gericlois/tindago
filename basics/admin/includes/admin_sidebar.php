@@ -13,10 +13,6 @@ $sub_to_parent = [
     '/basics/admin/order_view.php'       => '/basics/admin/orders.php',
     '/basics/admin/delivery_receipt.php' => '/basics/admin/orders.php',
 ];
-// Registration staff have no Members page — their profile view hangs off Users.
-if (basics_admin_role() === 'staff_registration') {
-    $sub_to_parent['/basics/admin/member_view.php'] = '/basics/admin/users.php';
-}
 $current_path = $sub_to_parent[$current_path] ?? $current_path;
 
 // The designated developer/test account's pending items are excluded from
@@ -129,24 +125,9 @@ if (basics_admin_role() === 'super_admin') {
 // staff_orders, staff_payments and staff_registration are restricted roles (see
 // require_basics_admin_role() in includes/auth.php) — only show each the
 // pages it can actually open, so the nav doesn't dangle links that just
-// bounce back to its landing page.
-$staff_role_paths = [
-    'staff_orders' => [
-        '/basics/admin/applications.php', '/basics/admin/products.php',
-        '/basics/admin/orders.php', '/basics/admin/supplier_summary.php',
-        '/basics/admin/communication_log.php',
-    ],
-    'staff_payments' => [
-        '/basics/admin/payments.php', '/basics/admin/payment_reminders.php',
-        '/basics/admin/payment_submissions.php', '/basics/admin/emergency_credit.php',
-        '/basics/admin/benefit_requests.php', '/basics/admin/dormancy.php',
-        '/basics/admin/communication_log.php', '/basics/admin/cashouts.php',
-    ],
-    'staff_registration' => [
-        '/basics/admin/users.php', '/basics/admin/register_member.php',
-        '/basics/admin/communication_log.php',
-    ],
-];
+// bounce back to its landing page. Every staff role also gets the Dashboard
+// and the Members list (member profiles are view-only for staff).
+$staff_role_paths = basics_staff_role_paths();
 if (isset($staff_role_paths[basics_admin_role()])) {
     $allowed_paths = $staff_role_paths[basics_admin_role()];
     foreach ($nav_groups as $group_label => $group_items) {

@@ -5,7 +5,7 @@ require __DIR__ . '/../../includes/functions.php';
 require __DIR__ . '/../../includes/auth.php';
 require __DIR__ . '/../includes/functions.php';
 
-require_basics_admin_role(['super_admin', 'admin']);
+require_basics_admin_role(['super_admin', 'admin', 'staff_orders', 'staff_payments', 'staff_registration']);
 
 // The designated developer/test account's activity is excluded from every
 // stat/chart on this page — see basics_test_member_id() for why.
@@ -101,10 +101,17 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
-  <?php if ($due_payments_count > 0 || $birthdays_today_count > 0 || $pending_basics_applications > 0 || $pending_basics_payment_submissions > 0): ?>
+  <?php
+    // Each "Needs Attention" card only shows to a role that can act on it.
+    $attention_applications = $pending_basics_applications > 0 && basics_admin_can_open('/basics/admin/applications.php');
+    $attention_due_payments = $due_payments_count > 0 && basics_admin_can_open('/basics/admin/payments.php');
+    $attention_submissions = $pending_basics_payment_submissions > 0 && basics_admin_can_open('/basics/admin/payment_submissions.php');
+    $attention_birthdays = $birthdays_today_count > 0 && basics_admin_can_open('/basics/admin/birthdays.php');
+  ?>
+  <?php if ($attention_applications || $attention_due_payments || $attention_submissions || $attention_birthdays): ?>
     <h2 class="h6 mb-3">Needs Attention</h2>
     <div class="row g-3 mb-4">
-      <?php if ($pending_basics_applications > 0): ?>
+      <?php if ($attention_applications): ?>
         <div class="col-6 col-md-3">
           <a href="<?= BASE_URL ?>/basics/admin/applications.php" class="attention-card">
             <div class="attention-card-icon"><i class="fas fa-file-signature"></i></div>
@@ -113,7 +120,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </a>
         </div>
       <?php endif; ?>
-      <?php if ($due_payments_count > 0): ?>
+      <?php if ($attention_due_payments): ?>
         <div class="col-6 col-md-3">
           <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="attention-card">
             <div class="attention-card-icon"><i class="fas fa-money-bill-wave"></i></div>
@@ -122,7 +129,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </a>
         </div>
       <?php endif; ?>
-      <?php if ($pending_basics_payment_submissions > 0): ?>
+      <?php if ($attention_submissions): ?>
         <div class="col-6 col-md-3">
           <a href="<?= BASE_URL ?>/basics/admin/payment_submissions.php" class="attention-card">
             <div class="attention-card-icon"><i class="fas fa-receipt"></i></div>
@@ -131,7 +138,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </a>
         </div>
       <?php endif; ?>
-      <?php if ($birthdays_today_count > 0): ?>
+      <?php if ($attention_birthdays): ?>
         <div class="col-6 col-md-3">
           <a href="<?= BASE_URL ?>/basics/admin/birthdays.php" class="attention-card">
             <div class="attention-card-icon"><i class="fas fa-cake-candles"></i></div>
@@ -143,30 +150,45 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   <?php endif; ?>
 
+  <?php
+    // A stat tile links to its page only when this admin's role can open
+    // it — otherwise it's a plain tile, so staff never click into a page
+    // that just bounces them back.
+    $stat_tile = function ($path, $num_html, $label, $num_class = '', $num_style = '') {
+        $inner = '<div class="stat-num' . ($num_class ? ' ' . $num_class : '') . '"' . ($num_style ? ' style="' . $num_style . '"' : '') . '>' . $num_html . '</div><div class="stat-lbl">' . $label . '</div>';
+        return basics_admin_can_open($path)
+            ? '<a href="' . BASE_URL . $path . '" class="stat-tile stat-tile-link">' . $inner . '</a>'
+            : '<div class="stat-tile">' . $inner . '</div>';
+    };
+    // Money totals are for admins and payments staff only.
+    $show_money_tiles = in_array(basics_admin_role(), ['super_admin', 'admin', 'staff_payments'], true);
+  ?>
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/applications.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_applications > 0 ? ' accent' : '' ?>"><?= (int) $pending_basics_applications ?></div><div class="stat-lbl">Pending Applications</div></a>
+      <?= $stat_tile('/basics/admin/applications.php', (int) $pending_basics_applications, 'Pending Applications', $pending_basics_applications > 0 ? 'accent' : '') ?>
     </div>
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/members.php?status=active" class="stat-tile stat-tile-link"><div class="stat-num"><?= (int) $active_basics_members ?></div><div class="stat-lbl">Active Members</div></a>
+      <?= $stat_tile('/basics/admin/members.php?status=active', (int) $active_basics_members, 'Active Members') ?>
     </div>
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/orders.php?status=pending" class="stat-tile stat-tile-link"><div class="stat-num<?= $basics_orders_awaiting_approval > 0 ? ' accent' : '' ?>"><?= (int) $basics_orders_awaiting_approval ?></div><div class="stat-lbl">Orders Awaiting Approval</div></a>
+      <?= $stat_tile('/basics/admin/orders.php?status=pending', (int) $basics_orders_awaiting_approval, 'Orders Awaiting Approval', $basics_orders_awaiting_approval > 0 ? 'accent' : '') ?>
     </div>
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num"><?= (int) $basics_orders_awaiting_payment ?></div><div class="stat-lbl">Orders Awaiting Payment</div></a>
+      <?= $stat_tile('/basics/admin/payments.php', (int) $basics_orders_awaiting_payment, 'Orders Awaiting Payment') ?>
+    </div>
+    <?php if ($show_money_tiles): ?>
+      <div class="col-6 col-md-3">
+        <?= $stat_tile('/basics/admin/payments.php', format_price($basics_outstanding_total), 'Outstanding Balance', 'accent', 'font-size:1.3rem;') ?>
+      </div>
+      <div class="col-6 col-md-3">
+        <?= $stat_tile('/basics/admin/payments.php', format_price($basics_revenue_this_month), 'Revenue This Month', 'accent', 'font-size:1.3rem;') ?>
+      </div>
+    <?php endif; ?>
+    <div class="col-6 col-md-3">
+      <?= $stat_tile('/basics/admin/benefit_requests.php', (int) $pending_basics_benefit_requests, 'Pending Benefit Requests', $pending_basics_benefit_requests > 0 ? 'accent' : '') ?>
     </div>
     <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_outstanding_total) ?></div><div class="stat-lbl">Outstanding Balance</div></a>
-    </div>
-    <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/payments.php" class="stat-tile stat-tile-link"><div class="stat-num accent" style="font-size:1.3rem;"><?= format_price($basics_revenue_this_month) ?></div><div class="stat-lbl">Revenue This Month</div></a>
-    </div>
-    <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/benefit_requests.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_benefit_requests > 0 ? ' accent' : '' ?>"><?= $pending_basics_benefit_requests ?></div><div class="stat-lbl">Pending Benefit Requests</div></a>
-    </div>
-    <div class="col-6 col-md-3">
-      <a href="<?= BASE_URL ?>/basics/admin/emergency_credit.php" class="stat-tile stat-tile-link"><div class="stat-num<?= $pending_basics_emergency_credit > 0 ? ' accent' : '' ?>"><?= $pending_basics_emergency_credit ?></div><div class="stat-lbl">Pending Emergency Loan</div></a>
+      <?= $stat_tile('/basics/admin/emergency_credit.php', (int) $pending_basics_emergency_credit, 'Pending Emergency Loan', $pending_basics_emergency_credit > 0 ? 'accent' : '') ?>
     </div>
   </div>
 
@@ -181,7 +203,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $ba['id'] ?>"><?= sanitize($ba['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($ba['username']) ?>)</span></td>
             <td><?= sanitize($ba['employer_name']) ?></td>
             <td><?= date('M j, Y', strtotime($ba['applied_at'])) ?></td>
-            <td><a href="<?= BASE_URL ?>/basics/admin/application_view.php?id=<?= (int) $ba['id'] ?>" class="btn-chip btn-chip-outline">Review</a></td>
+            <td><?php if (basics_admin_can_open('/basics/admin/application_view.php')): ?><a href="<?= BASE_URL ?>/basics/admin/application_view.php?id=<?= (int) $ba['id'] ?>" class="btn-chip btn-chip-outline">Review</a><?php endif; ?></td>
           </tr>
         <?php endwhile; ?>
         </tbody>
