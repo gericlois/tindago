@@ -461,6 +461,32 @@ function basics_admin_name_by_id($conn, $admin_id) {
 // full name for self-service actions like placing/cancelling their own
 // order) rather than an id, since the two kinds of actor live in entirely
 // separate tables/sessions.
+// Tells the member an admin changed their order's items while it was still
+// Checking or Preparing (basics/admin/order_view.php) — in-app notification
+// and SMS (via basics_notify(), so SMS follows the Basics SMS switch), plus
+// an email if they have an address. $change is one plain sentence, e.g.
+// "Rice 5kg quantity changed from 2 to 1."
+function basics_notify_order_change($conn, $order_id, $change) {
+    $member = basics_member_by_order_id($conn, $order_id);
+    if (!$member) {
+        return;
+    }
+    $order = $conn->query("SELECT total_amount, is_gift FROM basics_orders WHERE id = " . (int) $order_id)->fetch_assoc();
+    $total_note = $order && !$order['is_gift'] ? ' New order total: ' . format_price($order['total_amount']) . '.' : '';
+
+    basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} was updated: {$change}{$total_note} - JMC Foodies Basics",
+        'order', 'Order updated', '/order_view.php?id=' . (int) $order_id);
+
+    if (!empty($member['email'])) {
+        send_email($member['email'], 'Your order #' . $order_id . ' was updated',
+            "Hi {$member['full_name']},\r\n\r\n"
+            . "Your JMC Foodies Basics order #{$order_id} was updated by our team:\r\n\r\n"
+            . $change . "\r\n" . ($total_note !== '' ? trim($total_note) . "\r\n" : '') . "\r\n"
+            . 'You can review your order here: ' . absolute_url(BASICS_URL . '/order_view.php?id=' . (int) $order_id) . "\r\n\r\n"
+            . '— JMC Foodies Basics Team');
+    }
+}
+
 function basics_record_order_status($conn, $order_id, $status, $actor_label, $note = null) {
     $stmt = $conn->prepare("INSERT INTO basics_order_status_history (order_id, status, actor_label, note) VALUES (?, ?, ?, ?)");
     $stmt->bind_param('isss', $order_id, $status, $actor_label, $note);

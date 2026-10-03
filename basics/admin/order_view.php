@@ -23,16 +23,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     basics_send_order_out_for_delivery($conn, $id, basics_current_admin_name());
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_item') {
-    // Only while Checking — admin adjusts quantities/removes out-of-stock
-    // items before approving, matching the member's own cart editing.
+    // While Checking or Preparing — admin adjusts quantities/removes
+    // out-of-stock items, and the member is told what changed (in-app, SMS,
+    // email — basics_notify_order_change()). Locked once a payment is
+    // recorded, so the payment record and the order total can't disagree.
     $item_id = (int) ($_POST['item_id'] ?? 0);
     $new_qty = max(0, (int) ($_POST['quantity'] ?? 0));
-    $stmt = $conn->prepare("SELECT oi.*, o.is_gift FROM basics_order_items oi JOIN basics_orders o ON o.id = oi.order_id
-                             WHERE oi.id = ? AND oi.order_id = ? AND o.status = 'pending'");
+    $stmt = $conn->prepare("SELECT oi.*, o.is_gift, p.name AS product_name, p.unit AS product_unit,
+                                   (SELECT COUNT(*) FROM basics_order_items WHERE order_id = o.id) AS item_count
+                             FROM basics_order_items oi
+                             JOIN basics_orders o ON o.id = oi.order_id
+                             JOIN basics_products p ON p.id = oi.product_id
+                             WHERE oi.id = ? AND oi.order_id = ? AND o.status IN ('pending', 'confirmed')
+                               AND NOT EXISTS (SELECT 1 FROM basics_payments WHERE order_id = o.id)");
     $stmt->bind_param('ii', $item_id, $id);
     $stmt->execute();
     $item = $stmt->get_result()->fetch_assoc();
     $stmt->close();
+    if ($item && $new_qty <= 0 && !$item['is_gift'] && (int) $item['item_count'] <= 1) {
+        // Emptying a regular order isn't an edit — cancel it instead, which
+        // records a reason and notifies the member.
+        redirect('/basics/admin/order_view.php?id=' . $id . '&error=last_item');
+    }
+    if ($item && $new_qty === (int) $item['quantity']) {
+        redirect('/basics/admin/order_view.php?id=' . $id);
+    }
     if ($item) {
         if ($new_qty <= 0) {
             $stmt = $conn->prepare("DELETE FROM basics_order_items WHERE id = ?");
@@ -51,7 +66,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
             $stmt->execute();
             $stmt->close();
         }
-        log_activity($conn, 'update_basics_order_item', 'Adjusted item on Basics order #' . $id . ' (checking stage)');
+        $item_label = $item['product_name'] . ($item['product_unit'] ? ' (' . $item['product_unit'] . ')' : '');
+        $change = $new_qty <= 0
+            ? $item_label . ' was removed from your order.'
+            : $item_label . ' quantity changed from ' . (int) $item['quantity'] . ' to ' . $new_qty . '.';
+        log_activity($conn, 'update_basics_order_item', 'Edited Basics order #' . $id . ': ' . $change);
+        basics_notify_order_change($conn, $id, $change);
+        redirect('/basics/admin/order_view.php?id=' . $id . '&updated=1');
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_item') {
@@ -62,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     $product_id = (int) ($_POST['product_id'] ?? 0);
     $quantity = max(1, (int) ($_POST['quantity'] ?? 1));
 
-    $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND status = 'pending' AND is_gift = 1");
+    $stmt = $conn->prepare("SELECT id FROM basics_orders WHERE id = ? AND status IN ('pending', 'confirmed') AND is_gift = 1");
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $is_open_gift_order = (bool) $stmt->get_result()->fetch_assoc();
@@ -83,6 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
             $stmt->close();
             // Deliberately NOT recomputing total_amount — gift orders stay at 0.
             log_activity($conn, 'add_basics_gift_order_item', 'Added ' . $quantity . ' x product #' . $product_id . ' to gift order #' . $id);
+            basics_notify_order_change($conn, $id, $quantity . ' x ' . $product['name'] . ($product['unit'] ? ' (' . $product['unit'] . ')' : '') . ' was added to your gift package.');
+            redirect('/basics/admin/order_view.php?id=' . $id . '&updated=1');
         }
     }
     redirect('/basics/admin/order_view.php?id=' . $id);
@@ -225,6 +248,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <div class="errmsg mb-4"><p class="mb-0">Add at least one item before approving a gift order.</p></div>
   <?php elseif (($_GET['error'] ?? '') === 'missing_cancel_reason'): ?>
     <div class="errmsg mb-4"><p class="mb-0">Enter a reason before cancelling this order.</p></div>
+  <?php elseif (($_GET['error'] ?? '') === 'last_item'): ?>
+    <div class="errmsg mb-4"><p class="mb-0">That's the only item on this order. To drop it, use <strong>Cancel Order</strong> instead &mdash; it records a reason and notifies the member.</p></div>
+  <?php endif; ?>
+  <?php if (isset($_GET['updated'])): ?>
+    <div class="sucmsg is-visible mb-4"><p class="mb-0">Order updated. The member has been notified in-app, and by SMS and email where available.</p></div>
   <?php endif; ?>
   <div class="row g-4">
     <div class="col-12 col-md-7">
@@ -261,9 +289,16 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php endif; ?>
       </div>
 
-      <?php $is_editable = $order['status'] === 'pending'; ?>
+      <?php
+        // Editable while Checking or Preparing, until a payment is recorded
+        // (same rule as the update_item handler above).
+        $has_payments = $payments->num_rows > 0;
+        $is_editable = in_array($order['status'], ['pending', 'confirmed'], true) && !$has_payments;
+      ?>
       <?php if ($is_editable): ?>
-        <p class="small text-muted mb-2">Still Checking &mdash; adjust quantities or remove out-of-stock items before approving.</p>
+        <p class="small text-muted mb-2"><?= $order['status'] === 'pending' ? 'Still Checking' : 'Preparing' ?> &mdash; you can adjust quantities or remove out-of-stock items. The member is notified of every change by in-app notification, SMS and email.</p>
+      <?php elseif (in_array($order['status'], ['pending', 'confirmed'], true) && $has_payments): ?>
+        <p class="small text-muted mb-2">Items are locked because a payment has already been recorded on this order.</p>
       <?php endif; ?>
       <div class="table-responsive">
         <table class="table-theme no-datatable">
