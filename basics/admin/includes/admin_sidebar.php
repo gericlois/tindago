@@ -121,6 +121,7 @@ if (basics_admin_role() === 'super_admin') {
             '/basics/admin/admins.php' => ['icon' => 'fa-user-shield', 'label' => 'Admin Management'],
             '/basics/admin/login_attempts.php' => ['icon' => 'fa-user-secret', 'label' => 'Login Attempts'],
             '/basics/admin/maintenance.php' => ['icon' => 'fa-power-off', 'label' => 'Maintenance Mode'],
+            '/basics/admin/minimum_order.php' => ['icon' => 'fa-cart-shopping', 'label' => 'Minimum Order'],
         ],
     ];
 }

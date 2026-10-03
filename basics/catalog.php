@@ -176,17 +176,12 @@ function basics_catalog_card($product, $badge = null) {
     return ob_get_clean();
 }
 
-// Announces the new (lower) minimum order for exactly 24 hours, starting
-// from whenever this code first actually goes live — not a hardcoded date,
-// since we don't know in advance which day it gets deployed/pushed. The
-// clock starts itself on the first page view after deploy and is stored in
-// the shared settings table (see setting()/save_setting(), includes/functions.php).
-$purchase_limit_announcement_started_at = setting($conn, 'basics_purchase_limit_announcement_started_at');
-if ($purchase_limit_announcement_started_at === null) {
-    $purchase_limit_announcement_started_at = date('Y-m-d H:i:s');
-    save_setting($conn, 'basics_purchase_limit_announcement_started_at', $purchase_limit_announcement_started_at);
-}
-$show_purchase_limit_announcement = strtotime($purchase_limit_announcement_started_at) > strtotime('-1 day');
+// Announces a minimum-order change for 24 hours after a super admin saves
+// it on basics/admin/minimum_order.php.
+$minimum_order_changed_at = setting($conn, 'basics_minimum_order_changed_at');
+$show_minimum_order_announcement = $minimum_order_changed_at !== null && strtotime($minimum_order_changed_at) > strtotime('-1 day');
+$minimum_order_now = basics_minimum_order($conn);
+$minimum_order_was = (float) setting($conn, 'basics_minimum_order_previous', '0');
 
 $page_title = 'Catalog';
 require __DIR__ . '/../includes/header.php';
@@ -201,11 +196,15 @@ require __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
-<?php if ($show_purchase_limit_announcement): ?>
+<?php if ($show_minimum_order_announcement): ?>
   <div class="promo-banner">
     <div class="container">
       <i class="fas fa-bullhorn"></i>
-      <span>Great news! Our minimum order is now just <strong>&#8369;1,000</strong> <span class="promo-banner-was">(was &#8369;1,500)</span> &mdash; easier than ever to order your groceries.</span>
+      <?php if ($minimum_order_now < $minimum_order_was): ?>
+        <span>Great news! Our minimum order is now just <strong><?= format_price($minimum_order_now) ?></strong> <span class="promo-banner-was">(was <?= format_price($minimum_order_was) ?>)</span> &mdash; easier than ever to order your groceries.</span>
+      <?php else: ?>
+        <span>Heads up: our minimum order is now <strong><?= format_price($minimum_order_now) ?></strong> <span class="promo-banner-was">(was <?= format_price($minimum_order_was) ?>)</span>.</span>
+      <?php endif; ?>
     </div>
   </div>
 <?php endif; ?>

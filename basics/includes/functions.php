@@ -536,6 +536,14 @@ function basics_outstanding_balance($conn, $member_id) {
     return (float) $row['outstanding'];
 }
 
+// The smallest order a member can place from their own cart. Set by a super
+// admin on basics/admin/minimum_order.php, which also records the previous
+// value and when it changed (basics_minimum_order_previous /
+// basics_minimum_order_changed_at) for the 24-hour catalog banner.
+function basics_minimum_order($conn) {
+    return (float) setting($conn, 'basics_minimum_order', '1000');
+}
+
 function basics_credit_available($conn, $member) {
     $outstanding = basics_outstanding_balance($conn, $member['id']);
     return max(0, (float) $member['weekly_credit_limit'] - $outstanding);
