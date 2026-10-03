@@ -29,8 +29,11 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
           <ul class="flinks ps-0">
             <li><a href="<?= sanitize($module_home_url) ?>"><i class="fas fa-chevron-right"></i>Home</a></li>
             <?php if ($module_is_logged_in): ?>
+              <?php // Navbar dropdown groups (arrays) are listed flat here. ?>
               <?php foreach ($module_nav_items as $label => $url): ?>
-                <li><a href="<?= sanitize($url) ?>"><i class="fas fa-chevron-right"></i><?= sanitize($label) ?></a></li>
+                <?php foreach (is_array($url) ? $url : [$label => $url] as $link_label => $link_url): ?>
+                  <li><a href="<?= sanitize($link_url) ?>"><i class="fas fa-chevron-right"></i><?= sanitize($link_label) ?></a></li>
+                <?php endforeach; ?>
               <?php endforeach; ?>
             <?php else: ?>
               <?php foreach ($module_guest_nav_items as $label => $url): ?>

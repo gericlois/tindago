@@ -52,7 +52,19 @@ $module_logout_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/logo
       <ul class="navbar-nav ms-auto">
         <?php if ($module_is_logged_in): ?>
           <?php foreach ($module_nav_items as $label => $url): ?>
-            <li class="nav-item"><a class="nav-link" href="<?= sanitize($url) ?>"><?= sanitize($label) ?></a></li>
+            <?php if (is_array($url)): ?>
+              <?php // No .dropdown-toggle: its ::after caret would collide with the theme's ::after hover underline on .nav-link. ?>
+              <li class="nav-item dropdown">
+                <a class="nav-link nav-dropdown-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><?= sanitize($label) ?> <i class="fas fa-chevron-down nav-dropdown-caret"></i></a>
+                <ul class="dropdown-menu nav-dropdown-menu">
+                  <?php foreach ($url as $sub_label => $sub_url): ?>
+                    <li><a class="dropdown-item" href="<?= sanitize($sub_url) ?>"><?= sanitize($sub_label) ?></a></li>
+                  <?php endforeach; ?>
+                </ul>
+              </li>
+            <?php else: ?>
+              <li class="nav-item"><a class="nav-link" href="<?= sanitize($url) ?>"><?= sanitize($label) ?></a></li>
+            <?php endif; ?>
           <?php endforeach; ?>
         <?php else: ?>
           <?php foreach ($module_guest_nav_items as $label => $url): ?>

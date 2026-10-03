@@ -20,15 +20,20 @@ $module_header_dark = true;
 // Wellness's elegant-serif, fully-rounded look — see includes/header.php.
 $module_squared_ui = true;
 
+// An array value renders as a dropdown of those links (includes/navbar.php).
 $module_nav_items = [
     'Catalog'           => BASICS_URL . '/catalog.php',
     'Dashboard'         => BASICS_URL . '/dashboard.php',
     'My Orders'         => BASICS_URL . '/orders.php',
-    'Payments'          => BASICS_URL . '/payments.php',
-    'Emergency Loan'    => BASICS_URL . '/emergency_credit.php',
-    'Benefits'          => BASICS_URL . '/benefits.php',
-    'Payout Account'    => BASICS_URL . '/payout_account.php',
-    'My Account'        => BASICS_URL . '/account.php',
+    'Finance'           => [
+        'Payments'       => BASICS_URL . '/payments.php',
+        'Emergency Loan' => BASICS_URL . '/emergency_credit.php',
+        'Benefits'       => BASICS_URL . '/benefits.php',
+    ],
+    'Account'           => [
+        'My Account'     => BASICS_URL . '/account.php',
+        'Payout Account' => BASICS_URL . '/payout_account.php',
+    ],
 ];
 $module_guest_nav_items = [
     'Home' => BASICS_URL . '/index.php',
@@ -47,7 +52,7 @@ if (isset($conn) && $conn instanceof mysqli && function_exists('basics_is_logged
     $partner_check = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     if ($partner_check && $partner_check['is_community_partner']) {
-        $module_nav_items['My Earnings'] = BASICS_URL . '/wallet.php';
+        $module_nav_items['Account']['My Earnings'] = BASICS_URL . '/wallet.php';
     }
 }
 

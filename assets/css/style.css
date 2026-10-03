@@ -75,7 +75,7 @@
   color: var(--dark);
 }
 .promo-banner strong {
-  color: var(--primary);
+  color: #fff;
 }
 .promo-banner-was {
   font-weight: 400;
@@ -283,6 +283,47 @@
 .fciinfo a {
   color: inherit;
   text-decoration: underline;
+}
+
+/* Navbar dropdown groups (includes/navbar.php) — e.g. Basics "Finance" and
+   "Account". Labels never wrap onto two lines. */
+.navbar-nav .nav-link {
+  white-space: nowrap;
+}
+.nav-dropdown-caret {
+  font-size: 0.6rem;
+  margin-left: 3px;
+  vertical-align: 1px;
+  transition: transform 0.2s;
+}
+.nav-dropdown-link[aria-expanded="true"] .nav-dropdown-caret {
+  transform: rotate(180deg);
+}
+.nav-dropdown-menu {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 8px;
+  min-width: 190px;
+}
+.nav-dropdown-menu .dropdown-item {
+  border-radius: 8px;
+  font-size: 0.87rem;
+  font-weight: 500;
+  padding: 9px 14px;
+  color: #333;
+}
+.nav-dropdown-menu .dropdown-item:hover,
+.nav-dropdown-menu .dropdown-item:focus {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+/* Collapsed (mobile) menu: the group opens inline under its label. */
+@media (max-width: 991.98px) {
+  .nav-dropdown-menu {
+    box-shadow: none;
+    padding: 0 0 6px 12px;
+  }
 }
 
 /* Basics navbar Cart item-count badge (includes/navbar.php) */
