@@ -81,7 +81,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </td>
           <td><?= sanitize($p['name']) ?></td>
           <td><?= format_price($p['srp']) ?></td>
-          <td><span class="pill pill-<?= $p['status'] === 'active' ? 'completed' : 'cancelled' ?>"><?= sanitize($p['status']) ?></span></td>
+          <td><span class="pill pill-<?= $p['status'] === 'active' ? 'completed' : 'inactive' ?>"><?= sanitize($p['status']) ?></span></td>
           <td><?= date('M j, Y', strtotime($p['created_at'])) ?></td>
           <td class="no-print">
             <a href="<?= BASE_URL ?>/admin/product_edit.php?id=<?= (int) $p['id'] ?>" class="btn-chip btn-chip-outline">Edit</a>

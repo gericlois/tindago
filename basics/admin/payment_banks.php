@@ -127,7 +127,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <span class="text-muted">—</span>
             <?php endif; ?>
           </td>
-          <td><span class="pill pill-<?= $b['is_enabled'] ? 'active' : 'suspended' ?>"><?= $b['is_enabled'] ? 'Enabled' : 'Disabled' ?></span></td>
+          <td><span class="pill pill-<?= $b['is_enabled'] ? 'active' : 'inactive' ?>"><?= $b['is_enabled'] ? 'Enabled' : 'Disabled' ?></span></td>
           <td class="no-print">
             <form method="post" class="d-inline">
               <input type="hidden" name="action" value="toggle_enabled">

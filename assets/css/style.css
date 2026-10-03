@@ -572,10 +572,15 @@
 .pill-pending { background: var(--secondary); }
 .pill-processing { background: #3b82f6; }
 .pill-completed { background: var(--green); }
-.pill-cancelled { background: #999; }
+/* Every negative outcome — denied, rejected, failed, cancelled, suspended,
+   terminated, late, mismatch, locked — is the same red in both panels. */
+.pill-cancelled { background: #dc2626; }
 .pill-approved { background: var(--green); }
-.pill-rejected { background: var(--primary); }
-.pill-suspended { background: #999; }
+.pill-rejected { background: #dc2626; }
+.pill-suspended { background: #dc2626; }
+/* Neutral "switched off" states that aren't failures (inactive product,
+   disabled payment bank). */
+.pill-inactive { background: #999; }
 .pill-active { background: var(--green); }
 .pill-paid { background: var(--secondary); }
 /* Basics order pipeline (Checking/Preparing/In Transit/Delivered/Cancelled)
