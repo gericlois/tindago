@@ -326,6 +326,59 @@
   }
 }
 
+/* Member notification feed (basics/notifications.php) — a plain list with
+   dividers, no cards. Unread items get an orange dot on their icon. */
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notif-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+.notif-item:last-child {
+  border-bottom: none;
+}
+.notif-icon {
+  position: relative;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--secondary) 14%, transparent);
+  color: var(--secondary);
+}
+.notif-item.is-new .notif-icon::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid #fff;
+}
+.notif-body {
+  flex-grow: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.notif-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 2px;
+}
+
 /* Basics navbar Cart item-count badge (includes/navbar.php) */
 .nav-cart-badge {
   display: inline-block;

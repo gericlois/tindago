@@ -43,30 +43,30 @@ require __DIR__ . '/../includes/navbar.php';
 
 <div class="container py-5" style="max-width:760px;">
   <?php if (!$notifications): ?>
-    <div class="panel-card text-center text-muted">
+    <div class="text-center text-muted py-4">
       <i class="fas fa-bell-slash mb-2" style="font-size:1.6rem;"></i>
       <p class="mb-0">No notifications yet. Updates about your orders, payments, benefits and account will show up here.</p>
     </div>
+  <?php else: ?>
+    <ul class="notif-list">
+      <?php foreach ($notifications as $n): ?>
+        <?php $is_new = $n['read_at'] === null; ?>
+        <li class="notif-item<?= $is_new ? ' is-new' : '' ?>">
+          <span class="notif-icon"><i class="fas <?= sanitize($type_icons[$n['type']] ?? 'fa-bell') ?>"></i></span>
+          <div class="notif-body">
+            <div class="notif-head">
+              <strong><?= sanitize($n['title']) ?><?php if ($is_new): ?> <span class="pill pill-pending">New</span><?php endif; ?></strong>
+              <span class="small text-muted"><?= date('M j, Y g:i A', strtotime($n['created_at'])) ?></span>
+            </div>
+            <p class="mb-1"><?= nl2br(sanitize($n['message'])) ?></p>
+            <?php if ($n['link']): ?>
+              <a href="<?= BASICS_URL . sanitize($n['link']) ?>" class="small">View details &rarr;</a>
+            <?php endif; ?>
+          </div>
+        </li>
+      <?php endforeach; ?>
+    </ul>
   <?php endif; ?>
-
-  <?php foreach ($notifications as $n): ?>
-    <?php $is_new = $n['read_at'] === null; ?>
-    <div class="panel-card mb-3 d-flex gap-3 align-items-start" style="<?= $is_new ? 'border-left:4px solid var(--primary);' : '' ?>">
-      <div class="flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle" style="width:40px;height:40px;background:var(--secondary);">
-        <i class="fas <?= sanitize($type_icons[$n['type']] ?? 'fa-bell') ?>"></i>
-      </div>
-      <div class="flex-grow-1" style="min-width:0;">
-        <div class="d-flex flex-wrap justify-content-between gap-2">
-          <strong><?= sanitize($n['title']) ?><?php if ($is_new): ?> <span class="pill pill-pending">New</span><?php endif; ?></strong>
-          <span class="small text-muted"><?= date('M j, Y g:i A', strtotime($n['created_at'])) ?></span>
-        </div>
-        <p class="mb-1" style="overflow-wrap:anywhere;"><?= nl2br(sanitize($n['message'])) ?></p>
-        <?php if ($n['link']): ?>
-          <a href="<?= BASICS_URL . sanitize($n['link']) ?>" class="small">View details &rarr;</a>
-        <?php endif; ?>
-      </div>
-    </div>
-  <?php endforeach; ?>
 </div>
 
 <?php require __DIR__ . '/../includes/footer.php'; ?>
