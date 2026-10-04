@@ -21,6 +21,9 @@ $basics_outstanding_total = (float) $conn->query("SELECT COALESCE(SUM(GREATEST(o
     FROM basics_orders o WHERE o.status IN ('confirmed', 'out_for_delivery', 'delivered') AND o.member_id != $test_member_id")->fetch_assoc()['s'];
 $basics_revenue_this_month = (float) $conn->query("SELECT COALESCE(SUM(amount_paid), 0) AS s FROM basics_payments
     WHERE paid_at >= DATE_FORMAT(NOW(), '%Y-%m-01') AND member_id != $test_member_id")->fetch_assoc()['s'];
+// Every payment ever recorded (same rules as this month's figure, no date limit).
+$basics_revenue_total = (float) $conn->query("SELECT COALESCE(SUM(amount_paid), 0) AS s FROM basics_payments
+    WHERE member_id != $test_member_id")->fetch_assoc()['s'];
 $pending_basics_benefit_requests = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_benefit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 $pending_basics_emergency_credit = (int) $conn->query("SELECT COUNT(*) AS c FROM basics_emergency_credit_requests WHERE status = 'pending' AND member_id != $test_member_id")->fetch_assoc()['c'];
 
@@ -179,6 +182,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         $stat_groups[] = ['icon' => 'fa-sack-dollar', 'title' => 'Finance', 'tiles' => [
             $stat_tile('/basics/admin/payments.php', format_price($basics_outstanding_total), 'Outstanding Balance', 'accent', 'font-size:1.3rem;'),
             $stat_tile('/basics/admin/payments.php', format_price($basics_revenue_this_month), 'Revenue This Month', 'accent', 'font-size:1.3rem;'),
+            $stat_tile('/basics/admin/payments.php', format_price($basics_revenue_total), 'Total Revenue', 'accent', 'font-size:1.3rem;'),
         ]];
     }
     $stat_groups[] = ['icon' => 'fa-gift', 'title' => 'Member Perks', 'tiles' => [
@@ -194,8 +198,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <div class="stat-group">
           <h2 class="stat-group-title"><i class="fas <?= $group['icon'] ?>"></i><?= $group['title'] ?></h2>
           <div class="row g-2">
+            <?php // Two tiles side by side; three (Finance) go three across, stacking on phones. ?>
+            <?php $tile_col = count($group['tiles']) === 3 ? 'col-12 col-sm-4' : 'col-6'; ?>
             <?php foreach ($group['tiles'] as $tile_html): ?>
-              <div class="col-6"><?= $tile_html ?></div>
+              <div class="<?= $tile_col ?>"><?= $tile_html ?></div>
             <?php endforeach; ?>
           </div>
         </div>
