@@ -500,6 +500,41 @@
   margin-top: 4px;
 }
 
+/* Dashboard tile groups (basics/admin/index.php) — related stat tiles in
+   one white box under a small heading. Tiles inside sit flat on a light
+   tint so the box, not each tile, carries the shadow. */
+.stat-group {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  height: 100%;
+}
+.stat-group-title {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--dark);
+  margin: 2px 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stat-group-title i {
+  color: var(--primary);
+}
+.stat-group .stat-tile {
+  background: color-mix(in srgb, var(--primary) 5%, #fff);
+  box-shadow: none;
+  padding: 18px 12px;
+}
+.stat-group .stat-tile-link:hover,
+.stat-group .stat-tile-link:focus-visible {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
 /* Referral code display */
 .refcode-box {
   background: var(--cream);

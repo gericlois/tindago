@@ -163,33 +163,44 @@ require __DIR__ . '/includes/admin_sidebar.php';
     // Money totals are for admins and payments staff only.
     $show_money_tiles = in_array(basics_admin_role(), ['super_admin', 'admin', 'staff_payments'], true);
   ?>
+  <?php
+    // Related tiles grouped under one heading each.
+    $stat_groups = [
+        ['icon' => 'fa-users', 'title' => 'Members', 'tiles' => [
+            $stat_tile('/basics/admin/applications.php', (int) $pending_basics_applications, 'Pending Applications', $pending_basics_applications > 0 ? 'accent' : ''),
+            $stat_tile('/basics/admin/members.php?status=active', (int) $active_basics_members, 'Active Members'),
+        ]],
+        ['icon' => 'fa-receipt', 'title' => 'Orders', 'tiles' => [
+            $stat_tile('/basics/admin/orders.php?status=pending', (int) $basics_orders_awaiting_approval, 'Awaiting Approval', $basics_orders_awaiting_approval > 0 ? 'accent' : ''),
+            $stat_tile('/basics/admin/payments.php', (int) $basics_orders_awaiting_payment, 'Awaiting Payment'),
+        ]],
+    ];
+    if ($show_money_tiles) {
+        $stat_groups[] = ['icon' => 'fa-sack-dollar', 'title' => 'Finance', 'tiles' => [
+            $stat_tile('/basics/admin/payments.php', format_price($basics_outstanding_total), 'Outstanding Balance', 'accent', 'font-size:1.3rem;'),
+            $stat_tile('/basics/admin/payments.php', format_price($basics_revenue_this_month), 'Revenue This Month', 'accent', 'font-size:1.3rem;'),
+        ]];
+    }
+    $stat_groups[] = ['icon' => 'fa-gift', 'title' => 'Member Perks', 'tiles' => [
+        $stat_tile('/basics/admin/benefit_requests.php', (int) $pending_basics_benefit_requests, 'Pending Benefits', $pending_basics_benefit_requests > 0 ? 'accent' : ''),
+        $stat_tile('/basics/admin/emergency_credit.php', (int) $pending_basics_emergency_credit, 'Pending Loans', $pending_basics_emergency_credit > 0 ? 'accent' : ''),
+    ]];
+  ?>
   <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/applications.php', (int) $pending_basics_applications, 'Pending Applications', $pending_basics_applications > 0 ? 'accent' : '') ?>
-    </div>
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/members.php?status=active', (int) $active_basics_members, 'Active Members') ?>
-    </div>
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/orders.php?status=pending', (int) $basics_orders_awaiting_approval, 'Orders Awaiting Approval', $basics_orders_awaiting_approval > 0 ? 'accent' : '') ?>
-    </div>
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/payments.php', (int) $basics_orders_awaiting_payment, 'Orders Awaiting Payment') ?>
-    </div>
-    <?php if ($show_money_tiles): ?>
-      <div class="col-6 col-md-3">
-        <?= $stat_tile('/basics/admin/payments.php', format_price($basics_outstanding_total), 'Outstanding Balance', 'accent', 'font-size:1.3rem;') ?>
+    <?php // 4 groups = 2 per row; 3 (no Finance for this role) = 3 across, no half-empty row. ?>
+    <?php $group_col = count($stat_groups) === 3 ? 'col-12 col-lg-4' : 'col-12 col-lg-6'; ?>
+    <?php foreach ($stat_groups as $group): ?>
+      <div class="<?= $group_col ?>">
+        <div class="stat-group">
+          <h2 class="stat-group-title"><i class="fas <?= $group['icon'] ?>"></i><?= $group['title'] ?></h2>
+          <div class="row g-2">
+            <?php foreach ($group['tiles'] as $tile_html): ?>
+              <div class="col-6"><?= $tile_html ?></div>
+            <?php endforeach; ?>
+          </div>
+        </div>
       </div>
-      <div class="col-6 col-md-3">
-        <?= $stat_tile('/basics/admin/payments.php', format_price($basics_revenue_this_month), 'Revenue This Month', 'accent', 'font-size:1.3rem;') ?>
-      </div>
-    <?php endif; ?>
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/benefit_requests.php', (int) $pending_basics_benefit_requests, 'Pending Benefit Requests', $pending_basics_benefit_requests > 0 ? 'accent' : '') ?>
-    </div>
-    <div class="col-6 col-md-3">
-      <?= $stat_tile('/basics/admin/emergency_credit.php', (int) $pending_basics_emergency_credit, 'Pending Emergency Loan', $pending_basics_emergency_credit > 0 ? 'accent' : '') ?>
-    </div>
+    <?php endforeach; ?>
   </div>
 
   <?php if ($recent_basics_applications->num_rows > 0): ?>
