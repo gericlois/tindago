@@ -73,7 +73,12 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <tr>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $a['id'] ?>"><?= sanitize($a['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($a['username']) ?>)</span></td>
           <td><?= sanitize($a['employer_name']) ?></td>
-          <td><span class="pill pill-<?= $a['application_status'] === 'approved' ? 'approved' : ($a['application_status'] === 'denied' ? 'rejected' : 'pending') ?>"><?= sanitize($a['application_status']) ?></span></td>
+          <td><span class="pill pill-<?= $a['application_status'] === 'approved' ? 'approved' : ($a['application_status'] === 'denied' ? 'rejected' : 'pending') ?>"><?= sanitize($a['application_status']) ?></span>
+            <?php // Approval is only the application; the membership may have since been suspended/terminated (what the profile shows). ?>
+            <?php if ($a['application_status'] === 'approved' && $a['membership_status'] !== 'active'): ?>
+              <span class="pill pill-<?= $a['membership_status'] === 'dormant' ? 'pending' : 'suspended' ?>" title="Current membership status"><?= sanitize($a['membership_status']) ?></span>
+            <?php endif; ?>
+          </td>
           <td><?= date('M j, Y', strtotime($a['applied_at'])) ?></td>
           <?php if ($ai_allowed): ?>
             <td class="no-print small">
