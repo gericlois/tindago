@@ -502,14 +502,43 @@ require __DIR__ . '/includes/admin_sidebar.php';
                     <?php if (empty($untagged_members)): ?>
                       <p class="text-muted mb-0">No eligible members to tag — everyone active is already tagged under a partner.</p>
                     <?php else: ?>
-                      <label class="flbl">Member</label>
-                      <select name="tag_member_id" class="fctrl" required>
-                        <option value="">Select a member…</option>
+                      <label class="flbl" for="tagMemberSearch">Member</label>
+                      <input type="search" id="tagMemberSearch" class="fctrl mb-2" placeholder="Search name or username…" autocomplete="off">
+                      <select name="tag_member_id" id="tagMemberSelect" class="fctrl" size="8" required>
                         <?php foreach ($untagged_members as $u): ?>
                           <option value="<?= (int) $u['id'] ?>"><?= sanitize($u['full_name']) ?> (<?= sanitize($u['username']) ?>)</option>
                         <?php endforeach; ?>
                       </select>
+                      <div id="tagMemberNoMatch" class="form-text text-danger mt-2" style="display:none;">No members match your search.</div>
                       <div class="form-text mt-2">Only members not already tagged under another partner are listed.</div>
+                      <script>
+                      (function () {
+                        var search = document.getElementById('tagMemberSearch');
+                        var select = document.getElementById('tagMemberSelect');
+                        var noMatch = document.getElementById('tagMemberNoMatch');
+                        // Rebuild the list from a cached copy rather than hiding
+                        // <option>s, which some browsers (Safari) ignore.
+                        var allOptions = Array.prototype.slice.call(select.options);
+                        search.addEventListener('input', function () {
+                          var term = search.value.trim().toLowerCase();
+                          var selected = select.value;
+                          select.innerHTML = '';
+                          allOptions.forEach(function (opt) {
+                            if (term === '' || opt.text.toLowerCase().indexOf(term) !== -1) {
+                              select.appendChild(opt);
+                            }
+                          });
+                          select.value = selected;
+                          if (select.selectedIndex === -1 && select.options.length === 1) {
+                            select.selectedIndex = 0;
+                          }
+                          noMatch.style.display = select.options.length ? 'none' : '';
+                        });
+                        document.getElementById('tagMemberModal').addEventListener('shown.bs.modal', function () {
+                          search.focus();
+                        });
+                      })();
+                      </script>
                     <?php endif; ?>
                   </div>
                   <div class="modal-footer">
