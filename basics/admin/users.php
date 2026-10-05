@@ -9,7 +9,6 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_registration']);
 
 $valid_statuses = ['pending', 'approved', 'denied'];
 $status_filter = $_GET['status'] ?? '';
-$search = trim($_GET['q'] ?? '');
 
 // Every registered person regardless of application status (unlike
 // members.php, which is approved members only) — registration staff need to
@@ -26,12 +25,6 @@ if (in_array($status_filter, $valid_statuses, true)) {
     $types .= 's';
     $params[] = $status_filter;
 }
-if ($search !== '') {
-    $sql .= " AND (u.full_name LIKE ? OR u.username LIKE ? OR u.contact_number LIKE ?)";
-    $types .= 'sss';
-    $like = '%' . $search . '%';
-    array_push($params, $like, $like, $like);
-}
 $sql .= " ORDER BY bm.applied_at DESC, u.full_name ASC";
 $stmt = $conn->prepare($sql);
 if ($params) {
@@ -41,7 +34,6 @@ $stmt->execute();
 $users = $stmt->get_result();
 
 $app_pill = ['pending' => 'pending', 'approved' => 'approved', 'denied' => 'rejected'];
-$query_base = $search !== '' ? '&q=' . urlencode($search) : '';
 
 $page_title = 'Users';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -54,21 +46,16 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div class="d-flex flex-wrap gap-2">
-      <a href="<?= BASE_URL ?>/basics/admin/users.php<?= $search !== '' ? '?q=' . urlencode($search) : '' ?>" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
+      <a href="<?= BASE_URL ?>/basics/admin/users.php" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
       <?php foreach ($valid_statuses as $status): ?>
-        <a href="<?= BASE_URL ?>/basics/admin/users.php?status=<?= $status ?><?= $query_base ?>"
+        <a href="<?= BASE_URL ?>/basics/admin/users.php?status=<?= $status ?>"
            class="filter-pill text-capitalize <?= $status_filter === $status ? 'active' : '' ?>"><?= $status ?></a>
       <?php endforeach; ?>
     </div>
     <a href="<?= BASE_URL ?>/basics/admin/register_member.php" class="btn-chip btn-chip-success"><i class="fas fa-user-plus"></i> Register Member</a>
   </div>
-  <form method="get" class="d-flex gap-2 mb-4">
-    <?php if (in_array($status_filter, $valid_statuses, true)): ?><input type="hidden" name="status" value="<?= sanitize($status_filter) ?>"><?php endif; ?>
-    <input type="search" name="q" class="fctrl" placeholder="Search name, username or contact" value="<?= sanitize($search) ?>" style="flex:1 1 auto; min-width:0;">
-    <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-magnifying-glass"></i> Search</button>
-  </form>
 
   <div class="table-responsive">
     <table class="table-theme">
