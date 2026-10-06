@@ -21,11 +21,26 @@ if ($id) {
 }
 
 $errors = [];
-$valid_categories = ['Rice', 'Food Essentials', 'Cooking Products', 'Beverages', 'Homecare', 'Personal Care', 'Palengke Items', 'Frozen Meat Products', 'Bread & Snacks'];
+$valid_categories = basics_product_categories($conn);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $sku = trim($_POST['sku'] ?? '');
-    $category = in_array($_POST['category'] ?? '', $valid_categories, true) ? $_POST['category'] : 'Rice';
+    // "__new__" = the "+ Add new category…" option; the name comes from the
+    // text box beside it and is saved to basics_product_categories along
+    // with the product.
+    $adding_category = false;
+    if (($_POST['category'] ?? '') === '__new__') {
+        $category = preg_replace('/\s+/', ' ', trim($_POST['new_category'] ?? ''));
+        // Reuse an existing category typed with different capitalisation.
+        foreach ($valid_categories as $cat) {
+            if (strcasecmp($cat, $category) === 0) {
+                $category = $cat;
+            }
+        }
+        $adding_category = !in_array($category, $valid_categories, true);
+    } else {
+        $category = in_array($_POST['category'] ?? '', $valid_categories, true) ? $_POST['category'] : ($valid_categories[0] ?? 'Rice');
+    }
     $name = trim($_POST['name'] ?? '');
     $unit = trim($_POST['unit'] ?? '');
     $srp = (float) ($_POST['srp'] ?? 0);
@@ -48,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($sku === '') $errors[] = 'SKU is required.';
+    if ($category === '') $errors[] = 'Enter a name for the new category.';
+    elseif (mb_strlen($category) > 100) $errors[] = 'Category name is too long (max 100 characters).';
     if ($name === '') $errors[] = 'Product name is required.';
     if ($unit === '') $errors[] = 'Unit is required.';
     if ($srp < 0) $errors[] = 'SRP cannot be negative.';
@@ -82,6 +99,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     [$image, $image_error] = handle_product_image_upload('image', $image, 'basics_products');
     if ($image_error) $errors[] = $image_error;
+
+    if (empty($errors) && $adding_category) {
+        try {
+            $stmt = $conn->prepare("INSERT INTO basics_product_categories (name, sort_order)
+                                     SELECT ?, COALESCE(MAX(sort_order), 0) + 1 FROM basics_product_categories");
+            $stmt->bind_param('s', $category);
+            $stmt->execute();
+            $stmt->close();
+            log_activity($conn, 'create_basics_product_category', 'Added Basics product category "' . $category . '"');
+        } catch (mysqli_sql_exception $e) {
+            error_log('Adding Basics product category failed: ' . $e->getMessage());
+            $errors[] = 'Could not add the new category. Make sure database/live_add_basics_product_categories.sql has been run.';
+        }
+    }
 
     if (empty($errors)) {
         if ($id) {
@@ -136,11 +167,28 @@ require __DIR__ . '/includes/admin_sidebar.php';
             </div>
             <div class="col-sm-8 mb-3">
               <label class="flbl">Category</label>
-              <select name="category" class="fctrl">
+              <?php // A category not in the list (e.g. a new one that failed validation) re-opens the "new category" box. ?>
+              <?php $is_new_category = !in_array($product['category'], $valid_categories, true); ?>
+              <select name="category" id="categorySelect" class="fctrl">
                 <?php foreach ($valid_categories as $cat): ?>
-                  <option value="<?= $cat ?>" <?= $product['category'] === $cat ? 'selected' : '' ?>><?= sanitize($cat) ?></option>
+                  <option value="<?= sanitize($cat) ?>" <?= $product['category'] === $cat ? 'selected' : '' ?>><?= sanitize($cat) ?></option>
                 <?php endforeach; ?>
+                <option value="__new__" <?= $is_new_category ? 'selected' : '' ?>>+ Add new category…</option>
               </select>
+              <input type="text" name="new_category" id="newCategoryInput" class="fctrl mt-2" maxlength="100" placeholder="New category name"
+                     value="<?= $is_new_category ? sanitize($product['category']) : '' ?>" <?= $is_new_category ? 'required' : 'style="display:none;"' ?>>
+              <script>
+              (function () {
+                var select = document.getElementById('categorySelect');
+                var input = document.getElementById('newCategoryInput');
+                select.addEventListener('change', function () {
+                  var adding = select.value === '__new__';
+                  input.style.display = adding ? '' : 'none';
+                  input.required = adding;
+                  if (adding) input.focus();
+                });
+              })();
+              </script>
             </div>
           </div>
           <div class="mb-3">

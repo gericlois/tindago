@@ -289,6 +289,18 @@ function basics_member_by_order_id($conn, $order_id) {
 }
 
 // Looks up the full member row (for basics_notify()) from a basics_members.id.
+// Product category names in display order (basics_product_categories —
+// see database/live_add_basics_product_categories.sql). Falls back to the
+// original fixed list if that migration hasn't been run yet.
+function basics_product_categories($conn) {
+    try {
+        $rows = $conn->query("SELECT name FROM basics_product_categories ORDER BY sort_order ASC, id ASC")->fetch_all(MYSQLI_ASSOC);
+        return array_column($rows, 'name');
+    } catch (mysqli_sql_exception $e) {
+        return ['Rice', 'Food Essentials', 'Cooking Products', 'Beverages', 'Homecare', 'Personal Care', 'Palengke Items', 'Frozen Meat Products', 'Bread & Snacks'];
+    }
+}
+
 function basics_member_by_id($conn, $member_id) {
     $stmt = $conn->prepare("SELECT user_id FROM basics_members WHERE id = ?");
     $stmt->bind_param('i', $member_id);

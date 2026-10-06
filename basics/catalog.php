@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_t
 }
 
 $category_filter = $_GET['category'] ?? '';
-$valid_categories = ['Rice', 'Food Essentials', 'Cooking Products', 'Beverages', 'Homecare', 'Personal Care', 'Palengke Items', 'Frozen Meat Products', 'Bread & Snacks'];
+$valid_categories = basics_product_categories($conn);
 $sql = "SELECT * FROM basics_products WHERE status = 'active'";
 if (in_array($category_filter, $valid_categories, true)) {
     $sql .= " AND category = '" . $conn->real_escape_string($category_filter) . "'";
