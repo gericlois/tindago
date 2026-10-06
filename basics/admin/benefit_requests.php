@@ -258,7 +258,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
                         </button>
                         <pre id="docText-<?= (int) $doc['id'] ?>" hidden><?= sanitize($doc['ocr_text']) ?></pre>
                       <?php else: ?>
-                        <form method="post" class="d-inline" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').innerHTML = '<i class=&quot;fas fa-spinner fa-spin&quot;></i> Reading…';">
+                        <?php // No inline onsubmit here: a ">" inside the <form> tag breaks the CSRF token injection (includes/auth.php). ?>
+                        <form method="post" class="d-inline js-read-text">
                           <input type="hidden" name="action" value="read_doc_text">
                           <input type="hidden" name="doc_id" value="<?= (int) $doc['id'] ?>">
                           <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-file-lines"></i> Read Text</button>
@@ -324,6 +325,14 @@ require __DIR__ . '/includes/admin_sidebar.php';
         document.execCommand('copy');
       }).finally(function () {
         copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+      });
+    });
+    // Reading takes a few seconds — show it, and stop double submits.
+    document.querySelectorAll('form.js-read-text').forEach(function (form) {
+      form.addEventListener('submit', function () {
+        var button = form.querySelector('button');
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reading…';
       });
     });
     // Right after Read Text, open the viewer on that document.
