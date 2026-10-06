@@ -289,7 +289,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 <?php if ($ai_allowed): ?>
   <?php // One shared viewer for "View Text", filled from the clicked document's hidden <pre>. ?>
   <div class="modal fade" id="docTextModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Document Text &mdash; <span id="docTextTitle"></span></h5>
@@ -297,10 +297,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
         </div>
         <div class="modal-body">
           <p class="small text-muted mb-2"><i class="fas fa-wand-magic-sparkles"></i> Read by AI &mdash; check it against the document before relying on it.</p>
-          <textarea id="docTextBody" class="fctrl" rows="16" readonly style="font-family:monospace; font-size:.85rem;"></textarea>
+          <textarea id="docTextBody" class="fctrl" readonly style="font-family:monospace; font-size:.85rem; height:70vh; min-height:300px; resize:vertical;"></textarea>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn-chip btn-chip-outline" id="docTextDownload"><i class="fas fa-download"></i> Download .txt</button>
           <button type="button" class="btn-chip btn-chip-success" id="docTextCopy"><i class="fas fa-copy"></i> Copy</button>
         </div>
       </div>
@@ -311,13 +312,29 @@ require __DIR__ . '/includes/admin_sidebar.php';
     var modalEl = document.getElementById('docTextModal');
     var body = document.getElementById('docTextBody');
     var copyBtn = document.getElementById('docTextCopy');
+    var fileName = 'document.txt';
     function fill(button) {
-      document.getElementById('docTextTitle').textContent = button.getAttribute('data-doc-title');
+      var title = button.getAttribute('data-doc-title');
+      document.getElementById('docTextTitle').textContent = title;
+      // e.g. "document-12-electric-bill.txt"
+      fileName = 'document-' + button.getAttribute('data-text-id').replace('docText-', '') + '-'
+        + title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + '.txt';
       body.value = document.getElementById(button.getAttribute('data-text-id')).textContent;
       copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
     }
     modalEl.addEventListener('show.bs.modal', function (event) {
       if (event.relatedTarget) fill(event.relatedTarget);
+    });
+    document.getElementById('docTextDownload').addEventListener('click', function () {
+      // CRLF so the file opens with proper line breaks in Windows Notepad too.
+      var blob = new Blob([body.value.replace(/\r?\n/g, '\r\n')], { type: 'text/plain;charset=utf-8' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
     });
     copyBtn.addEventListener('click', function () {
       body.select();
