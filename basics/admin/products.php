@@ -35,11 +35,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
 $category_filter = $_GET['category'] ?? '';
 $valid_categories = basics_product_categories($conn);
-$sql = "SELECT * FROM basics_products";
+// sold_qty = units in delivered orders; gift orders (free) and anything not
+// yet delivered or cancelled don't count as sold.
+$sql = "SELECT p.*, COALESCE(s.sold_qty, 0) AS sold_qty
+        FROM basics_products p
+        LEFT JOIN (
+            SELECT oi.product_id, SUM(oi.quantity) AS sold_qty
+            FROM basics_order_items oi
+            JOIN basics_orders o ON o.id = oi.order_id
+            WHERE o.status = 'delivered' AND o.is_gift = 0
+            GROUP BY oi.product_id
+        ) s ON s.product_id = p.id";
 if (in_array($category_filter, $valid_categories, true)) {
-    $sql .= " WHERE category = '" . $conn->real_escape_string($category_filter) . "'";
+    $sql .= " WHERE p.category = '" . $conn->real_escape_string($category_filter) . "'";
 }
-$sql .= " ORDER BY category ASC, name ASC";
+$sql .= " ORDER BY p.category ASC, p.name ASC";
 $products = $conn->query($sql);
 
 $page_title = 'Basics Products';
@@ -68,10 +78,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Photo</th><th>SKU</th><th>Category</th><th>Name</th><th>Unit</th><th>SRP</th><th>Status</th><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Photo</th><th>SKU</th><th>Category</th><th>Name</th><th>Unit</th><th>SRP</th><th title="Units in delivered orders (gifts excluded)">Sold</th><th>Status</th><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if ($products->num_rows === 0): ?>
-        <tr><td colspan="8" class="text-muted">No products found.</td></tr>
+        <tr><td colspan="9" class="text-muted">No products found.</td></tr>
       <?php endif; ?>
       <?php while ($p = $products->fetch_assoc()): ?>
         <tr>
@@ -87,6 +97,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><?= sanitize($p['name']) ?></td>
           <td><?= sanitize($p['unit']) ?></td>
           <td><?= $p['srp'] > 0 ? format_price($p['srp']) : '<span class="text-muted">TBD</span>' ?></td>
+          <td><?= number_format((int) $p['sold_qty']) ?></td>
           <td>
             <span class="pill pill-<?= $p['status'] === 'active' ? 'completed' : 'inactive' ?>"><?= sanitize($p['status']) ?></span>
             <?php if ($p['is_featured']): ?><span class="pill pill-approved"><i class="fas fa-star"></i> Featured</span><?php endif; ?>
