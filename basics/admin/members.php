@@ -33,14 +33,15 @@ if ($can_send_sms && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] 
         if (send_sms($member['contact_number'], $sms_message)) {
             log_activity($conn, 'send_basics_member_sms', 'Texted Basics member "' . $member['full_name'] . '"');
             basics_add_notification($conn, $member['id'], 'message', 'Message from JMC Foodies Basics', basics_notification_text($sms_message));
-            redirect('/basics/admin/members.php?' . http_build_query(['status' => $_GET['status'] ?? '', 'barangay' => $_GET['barangay'] ?? '', 'sms_sent' => $member['full_name']]));
+            redirect('/basics/admin/members.php?' . http_build_query(['status' => $_GET['status'] ?? 'active', 'barangay' => $_GET['barangay'] ?? '', 'sms_sent' => $member['full_name']]));
         }
         $sms_errors[] = 'Failed to send — check the Semaphore SMS configuration (config/sms.php) and your SMS credits.';
     }
 }
 
 $valid_statuses = ['active', 'suspended', 'dormant', 'terminated'];
-$status_filter = $_GET['status'] ?? '';
+// No status in the URL = Active; the All pill passes an empty status.
+$status_filter = $_GET['status'] ?? 'active';
 $barangay_filter = trim($_GET['barangay'] ?? '');
 
 $barangays = $conn->query("SELECT DISTINCT u.barangay FROM basics_members bm
@@ -93,7 +94,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div class="d-flex flex-wrap gap-2">
-      <a href="<?= BASE_URL ?>/basics/admin/members.php" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
+      <a href="<?= BASE_URL ?>/basics/admin/members.php?status=" class="filter-pill <?= $status_filter === '' ? 'active' : '' ?>">All</a>
       <?php foreach ($valid_statuses as $status): ?>
         <a href="<?= BASE_URL ?>/basics/admin/members.php?status=<?= $status ?>"
            class="filter-pill text-capitalize <?= $status_filter === $status ? 'active' : '' ?>"><?= $status ?></a>
@@ -102,7 +103,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <div class="d-flex flex-wrap gap-2 align-items-center">
       <?php if (!empty($barangays)): ?>
         <form method="get" class="d-inline">
-          <?php if (in_array($status_filter, $valid_statuses, true)): ?><input type="hidden" name="status" value="<?= sanitize($status_filter) ?>"><?php endif; ?>
+          <input type="hidden" name="status" value="<?= sanitize($status_filter) ?>">
           <select name="barangay" class="fctrl" onchange="this.form.submit()">
             <option value="">All Barangays</option>
             <?php foreach ($barangays as $b): ?>
