@@ -125,7 +125,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <?php while ($m = $members->fetch_assoc()): ?>
         <tr>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $m['id'] ?>"><?= sanitize($m['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($m['username']) ?>)</span></td>
-          <td><?= sanitize($m['contact_number'] ?: '—') ?></td>
+          <?php // Flag numbers that aren't 11 digits (09XXXXXXXXX), ignoring spaces/dashes. ?>
+          <?php $bad_number = $m['contact_number'] && strlen(preg_replace('/\D/', '', $m['contact_number'])) !== 11; ?>
+          <td<?= $bad_number ? ' class="text-danger fw-semibold" title="Not an 11-digit number"' : '' ?>><?= sanitize($m['contact_number'] ?: '—') ?></td>
           <td><?= sanitize($m['address'] ?: '—') ?></td>
           <td><?= (int) $m['consecutive_on_time_payments'] ?></td>
           <td>
