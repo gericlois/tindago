@@ -1223,6 +1223,52 @@ function basics_analyze_benefit_document($conn, $doc_id) {
     return ['success' => true] + $stored;
 }
 
+// "Read Text" on benefit_requests.php: a plain transcription of everything
+// written on a benefit document (no judgement — that's Analyze above),
+// saved to basics_benefit_documents.ocr_text so it can be reopened and
+// copied without another AI call. Returns ['success' => true, 'text'] or
+// ['success' => false, 'error'].
+function basics_read_benefit_document_text($conn, $doc_id) {
+    $stmt = $conn->prepare("SELECT id, request_id, file_path FROM basics_benefit_documents WHERE id = ?");
+    $stmt->bind_param('i', $doc_id);
+    $stmt->execute();
+    $doc = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$doc) {
+        return ['success' => false, 'error' => 'Document not found.'];
+    }
+
+    $prompt = "Transcribe all of the text in the attached document image or PDF (a Philippine bill, receipt, certificate, ID or form).\n"
+        . "Copy the text exactly as written, in its original language — don't translate, summarize, correct or add anything. "
+        . "Keep the reading order and put each line of the document on its own line; lay out table rows as one line each, with cells separated by \" | \". "
+        . "Write [unreadable] for any part you can't make out. If there is no text at all, return an empty string.\n\n"
+        . 'Respond with ONLY a JSON object (no markdown, no other text) in this exact shape: {"text": "<the transcribed text>"}';
+
+    $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_benefit_docs/' . $doc['file_path']);
+    if (!$result['success']) {
+        return $result;
+    }
+    $text = trim((string) ($result['data']['text'] ?? ''));
+    if ($text === '') {
+        return ['success' => false, 'error' => 'The AI found no readable text in this document.'];
+    }
+
+    try {
+        $stmt = $conn->prepare("UPDATE basics_benefit_documents SET ocr_text = ?, ocr_at = NOW() WHERE id = ?");
+        $stmt->bind_param('si', $text, $doc_id);
+        $stmt->execute();
+        $stmt->close();
+    } catch (mysqli_sql_exception $e) {
+        error_log('Saving benefit document text failed: ' . $e->getMessage());
+        return ['success' => false, 'error' => 'Could not save the text. Make sure database/live_add_basics_benefit_document_ocr.sql has been run.'];
+    }
+
+    log_activity($conn, 'ai_read_benefit_document_text', 'Read text from benefit document #' . $doc_id . ' (request #' . $doc['request_id'] . ') with AI');
+
+    return ['success' => true, 'text' => $text];
+}
+
 // Emergency Cash Loan pre-screen (basics/admin/emergency_credit.php). The
 // facts are all computed here from the database — the AI only turns them
 // into a short read-out of strengths and risks, so it can't invent payment

@@ -68,6 +68,16 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
     $errors[] = $result['error'];
 }
 
+if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'read_doc_text') {
+    $doc_id = (int) ($_POST['doc_id'] ?? 0);
+    $result = basics_read_benefit_document_text($conn, $doc_id);
+    if ($result['success']) {
+        // show_text re-opens the text viewer for this document after the reload.
+        redirect('/basics/admin/benefit_requests.php?' . http_build_query(['status' => $_GET['status'] ?? 'pending', 'type' => $_GET['type'] ?? '', 'show_text' => $doc_id]));
+    }
+    $errors[] = $result['error'];
+}
+
 // "Remind to add payout account" — shown in the Review modal when the
 // member has no payout account, since approval is blocked until they do.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remind_payout') {
@@ -208,7 +218,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <?php $status_pill = ['pending' => 'pending', 'approved' => 'approved', 'denied' => 'rejected']; ?>
         <?php foreach ($requests as $r): ?>
           <?php
-            $doc_stmt = $conn->prepare("SELECT id, doc_type, ai_analyzed_at, ai_result FROM basics_benefit_documents WHERE request_id = ?");
+            // SELECT * so the page still loads before the ocr_text/ocr_at columns exist.
+            $doc_stmt = $conn->prepare("SELECT * FROM basics_benefit_documents WHERE request_id = ?");
             $doc_stmt->bind_param('i', $r['id']);
             $doc_stmt->execute();
             $docs = $doc_stmt->get_result();
@@ -238,6 +249,23 @@ require __DIR__ . '/includes/admin_sidebar.php';
                       <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-wand-magic-sparkles"></i> Analyze</button>
                     </form>
                   <?php endif; ?>
+                  <?php if ($ai_allowed): ?>
+                    <div class="mt-1">
+                      <?php if (!empty($doc['ocr_at'])): ?>
+                        <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#docTextModal"
+                                data-text-id="docText-<?= (int) $doc['id'] ?>" data-doc-title="<?= sanitize($doc_type_labels[$doc['doc_type']] ?? $doc['doc_type']) ?>">
+                          <i class="fas fa-file-lines"></i> View Text
+                        </button>
+                        <pre id="docText-<?= (int) $doc['id'] ?>" hidden><?= sanitize($doc['ocr_text']) ?></pre>
+                      <?php else: ?>
+                        <form method="post" class="d-inline" onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').innerHTML = '<i class=&quot;fas fa-spinner fa-spin&quot;></i> Reading…';">
+                          <input type="hidden" name="action" value="read_doc_text">
+                          <input type="hidden" name="doc_id" value="<?= (int) $doc['id'] ?>">
+                          <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-file-lines"></i> Read Text</button>
+                        </form>
+                      <?php endif; ?>
+                    </div>
+                  <?php endif; ?>
                 </div>
               <?php endwhile; ?>
             </td>
@@ -256,6 +284,60 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   </div>
 </div>
+
+<?php if ($ai_allowed): ?>
+  <?php // One shared viewer for "View Text", filled from the clicked document's hidden <pre>. ?>
+  <div class="modal fade" id="docTextModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Document Text &mdash; <span id="docTextTitle"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2"><i class="fas fa-wand-magic-sparkles"></i> Read by AI &mdash; check it against the document before relying on it.</p>
+          <textarea id="docTextBody" class="fctrl" rows="16" readonly style="font-family:monospace; font-size:.85rem;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn-chip btn-chip-success" id="docTextCopy"><i class="fas fa-copy"></i> Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var modalEl = document.getElementById('docTextModal');
+    var body = document.getElementById('docTextBody');
+    var copyBtn = document.getElementById('docTextCopy');
+    function fill(button) {
+      document.getElementById('docTextTitle').textContent = button.getAttribute('data-doc-title');
+      body.value = document.getElementById(button.getAttribute('data-text-id')).textContent;
+      copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+    }
+    modalEl.addEventListener('show.bs.modal', function (event) {
+      if (event.relatedTarget) fill(event.relatedTarget);
+    });
+    copyBtn.addEventListener('click', function () {
+      body.select();
+      (navigator.clipboard ? navigator.clipboard.writeText(body.value) : Promise.reject()).catch(function () {
+        document.execCommand('copy');
+      }).finally(function () {
+        copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+      });
+    });
+    // Right after Read Text, open the viewer on that document.
+    var showId = new URLSearchParams(location.search).get('show_text');
+    var opener = showId && document.querySelector('[data-text-id="docText-' + parseInt(showId, 10) + '"]');
+    if (opener) {
+      window.addEventListener('load', function () {
+        fill(opener);
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      });
+    }
+  })();
+  </script>
+<?php endif; ?>
 
 <?php foreach ($requests as $r): ?>
   <?php if ($r['status'] !== 'pending') continue; ?>
