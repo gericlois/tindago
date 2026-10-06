@@ -117,14 +117,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Member</th><th>Address</th><th>On-Time Streak</th><th>Recent Order</th><th>Status</th><?php if ($can_send_sms): ?><th class="no-print"></th><?php endif; ?></tr></thead>
+      <thead><tr><th>Member</th><th>Contact #</th><th>Address</th><th>On-Time Streak</th><th>Recent Order</th><th>Status</th><?php if ($can_send_sms): ?><th class="no-print"></th><?php endif; ?></tr></thead>
       <tbody>
       <?php if ($members->num_rows === 0): ?>
-        <tr><td colspan="<?= $can_send_sms ? 6 : 5 ?>" class="text-muted">No members found.</td></tr>
+        <tr><td colspan="<?= $can_send_sms ? 7 : 6 ?>" class="text-muted">No members found.</td></tr>
       <?php endif; ?>
       <?php while ($m = $members->fetch_assoc()): ?>
         <tr>
           <td><a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $m['id'] ?>"><?= sanitize($m['full_name']) ?></a> <span class="text-muted small">(<?= sanitize($m['username']) ?>)</span></td>
+          <td><?= sanitize($m['contact_number'] ?: '—') ?></td>
           <td><?= sanitize($m['address'] ?: '—') ?></td>
           <td><?= (int) $m['consecutive_on_time_payments'] ?></td>
           <td>
