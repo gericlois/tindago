@@ -746,14 +746,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <h2 class="h6 mb-3">Payment History</h2>
       <div class="table-responsive">
         <table class="table-theme">
-          <thead><tr><th>Paid</th><th>Penalty</th><th>On Time?</th><th>Date</th></tr></thead>
+          <thead><tr><th>Paid</th><th>Method</th><th>Penalty</th><th>On Time?</th><th>Date</th></tr></thead>
           <tbody>
           <?php if ($payments->num_rows === 0): ?>
-            <tr><td colspan="4" class="text-muted">No payments yet.</td></tr>
+            <tr><td colspan="5" class="text-muted">No payments yet.</td></tr>
           <?php endif; ?>
           <?php while ($p = $payments->fetch_assoc()): ?>
             <tr>
               <td><?= format_price($p['amount_paid']) ?></td>
+              <td><?= sanitize($p['payment_method'] ?? '') ?: '—' ?></td>
               <td><?= format_price($p['penalty_amount']) ?></td>
               <td><?= $p['is_late'] ? 'No' : 'Yes' ?></td>
               <td><?= date('M j, Y', strtotime($p['paid_at'])) ?></td>

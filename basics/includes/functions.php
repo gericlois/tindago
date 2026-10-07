@@ -878,10 +878,26 @@ function basics_projected_penalty($conn, $order, $offense_count) {
     return ['rate' => $rate, 'amount' => $amount, 'impact' => $impact];
 }
 
+// The "Cash on Delivery" choice on Record Payment, stored as-is in
+// basics_payments.payment_method.
+const BASICS_PAYMENT_METHOD_COD = 'Cash on Delivery (COD)';
+
+// True once database/live_add_basics_payment_method.sql has been run.
+// Until then payments still record, with the method kept in the notes.
+function basics_payments_have_method_column($conn) {
+    static $has = null;
+    if ($has === null) {
+        $has = $conn->query("SHOW COLUMNS FROM basics_payments LIKE 'payment_method'")->num_rows > 0;
+    }
+    return $has;
+}
+
 // Records a payment against a pending order, applying the late-payment
 // penalty tier + credit-line/suspension escalation in one transaction.
+// $payment_method is how it was paid (e.g. BASICS_PAYMENT_METHOD_COD, or
+// the bank on a confirmed online submission).
 // Returns ['is_late' => bool, 'penalty_amount' => float, 'membership_status' => string].
-function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_id, $notes = null) {
+function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_id, $notes = null, $payment_method = null) {
     $stmt = $conn->prepare("SELECT * FROM basics_orders WHERE id = ? AND status IN ('confirmed', 'out_for_delivery', 'delivered') FOR UPDATE");
     $stmt->bind_param('i', $order_id);
     $stmt->execute();
@@ -931,13 +947,24 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
         $new_on_time += 1;
     }
 
-    $stmt = $conn->prepare("INSERT INTO basics_payments
-        (order_id, member_id, amount_due, penalty_rate, penalty_amount, amount_paid, offense_number, is_late, paid_at, recorded_by, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $payment_method = $payment_method !== null && trim($payment_method) !== '' ? trim($payment_method) : null;
     $is_late_int = $is_late ? 1 : 0;
-    $stmt->bind_param('iiddddiisis',
-        $order_id, $order['member_id'], $amount_due, $penalty_rate, $penalty_amount, $amount_paid,
-        $offense_number, $is_late_int, $paid_at, $admin_id, $notes);
+    if (basics_payments_have_method_column($conn)) {
+        $stmt = $conn->prepare("INSERT INTO basics_payments
+            (order_id, member_id, amount_due, penalty_rate, penalty_amount, amount_paid, payment_method, offense_number, is_late, paid_at, recorded_by, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param('iiddddsiisis',
+            $order_id, $order['member_id'], $amount_due, $penalty_rate, $penalty_amount, $amount_paid,
+            $payment_method, $offense_number, $is_late_int, $paid_at, $admin_id, $notes);
+    } else {
+        $notes = $payment_method !== null ? substr($payment_method . ($notes !== null && $notes !== '' ? ' — ' . $notes : ''), 0, 255) : $notes;
+        $stmt = $conn->prepare("INSERT INTO basics_payments
+            (order_id, member_id, amount_due, penalty_rate, penalty_amount, amount_paid, offense_number, is_late, paid_at, recorded_by, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param('iiddddiisis',
+            $order_id, $order['member_id'], $amount_due, $penalty_rate, $penalty_amount, $amount_paid,
+            $offense_number, $is_late_int, $paid_at, $admin_id, $notes);
+    }
     $stmt->execute();
     $stmt->close();
 
@@ -949,7 +976,7 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $stmt->execute();
     $stmt->close();
 
-    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($is_late ? 'late' : 'on-time') . ' payment of ' . format_price($amount_paid) . ' for Basics order #' . $order_id);
+    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($is_late ? 'late' : 'on-time') . ' payment of ' . format_price($amount_paid) . ' for Basics order #' . $order_id . ($payment_method !== null ? ' via ' . $payment_method : ''));
 
     $notify_member = basics_get_member($conn, $member['user_id']);
     if ($notify_member) {

@@ -122,6 +122,9 @@ require __DIR__ . '/../includes/navbar.php';
         <?php while ($p = $payments->fetch_assoc()): ?>
           <div class="mb-3 pb-3" style="border-bottom:1px solid #f1f1f1;">
             <p class="mb-1">Paid: <span class="fw-bold"><?= format_price($p['amount_paid']) ?></span></p>
+            <?php if (!empty($p['payment_method'])): ?>
+              <p class="mb-1 small">Method: <?= sanitize($p['payment_method']) ?></p>
+            <?php endif; ?>
             <?php if ($p['is_late']): ?>
               <p class="mb-1 small" style="color:var(--primary);">Late payment &mdash; <?= format_price($p['penalty_amount']) ?> penalty (<?= (int) ($p['penalty_rate'] * 100) ?>%)</p>
             <?php else: ?>

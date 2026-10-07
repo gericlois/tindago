@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 if (!$submission['order_id']) {
                     throw new Exception('This submission has no linked order to record the payment against.');
                 }
-                basics_record_payment($conn, $submission['order_id'], (float) $submission['amount'], $submission['paid_at'], basics_current_admin_id(), $notes);
+                basics_record_payment($conn, $submission['order_id'], (float) $submission['amount'], $submission['paid_at'], basics_current_admin_id(), $notes, $submission['payment_method']);
             } elseif ($submission['payment_for'] === 'loan') {
                 $member = basics_member_by_id($conn, $submission['member_id']);
                 if ($member) {

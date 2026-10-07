@@ -9,11 +9,28 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_payments']);
 
 $errors = [];
 
+// How the payment was made: cash handed over on delivery (the usual case
+// here, so it's the default), or any of the payment banks members can pay
+// into (see payment_banks.php), or something else noted in Notes.
+$payment_methods = [BASICS_PAYMENT_METHOD_COD];
+$bank_rows = $conn->query("SELECT name FROM basics_payment_banks WHERE is_enabled = 1 ORDER BY sort_order ASC, name ASC");
+while ($bank = $bank_rows->fetch_assoc()) {
+    $payment_methods[] = $bank['name'];
+}
+$payment_methods[] = 'Other';
+$payment_methods = array_values(array_unique($payment_methods));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'record_payment') {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $amount_paid = round((float) ($_POST['amount_paid'] ?? 0), 2);
     $paid_at = trim($_POST['paid_at'] ?? '') ?: date('Y-m-d H:i:s');
     $notes = trim($_POST['notes'] ?? '') ?: null;
+    $payment_method = $_POST['payment_method'] ?? '';
+    if (!in_array($payment_method, $payment_methods, true)) {
+        $errors[] = 'Choose how the member paid.';
+    } elseif ($payment_method === 'Other' && $notes === null) {
+        $errors[] = 'Payment method "Other" needs a note saying how the member paid.';
+    }
 
     // No partial payments, same rule as the member's Submit Payment page: the
     // amount must cover the order total minus what's already paid, plus the
@@ -29,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     $pay_order = $stmt->get_result()->fetch_assoc();
     $stmt->close();
     $required = null;
+    $penalty = 0.0;
     if ($pay_order) {
         $due_date = basics_payment_due_date($pay_order);
         $is_late = $due_date !== null && date('Y-m-d', strtotime($paid_at)) > $due_date;
@@ -36,7 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
         $required = round((float) $pay_order['total_amount'] + $penalty - (float) $pay_order['amount_paid'], 2);
     }
 
-    if ($amount_paid <= 0) {
+    if ($errors) {
+        // Payment method problem — reported above.
+    } elseif ($amount_paid <= 0) {
         $errors[] = 'Enter a valid amount paid.';
     } elseif ($required !== null && $amount_paid < $required) {
         $errors[] = 'Amount paid (' . format_price($amount_paid) . ') is less than the amount due (' . format_price($required) . ') for order #' . $order_id
@@ -45,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     } else {
         $conn->begin_transaction();
         try {
-            $result = basics_record_payment($conn, $order_id, $amount_paid, $paid_at, basics_current_admin_id(), $notes);
+            $result = basics_record_payment($conn, $order_id, $amount_paid, $paid_at, basics_current_admin_id(), $notes, $payment_method);
             $conn->commit();
             redirect('/basics/admin/order_view.php?id=' . $order_id . '&recorded=1');
         } catch (Exception $e) {
@@ -156,6 +176,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <div class="mb-2">
               <label class="flbl">Amount Paid</label>
               <input type="number" step="0.01" min="0.01" name="amount_paid" class="fctrl" value="<?= sanitize($remaining) ?>" required>
+            </div>
+            <div class="mb-2">
+              <label class="flbl">Payment Method</label>
+              <select name="payment_method" class="fctrl" required>
+                <?php foreach ($payment_methods as $method): ?>
+                  <option value="<?= sanitize($method) ?>" <?= $method === BASICS_PAYMENT_METHOD_COD ? 'selected' : '' ?>><?= sanitize($method) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <div class="form-text">Cash on Delivery = cash collected from the member when the order was delivered. For "Other", say how in Notes.</div>
             </div>
             <div class="mb-2">
               <label class="flbl">Date/Time Paid</label>
