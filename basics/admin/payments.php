@@ -15,8 +15,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     $paid_at = trim($_POST['paid_at'] ?? '') ?: date('Y-m-d H:i:s');
     $notes = trim($_POST['notes'] ?? '') ?: null;
 
+    // No partial payments, same rule as the member's Submit Payment page: the
+    // amount must cover the order total minus what's already paid, plus the
+    // late penalty if the payment date is past the due date (the same test
+    // basics_record_payment() applies, so a backdated on-time payment owes
+    // no penalty).
+    $stmt = $conn->prepare("SELECT o.*, bm.offense_count,
+                                   (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
+                            FROM basics_orders o JOIN basics_members bm ON bm.id = o.member_id
+                            WHERE o.id = ?");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $pay_order = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $required = null;
+    if ($pay_order) {
+        $due_date = basics_payment_due_date($pay_order);
+        $is_late = $due_date !== null && date('Y-m-d', strtotime($paid_at)) > $due_date;
+        $penalty = $is_late ? round((float) $pay_order['total_amount'] * basics_late_penalty_rate($conn, (int) $pay_order['offense_count'] + 1), 2) : 0.0;
+        $required = round((float) $pay_order['total_amount'] + $penalty - (float) $pay_order['amount_paid'], 2);
+    }
+
     if ($amount_paid <= 0) {
         $errors[] = 'Enter a valid amount paid.';
+    } elseif ($required !== null && $amount_paid < $required) {
+        $errors[] = 'Amount paid (' . format_price($amount_paid) . ') is less than the amount due (' . format_price($required) . ') for order #' . $order_id
+            . ($penalty > 0 ? ', which includes the ' . format_price($penalty) . ' late penalty' : '')
+            . '. Partial payments are not accepted — record the full amount due.';
     } else {
         $conn->begin_transaction();
         try {
