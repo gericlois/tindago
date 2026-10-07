@@ -21,7 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
     $owns_order = (bool) $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if ($owns_order && basics_cancel_order($conn, $id, $member['full_name'] . ' (member)')) {
+    // A reason is required: one of the listed ones, or "Other" with the
+    // member's own words. Admins see it on the order.
+    $choice = $_POST['cancel_reason'] ?? '';
+    $other = trim(preg_replace('/\s+/', ' ', $_POST['cancel_reason_other'] ?? ''));
+    if (in_array($choice, basics_member_cancel_reasons(), true)) {
+        $cancel_reason = $choice;
+    } elseif ($choice === 'other' && $other !== '') {
+        $cancel_reason = mb_substr($other, 0, 255);
+    } else {
+        redirect('/basics/order_view.php?id=' . $id . '&cancel_error=1');
+    }
+
+    if ($owns_order && basics_cancel_order($conn, $id, $member['full_name'] . ' (member)', $cancel_reason)) {
         redirect('/basics/order_view.php?id=' . $id . '&cancelled=1');
     }
     redirect('/basics/order_view.php?id=' . $id);
@@ -68,6 +80,9 @@ require __DIR__ . '/../includes/navbar.php';
   <?php if (isset($_GET['cancelled'])): ?>
     <div class="sucmsg is-visible mb-4"><p class="mb-0">Order cancelled.</p></div>
   <?php endif; ?>
+  <?php if (isset($_GET['cancel_error'])): ?>
+    <div class="errmsg mb-4"><p class="mb-0">Please choose a reason for cancelling (or type your own under "Other").</p></div>
+  <?php endif; ?>
   <div class="row g-4">
     <div class="col-12 col-md-7">
       <div class="panel-card mb-4">
@@ -88,10 +103,7 @@ require __DIR__ . '/../includes/navbar.php';
           <p class="mb-2 text-muted">Reason: <?= sanitize($order['cancel_reason']) ?></p>
         <?php endif; ?>
         <?php if ($order['status'] === 'pending'): ?>
-          <form method="post">
-            <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="btn-chip btn-chip-outline" onclick="return confirm('Cancel this order? This cannot be undone.');"><i class="fas fa-xmark"></i> Cancel Order</button>
-          </form>
+          <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#cancelOrderModal"><i class="fas fa-xmark"></i> Cancel Order</button>
         <?php endif; ?>
       </div>
 
@@ -138,4 +150,52 @@ require __DIR__ . '/../includes/navbar.php';
   </div>
 </div>
 
+<?php if ($order['status'] === 'pending'): ?>
+  <div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="cancelOrderForm">
+          <input type="hidden" name="action" value="cancel">
+          <div class="modal-header">
+            <h5 class="modal-title">Cancel Order #<?= (int) $order['id'] ?></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-2">Why are you cancelling this order?</p>
+            <?php foreach (basics_member_cancel_reasons() as $i => $reason): ?>
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="radio" name="cancel_reason" id="cancelReason<?= $i ?>" value="<?= sanitize($reason) ?>" required>
+                <label class="form-check-label" for="cancelReason<?= $i ?>"><?= sanitize($reason) ?></label>
+              </div>
+            <?php endforeach; ?>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="radio" name="cancel_reason" id="cancelReasonOther" value="other" required>
+              <label class="form-check-label" for="cancelReasonOther">Other</label>
+            </div>
+            <textarea name="cancel_reason_other" id="cancelReasonOtherText" class="fctrl" rows="2" maxlength="255" placeholder="Tell us why" style="display:none;"></textarea>
+            <p class="small text-muted mt-3 mb-0">This can't be undone. You can place a new order anytime.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-chip btn-chip-outline" data-bs-dismiss="modal">Keep Order</button>
+            <button type="submit" class="btn-chip btn-chip-primary"><i class="fas fa-xmark"></i> Cancel Order</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var form = document.getElementById('cancelOrderForm');
+    var otherText = document.getElementById('cancelReasonOtherText');
+    // The text box only shows (and is required) when "Other" is picked.
+    form.addEventListener('change', function (event) {
+      if (event.target.name !== 'cancel_reason') return;
+      var isOther = event.target.value === 'other';
+      otherText.style.display = isOther ? '' : 'none';
+      otherText.required = isOther;
+      if (isOther) otherText.focus();
+    });
+  })();
+  </script>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

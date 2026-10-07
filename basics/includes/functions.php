@@ -564,10 +564,24 @@ function basics_send_order_out_for_delivery($conn, $order_id, $actor_label) {
     return true;
 }
 
+// Reasons a member can pick when cancelling their own order
+// (basics/order_view.php). "Other" isn't listed here — it's the free-text
+// choice, saved as whatever the member typed.
+function basics_member_cancel_reasons() {
+    return [
+        'I changed my mind',
+        'I ordered the wrong item or quantity',
+        'I want to change my order',
+        'I don\'t have the budget right now',
+        'I found the items cheaper elsewhere',
+        'The delivery date doesn\'t work for me',
+    ];
+}
+
 // Shared with basics/admin/order_view.php, basics/admin/orders.php, and the
 // member-facing basics/order_view.php (self-cancel while still Checking).
-// $cancel_reason is optional — orders.php's list-page Cancel button and the
-// member's self-cancel don't collect one, only order_view.php's modal does.
+// $cancel_reason is optional — only orders.php's list-page Cancel button
+// skips it; admin order_view.php and the member's self-cancel require one.
 function basics_cancel_order($conn, $order_id, $actor_label, $cancel_reason = null) {
     if ($cancel_reason !== null) {
         $stmt = $conn->prepare("UPDATE basics_orders SET status = 'cancelled', cancel_reason = ? WHERE id = ? AND status IN ('pending', 'confirmed')");
