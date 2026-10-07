@@ -64,6 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     if (!isset($audiences[$audience])) {
         $errors[] = 'Choose a valid audience.';
     }
+    if ($send_sms && !sms_enabled()) {
+        $errors[] = sms_disabled_notice();
+    }
     if (!$send_sms && !$send_email) {
         $errors[] = 'Choose at least one channel (SMS or Email).';
     }
@@ -172,12 +175,17 @@ require __DIR__ . '/includes/admin_sidebar.php';
           </div>
           <div class="mb-3">
             <label class="flbl">Channels</label>
+            <?php // With SMS turned off site-wide, Email takes its place as the default. ?>
+            <?php $sms_on = sms_enabled(); ?>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="send_sms" id="sendSms" value="1" checked onchange="updateBroadcastLimit();">
+              <input class="form-check-input" type="checkbox" name="send_sms" id="sendSms" value="1" <?= $sms_on ? 'checked' : 'disabled' ?> onchange="updateBroadcastLimit();">
               <label class="form-check-label" for="sendSms">SMS (uses real SMS credits)</label>
+              <?php if (!$sms_on): ?>
+                <div class="small text-danger"><i class="fas fa-ban"></i> <?= sanitize(sms_disabled_notice()) ?></div>
+              <?php endif; ?>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail" value="1" onchange="document.getElementById('emailSubjectField').style.display = this.checked ? '' : 'none';">
+              <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail" value="1" <?= $sms_on ? '' : 'checked' ?> onchange="document.getElementById('emailSubjectField').style.display = this.checked ? '' : 'none';">
               <label class="form-check-label" for="sendEmail">Email — recipients with an address on file</label>
             </div>
           </div>
@@ -186,7 +194,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <textarea name="message" id="messageField" class="fctrl" rows="5" required placeholder="e.g. New product drop this Friday — check the catalog!"></textarea>
             <div class="form-text" id="messageHint">Max 480 characters (~3 SMS segments). Keep it clear and short.</div>
           </div>
-          <div class="mb-3" id="emailSubjectField" style="display:none;">
+          <div class="mb-3" id="emailSubjectField" <?= $sms_on ? 'style="display:none;"' : '' ?>>
             <label class="flbl">Email Subject</label>
             <input type="text" name="email_subject" class="fctrl" placeholder="e.g. New product drop this Friday!">
           </div>

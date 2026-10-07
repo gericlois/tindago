@@ -146,7 +146,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_sms') {
     $sms_message = trim($_POST['sms_message'] ?? '');
 
-    if (empty($member['contact_number'])) {
+    if (!sms_enabled()) {
+        $sms_errors[] = sms_disabled_notice();
+    } elseif (empty($member['contact_number'])) {
         $sms_errors[] = 'This member has no contact number on file.';
     }
     if ($sms_message === '') {
@@ -652,7 +654,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
       <div class="panel-card mt-4">
         <h2 class="h6">Send SMS</h2>
-        <?php if (empty($member['contact_number'])): ?>
+        <?php if (!sms_enabled()): ?>
+          <p class="text-danger small mb-0"><i class="fas fa-ban"></i> <?= sanitize(sms_disabled_notice()) ?></p>
+        <?php elseif (empty($member['contact_number'])): ?>
           <p class="text-muted small mb-0">This member has no contact number on file.</p>
         <?php else: ?>
           <form method="post">

@@ -106,6 +106,27 @@ function log_communication($channel, $recipient, $subject, $message, $status) {
 // approval, a payment being recorded, etc. Skips entirely (no API call) if
 // SEMAPHORE_API_KEY isn't configured yet, so the app works before SMS setup.
 // ---------------------------------------------------------------
+// Site-wide SMS switch: a super admin's "Deactivate SMS" on Basics →
+// Announcement Broadcast (setting basics_broadcast_sms_enabled). Wellness
+// and Basics share one Semaphore account, so while it's off nothing is
+// texted anywhere — announcements, automatic member notifications, admin
+// "Send SMS", password resets, reminders, birthday greetings.
+function sms_enabled() {
+    global $conn;
+    if (!isset($conn) || !($conn instanceof mysqli)) {
+        return true;
+    }
+    return setting($conn, 'basics_broadcast_sms_enabled', '1') === '1';
+}
+
+// One-line explanation for admin pages while SMS is off, e.g. "SMS is
+// turned off by a super admin — Out of credits".
+function sms_disabled_notice() {
+    global $conn;
+    $reason = isset($conn) && $conn instanceof mysqli ? (string) setting($conn, 'basics_broadcast_sms_reason', '') : '';
+    return 'SMS is turned off by a super admin' . ($reason !== '' ? ' — ' . $reason : '') . '. Nothing will be texted until it is turned back on (Basics → Announcement Broadcast).';
+}
+
 function send_sms($to, $message) {
     if (trim((string) $to) === '') {
         return false;
@@ -113,6 +134,10 @@ function send_sms($to, $message) {
     // A comma-separated list means a bulk send (announcements): log it as one
     // line like "92 recipients (bulk)" instead of dumping every number.
     $log_to = strpos($to, ',') !== false ? (substr_count($to, ',') + 1) . ' recipients (bulk)' : $to;
+    if (!sms_enabled()) {
+        log_communication('sms', $log_to, 'Not sent — SMS turned off by super admin', $message, 'failed');
+        return false;
+    }
     if (SEMAPHORE_API_KEY === '') {
         log_communication('sms', $log_to, null, $message, 'failed');
         return false;

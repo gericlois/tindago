@@ -11,12 +11,15 @@ require_basics_admin_role(['super_admin', 'admin', 'staff_orders', 'staff_paymen
 // staff — see member_view.php), so the Send SMS column is too.
 $can_send_sms = in_array(basics_admin_role(), ['super_admin', 'admin'], true);
 $sms_errors = [];
+$sms_on = sms_enabled();
 
 if ($can_send_sms && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_sms') {
     $member = basics_member_by_id($conn, (int) ($_POST['member_id'] ?? 0));
     $sms_message = trim($_POST['sms_message'] ?? '');
 
-    if (!$member) {
+    if (!$sms_on) {
+        $sms_errors[] = sanitize(sms_disabled_notice());
+    } elseif (!$member) {
         $sms_errors[] = 'Member not found.';
     } elseif (empty($member['contact_number'])) {
         $sms_errors[] = sanitize($member['full_name']) . ' has no contact number on file.';
@@ -86,6 +89,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if (isset($_GET['sms_sent'])): ?>
     <div class="sucmsg is-visible mb-4"><p class="mb-0">SMS sent to <?= sanitize($_GET['sms_sent']) ?>.</p></div>
   <?php endif; ?>
+  <?php if ($can_send_sms && !$sms_on && !$sms_errors): ?>
+    <div class="errmsg mb-4"><p class="mb-0"><i class="fas fa-ban"></i> <?= sanitize(sms_disabled_notice()) ?></p></div>
+  <?php endif; ?>
   <?php if ($sms_errors): ?>
     <div class="errmsg mb-4">
       <ul class="mb-0"><?php foreach ($sms_errors as $error): ?><li><?= $error ?></li><?php endforeach; ?></ul>
@@ -146,7 +152,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
           <td><span class="pill pill-<?= $m['membership_status'] === 'active' ? 'active' : ($m['membership_status'] === 'dormant' ? 'pending' : 'suspended') ?>"><?= sanitize($m['membership_status']) ?></span></td>
           <?php if ($can_send_sms): ?>
             <td class="no-print">
-              <?php if ($m['contact_number']): ?>
+              <?php if (!$sms_on): ?>
+                <span class="text-muted small" title="<?= sanitize(sms_disabled_notice()) ?>"><i class="fas fa-ban"></i> SMS off</span>
+              <?php elseif ($m['contact_number']): ?>
                 <button type="button" class="btn-chip btn-chip-outline" data-bs-toggle="modal" data-bs-target="#smsModal"
                         data-member-id="<?= (int) $m['id'] ?>" data-member-name="<?= sanitize($m['full_name']) ?>" data-member-number="<?= sanitize($m['contact_number']) ?>">
                   <i class="fas fa-comment-sms"></i> Send SMS

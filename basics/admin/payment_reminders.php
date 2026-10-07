@@ -134,6 +134,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <p class="mb-0"><?= (int) $_GET['sent'] ?> reminder SMS sent<?php if (isset($_GET['emails']) && (int) $_GET['emails'] > 0): ?> and <?= (int) $_GET['emails'] ?> email(s) sent<?php endif; ?>.</p>
     </div>
   <?php endif; ?>
+  <?php if (!sms_enabled()): ?>
+    <div class="errmsg mb-3"><p class="mb-0"><i class="fas fa-ban"></i> <?= sanitize(sms_disabled_notice()) ?> Reminders below still go out as in-app notifications (and email for overdue / due today).</p></div>
+  <?php endif; ?>
   <p class="text-muted">There is no automatic scheduler on this hosting, so due-date reminders must be sent manually from here. Overdue and due-today reminders go out by SMS and email; due-tomorrow reminders are SMS only.</p>
 
   <div class="panel-card mb-4">

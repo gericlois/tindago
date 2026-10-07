@@ -206,7 +206,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php if ($can_toggle_channels): ?>
     <div class="panel-card mb-4">
       <h2 class="h6">Channel Controls <span class="small text-muted fw-normal">&mdash; Super Admin only</span></h2>
-      <p class="text-muted small">Deactivate a channel to stop every admin from sending announcements through it (e.g. out of SMS credits, email provider issue). A reason is required and is shown to admins on this page.</p>
+      <p class="text-muted small">Deactivate a channel to stop every admin from sending announcements through it (e.g. out of SMS credits, email provider issue). A reason is required and is shown to admins.</p>
+      <p class="small mb-3"><i class="fas fa-triangle-exclamation text-danger"></i> <strong>SMS is a site-wide switch:</strong> deactivating it stops <em>every</em> text on Wellness and Basics &mdash; announcements, automatic member notifications, admin "Send SMS", payment reminders, password resets and birthday greetings. In-app notifications and emails still go out.</p>
       <div class="row g-3">
         <?php foreach ($channels as $key => $ch): ?>
           <div class="col-md-6">

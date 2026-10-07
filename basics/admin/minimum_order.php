@@ -19,7 +19,8 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save') {
     $new_minimum = round((float) ($_POST['minimum_order'] ?? 0), 2);
-    $send_sms = !empty($_POST['send_sms']);
+    // SMS turned off site-wide just skips the text — the new minimum still saves.
+    $send_sms = !empty($_POST['send_sms']) && sms_enabled();
     $send_email = !empty($_POST['send_email']);
     $message = trim($_POST['message'] ?? '') ?: minimum_order_default_message($new_minimum, $current_minimum);
 
@@ -136,8 +137,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <label class="flbl">Announce It</label>
       <p class="small text-muted mb-2">A banner shows on the member catalog for 24 hours automatically. Optionally also send it to all approved, active members:</p>
       <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="send_sms" id="sendSms" value="1" checked>
+        <input class="form-check-input" type="checkbox" name="send_sms" id="sendSms" value="1" <?= sms_enabled() ? 'checked' : 'disabled' ?>>
         <label class="form-check-label" for="sendSms">SMS (uses real SMS credits)</label>
+        <?php if (!sms_enabled()): ?>
+          <div class="small text-danger"><i class="fas fa-ban"></i> <?= sanitize(sms_disabled_notice()) ?></div>
+        <?php endif; ?>
       </div>
       <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail" value="1" checked>
