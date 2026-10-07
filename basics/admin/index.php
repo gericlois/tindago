@@ -108,7 +108,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     // Each "Needs Attention" card only shows to a role that can act on it.
     $attention_applications = $pending_basics_applications > 0 && basics_admin_can_open('/basics/admin/applications.php');
     $attention_due_payments = $due_payments_count > 0 && basics_admin_can_open('/basics/admin/payments.php');
-    $attention_submissions = $pending_basics_payment_submissions > 0 && basics_admin_can_open('/basics/admin/payment_submissions.php');
+    $attention_submissions = $pending_basics_payment_submissions > 0 && basics_admin_can_open('/basics/admin/payments.php');
     $attention_birthdays = $birthdays_today_count > 0 && basics_admin_can_open('/basics/admin/birthdays.php');
   ?>
   <?php if ($attention_applications || $attention_due_payments || $attention_submissions || $attention_birthdays): ?>
@@ -134,7 +134,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <?php endif; ?>
       <?php if ($attention_submissions): ?>
         <div class="col-6 col-md-3">
-          <a href="<?= BASE_URL ?>/basics/admin/payment_submissions.php" class="attention-card">
+          <a href="<?= BASE_URL ?>/basics/admin/payments.php?tab=submissions" class="attention-card">
             <div class="attention-card-icon"><i class="fas fa-receipt"></i></div>
             <div class="attention-card-num"><?= (int) $pending_basics_payment_submissions ?></div>
             <div class="attention-card-lbl">Payment Submission<?= $pending_basics_payment_submissions === 1 ? '' : 's' ?></div>

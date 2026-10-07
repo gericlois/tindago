@@ -1001,7 +1001,7 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
 // clicks for one item (never automatically, never in bulk). Each result
 // is saved on its row so pages don't re-run it on every reload.
 //
-//   basics_analyze_payment_proof()         — basics/admin/payment_submissions.php
+//   basics_analyze_payment_proof()         — basics/admin/payments.php (Member Submissions tab)
 //   basics_analyze_kyc_document()          — basics/admin/application_view.php
 //   basics_analyze_benefit_document()      — basics/admin/benefit_requests.php
 //   basics_prescreen_emergency_request()   — basics/admin/emergency_credit.php
