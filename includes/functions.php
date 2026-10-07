@@ -120,11 +120,11 @@ function sms_enabled() {
 }
 
 // One-line explanation for admin pages while SMS is off, e.g. "SMS is
-// turned off by a super admin — Out of credits".
+// turned off — Out of credits".
 function sms_disabled_notice() {
     global $conn;
     $reason = isset($conn) && $conn instanceof mysqli ? (string) setting($conn, 'basics_broadcast_sms_reason', '') : '';
-    return 'SMS is turned off by a super admin' . ($reason !== '' ? ' — ' . $reason : '') . '. Nothing will be texted until it is turned back on (Basics → Announcement Broadcast).';
+    return 'SMS is turned off' . ($reason !== '' ? ' — ' . $reason : '') . '.';
 }
 
 function send_sms($to, $message) {
@@ -135,7 +135,7 @@ function send_sms($to, $message) {
     // line like "92 recipients (bulk)" instead of dumping every number.
     $log_to = strpos($to, ',') !== false ? (substr_count($to, ',') + 1) . ' recipients (bulk)' : $to;
     if (!sms_enabled()) {
-        log_communication('sms', $log_to, 'Not sent — SMS turned off by super admin', $message, 'failed');
+        log_communication('sms', $log_to, 'Not sent — SMS turned off', $message, 'failed');
         return false;
     }
     if (SEMAPHORE_API_KEY === '') {

@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     }
     foreach (['sms' => $send_sms, 'email' => $send_email] as $key => $chosen) {
         if ($chosen && !$channels[$key]['enabled']) {
-            $errors[] = $channels[$key]['name'] . ' announcements are deactivated by a super admin'
+            $errors[] = $channels[$key]['name'] . ' announcements are deactivated'
                 . ($channels[$key]['reason'] !== '' ? ' (reason: ' . $channels[$key]['reason'] . ')' : '') . '.';
         }
     }
@@ -279,14 +279,14 @@ require __DIR__ . '/includes/admin_sidebar.php';
               <input class="form-check-input" type="checkbox" name="send_sms" id="sendSms" value="1" <?= $sms_on ? 'checked' : 'disabled' ?> onchange="updateBroadcastLimit();">
               <label class="form-check-label" for="sendSms">SMS (uses real SMS credits)</label>
               <?php if (!$sms_on): ?>
-                <div class="small text-danger"><i class="fas fa-ban"></i> Deactivated by a super admin<?= $channels['sms']['reason'] !== '' ? ' &mdash; ' . sanitize($channels['sms']['reason']) : '' ?></div>
+                <div class="small text-danger"><i class="fas fa-ban"></i> Deactivated<?= $channels['sms']['reason'] !== '' ? ' &mdash; ' . sanitize($channels['sms']['reason']) : '' ?></div>
               <?php endif; ?>
             </div>
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail" value="1" <?= $email_on ? ($email_default ? 'checked' : '') : 'disabled' ?> onchange="document.getElementById('emailSubjectField').style.display = this.checked ? '' : 'none';">
               <label class="form-check-label" for="sendEmail">Email — recipients with an address on file</label>
               <?php if (!$email_on): ?>
-                <div class="small text-danger"><i class="fas fa-ban"></i> Deactivated by a super admin<?= $channels['email']['reason'] !== '' ? ' &mdash; ' . sanitize($channels['email']['reason']) : '' ?></div>
+                <div class="small text-danger"><i class="fas fa-ban"></i> Deactivated<?= $channels['email']['reason'] !== '' ? ' &mdash; ' . sanitize($channels['email']['reason']) : '' ?></div>
               <?php endif; ?>
             </div>
           </div>
