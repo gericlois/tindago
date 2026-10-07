@@ -55,13 +55,17 @@ require __DIR__ . '/../includes/navbar.php';
           <span class="notif-icon"><i class="fas <?= sanitize($type_icons[$n['type']] ?? 'fa-bell') ?>"></i></span>
           <div class="notif-body">
             <div class="notif-head">
-              <strong><?= sanitize($n['title']) ?><?php if ($is_new): ?> <span class="pill pill-pending">New</span><?php endif; ?></strong>
+              <strong>
+                <?php if ($n['link']): ?>
+                  <a href="<?= BASICS_URL . sanitize($n['link']) ?>"><?= sanitize($n['title']) ?></a>
+                <?php else: ?>
+                  <?= sanitize($n['title']) ?>
+                <?php endif; ?>
+                <?php if ($is_new): ?><span class="pill pill-pending">New</span><?php endif; ?>
+              </strong>
               <span class="small text-muted"><?= date('M j, Y g:i A', strtotime($n['created_at'])) ?></span>
             </div>
             <p class="mb-1"><?= nl2br(sanitize($n['message'])) ?></p>
-            <?php if ($n['link']): ?>
-              <a href="<?= BASICS_URL . sanitize($n['link']) ?>" class="small">View details &rarr;</a>
-            <?php endif; ?>
           </div>
         </li>
       <?php endforeach; ?>
