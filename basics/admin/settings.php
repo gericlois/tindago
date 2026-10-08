@@ -17,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $basics_partner_override_rate = (float) ($_POST['basics_partner_override_rate'] ?? 0);
     $basics_cashout_processing_fee_rate = (float) ($_POST['basics_cashout_processing_fee_rate'] ?? 0);
     $basics_min_cashout_amount = round((float) ($_POST['basics_min_cashout_amount'] ?? 0), 2);
+    $company_email = trim($_POST['company_email'] ?? '');
+    $company_address = trim($_POST['company_address'] ?? '');
 
     if ($basics_late_penalty_tier1 < 0 || $basics_late_penalty_tier1 > 100) $errors[] = '1st offense penalty must be between 0 and 100%.';
     if ($basics_late_penalty_tier2 < 0 || $basics_late_penalty_tier2 > 100) $errors[] = '2nd/3rd offense penalty must be between 0 and 100%.';
@@ -25,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($basics_partner_override_rate < 0 || $basics_partner_override_rate > 100) $errors[] = 'Partner override rate must be between 0 and 100%.';
     if ($basics_cashout_processing_fee_rate < 0 || $basics_cashout_processing_fee_rate > 100) $errors[] = 'Cashout processing fee must be between 0 and 100%.';
     if ($basics_min_cashout_amount < 0) $errors[] = 'Minimum cashout amount cannot be negative.';
+    if ($company_email !== '' && !filter_var($company_email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Company email must be a valid email address.';
 
     if (empty($errors)) {
         save_setting($conn, 'basics_late_penalty_tier1', (string) round($basics_late_penalty_tier1 / 100, 4));
@@ -36,7 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         save_setting($conn, 'basics_partner_override_rate', (string) round($basics_partner_override_rate / 100, 4));
         save_setting($conn, 'basics_cashout_processing_fee_rate', (string) round($basics_cashout_processing_fee_rate / 100, 4));
         save_setting($conn, 'basics_min_cashout_amount', (string) $basics_min_cashout_amount);
-        log_activity($conn, 'update_basics_settings', 'Updated Basics settings');
+        save_setting($conn, 'company_email', $company_email);
+        save_setting($conn, 'company_address', $company_address);
+        log_activity($conn, 'update_basics_settings', 'Updated TindaGo settings');
         redirect('/basics/admin/settings.php?saved=1');
     }
 }
@@ -49,6 +54,8 @@ $sms_enabled_val = setting($conn, 'basics_sms_notifications_enabled', '1') === '
 $partner_override_val = (float) setting($conn, 'basics_partner_override_rate', 0.02) * 100;
 $cashout_fee_val = (float) setting($conn, 'basics_cashout_processing_fee_rate', 0) * 100;
 $min_cashout_val = (float) setting($conn, 'basics_min_cashout_amount', 500);
+$company_email_val = setting($conn, 'company_email', '');
+$company_address_val = setting($conn, 'company_address', '');
 
 $page_title = 'Settings';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -80,6 +87,17 @@ require __DIR__ . '/includes/admin_sidebar.php';
         </div>
 
         <form method="post">
+          <h2 class="h6 mb-3 mt-4">Company Contact</h2>
+          <div class="mb-3">
+            <label class="flbl">Company Email</label>
+            <input type="email" name="company_email" class="fctrl" value="<?= sanitize($company_email_val) ?>">
+            <div class="form-text">Shown in the site footer and on member-facing help messages.</div>
+          </div>
+          <div class="mb-3">
+            <label class="flbl">Company Address</label>
+            <textarea name="company_address" class="fctrl" rows="2"><?= sanitize($company_address_val) ?></textarea>
+          </div>
+
           <h2 class="h6 mb-3 mt-4">Late Payment Policy</h2>
           <div class="row">
             <div class="col-sm-6 mb-3">

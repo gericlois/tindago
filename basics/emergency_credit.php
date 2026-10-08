@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reque
         $stmt->bind_param('ids', $member['id'], $amount_requested, $reason);
         $stmt->execute();
         $stmt->close();
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan request of " . format_price($amount_requested) . " is under review. - JMC Foodies Basics", 'loan', 'Loan request submitted', '/emergency_credit.php');
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan request of " . format_price($amount_requested) . " is under review. - TindaGo", 'loan', 'Loan request submitted', '/emergency_credit.php');
         redirect('/basics/emergency_credit.php?requested=1');
     }
 }

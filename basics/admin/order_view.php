@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         $change = $new_qty <= 0
             ? $item_label . ' was removed from your order.'
             : $item_label . ' quantity changed from ' . (int) $item['quantity'] . ' to ' . $new_qty . '.';
-        log_activity($conn, 'update_basics_order_item', 'Edited Basics order #' . $id . ': ' . $change);
+        log_activity($conn, 'update_basics_order_item', 'Edited order #' . $id . ': ' . $change);
         basics_notify_order_change($conn, $id, $change);
         redirect('/basics/admin/order_view.php?id=' . $id . '&updated=1');
     }
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         $edited = $stmt->affected_rows > 0;
         $stmt->close();
         if ($edited) {
-            log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail entry on Basics order #' . $id);
+            log_activity($conn, 'edit_basics_order_status_note', 'Edited a status trail entry on order #' . $id);
             if ($is_latest) {
                 basics_force_order_status($conn, $id, $status, basics_current_admin_name(), $note_to_store);
             }
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         $note = trim($_POST['note'] ?? '');
         $note_to_store = $note !== '' ? $note : null;
         basics_record_order_status($conn, $id, $status, basics_current_admin_name() . ' (backfilled)', $note_to_store);
-        log_activity($conn, 'backfill_basics_order_status', 'Backfilled a status trail entry on Basics order #' . $id);
+        log_activity($conn, 'backfill_basics_order_status', 'Backfilled a status trail entry on order #' . $id);
         if ($status !== $current_status) {
             basics_force_order_status($conn, $id, $status, basics_current_admin_name(), $note_to_store);
         }

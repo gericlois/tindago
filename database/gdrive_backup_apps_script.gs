@@ -1,5 +1,5 @@
 /**
- * JMC Foodies — Google Drive backup receiver (Google Apps Script).
+ * TindaGo — Google Drive backup receiver (Google Apps Script).
  *
  * The site uploads each hourly database backup here (upload_backup_to_drive()
  * in includes/functions.php); this saves it into the Drive folder below and
@@ -17,7 +17,7 @@
  *   4. Copy the Web app URL (ends in /exec) into GDRIVE_BACKUP_URL in the
  *      server's config/gdrive.php.
  *   5. On the admin Database Backup page, click "Run Backup Now" and check
- *      that a jmcfoodies-backup-*.sql.gz file appears in the folder.
+ *      that a tindago-backup-*.sql.gz file appears in the folder.
  *
  * "Anyone" only means the URL can be called without a Google login; every
  * request without the right SECRET is refused, and the script can only add
@@ -30,7 +30,7 @@
 const FOLDER_ID = '15KK1GmcLaEPyyurfR5tyaVJ6C8LJRGiY';
 const SECRET = 'PASTE-THE-SAME-SECRET-AS-config/gdrive.php';
 const KEEP_DAYS = 7;
-const FILE_PREFIX = 'jmcfoodies-backup-';
+const FILE_PREFIX = 'tindago-backup-';
 
 function doPost(e) {
   try {

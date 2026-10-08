@@ -1,8 +1,6 @@
 <?php
-// Shared body of the Database Backup page. The Wellness admin
-// (admin/db_backup.php) and the Basics admin (basics/admin/db_backup.php)
-// each have their own thin page so an admin never gets bounced into the other
-// panel's layout/sidebar; both include this file. The wrapper page has
+// Body of the Database Backup page, included by the thin wrapper page
+// basics/admin/db_backup.php. The wrapper page has
 // already loaded the app, enforced its own login/role check, and set:
 //   $db_backup_url      this page's own path (used for redirects/links)
 //   $db_backup_sidebar  absolute path of the sidebar file to render
@@ -17,7 +15,7 @@ if (($_GET['download'] ?? '') === '1') {
         redirect($db_backup_url);
     }
     header('Content-Type: application/sql');
-    header('Content-Disposition: attachment; filename="jmcfoodies_backup_' . date('Y-m-d_His') . '.sql"');
+    header('Content-Disposition: attachment; filename="tindago_backup_' . date('Y-m-d_His') . '.sql"');
     header('Content-Length: ' . filesize($backup_file));
     readfile($backup_file);
     exit;
@@ -54,7 +52,7 @@ require $db_backup_sidebar;
   <?php endif; ?>
   <div class="panel-card">
     <h2 class="h6">Automatic Backup</h2>
-    <p class="text-muted small">Runs on its own every 1 hour — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file on the server each time so it never accumulates disk space. When Google Drive upload is set up, each run also saves a compressed copy to Drive, keeping the last 7 days. The backup covers the whole database — Wellness and Basics together.</p>
+    <p class="text-muted small">Runs on its own every 1 hour — no external service or server cron needed. It piggybacks on ordinary site traffic (checked on every page load, only actually runs once the interval has passed), and overwrites the same file on the server each time so it never accumulates disk space. When Google Drive upload is set up, each run also saves a compressed copy to Drive, keeping the last 7 days.</p>
     <p class="mb-1">Last run: <?= sanitize($last_run) ?></p>
     <?php if ($drive_enabled): ?>
       <p class="mb-1">Google Drive copy: <span class="<?= strpos($drive_last_run, 'FAILED') !== false ? 'text-danger' : '' ?>"><?= sanitize($drive_last_run) ?></span></p>

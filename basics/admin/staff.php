@@ -49,7 +49,7 @@ if ($action === 'create') {
                 $stmt->bind_param('ssss', $username, $hash, $name, $role);
                 $stmt->execute();
                 $stmt->close();
-                log_activity($conn, 'create_basics_staff', 'Created Basics staff "' . $username . '" (' . basics_admin_role_label($role) . ')');
+                log_activity($conn, 'create_basics_staff', 'Created staff "' . $username . '" (' . basics_admin_role_label($role) . ')');
                 $_SESSION['flash_admin_password'] = $password;
                 $_SESSION['flash_admin_username'] = $username;
                 redirect('/basics/admin/staff.php?created=1');
@@ -75,7 +75,7 @@ if ($action === 'update') {
         $stmt->bind_param('ssi', $name, $role, $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'update_basics_staff', 'Updated Basics staff "' . $target['username'] . '" (' . basics_admin_role_label($role) . ')');
+        log_activity($conn, 'update_basics_staff', 'Updated staff "' . $target['username'] . '" (' . basics_admin_role_label($role) . ')');
         redirect('/basics/admin/staff.php?updated=1');
     }
 }
@@ -91,7 +91,7 @@ if ($action === 'reset_password') {
         $stmt->bind_param('si', $hash, $target['id']);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'reset_basics_staff_password', 'Reset password for Basics staff "' . $target['username'] . '"');
+        log_activity($conn, 'reset_basics_staff_password', 'Reset password for staff "' . $target['username'] . '"');
         $_SESSION['flash_admin_password'] = $password;
         $_SESSION['flash_admin_username'] = $target['username'];
         redirect('/basics/admin/staff.php?reset=1');
@@ -107,7 +107,7 @@ if ($action === 'delete') {
         $stmt->bind_param('i', $target['id']);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'delete_basics_staff', 'Deleted Basics staff "' . $target['username'] . '"');
+        log_activity($conn, 'delete_basics_staff', 'Deleted staff "' . $target['username'] . '"');
         redirect('/basics/admin/staff.php?deleted=1');
     }
 }

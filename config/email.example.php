@@ -15,6 +15,6 @@
  * keeps working even before this is configured.
  */
 
-define('GMAIL_SMTP_USERNAME', ''); // e.g. jmcfoodiesbasics@gmail.com
+define('GMAIL_SMTP_USERNAME', ''); // e.g. yourstore@gmail.com
 define('GMAIL_SMTP_PASSWORD', ''); // 16-character App Password, no spaces
-define('GMAIL_SMTP_FROM_NAME', 'JMC Digital');
+define('GMAIL_SMTP_FROM_NAME', 'TindaGo');

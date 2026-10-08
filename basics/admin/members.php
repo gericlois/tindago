@@ -34,8 +34,8 @@ if ($can_send_sms && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] 
         // Same as the Send SMS box on the member's profile: text, log, and
         // a copy in the member's notification feed.
         if (send_sms($member['contact_number'], $sms_message)) {
-            log_activity($conn, 'send_basics_member_sms', 'Texted Basics member "' . $member['full_name'] . '"');
-            basics_add_notification($conn, $member['id'], 'message', 'Message from JMC Foodies Basics', basics_notification_text($sms_message));
+            log_activity($conn, 'send_basics_member_sms', 'Texted member "' . $member['full_name'] . '"');
+            basics_add_notification($conn, $member['id'], 'message', 'Message from TindaGo', basics_notification_text($sms_message));
             redirect('/basics/admin/members.php?' . http_build_query(['status' => $_GET['status'] ?? 'active', 'barangay' => $_GET['barangay'] ?? '', 'sms_sent' => $member['full_name']]));
         }
         $sms_errors[] = 'Failed to send — check the Semaphore SMS configuration (config/sms.php) and your SMS credits.';
@@ -75,7 +75,7 @@ $members = $conn->query($sql);
 
 $can_open_orders = basics_admin_can_open('/basics/admin/order_view.php');
 
-$page_title = 'Basics Members';
+$page_title = 'Members';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>

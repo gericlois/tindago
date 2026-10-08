@@ -63,7 +63,7 @@ if ($status_filter === 'paid') {
 $sql .= " ORDER BY o.placed_at DESC";
 $orders = $conn->query($sql);
 
-$page_title = 'Basics Orders';
+$page_title = 'Orders';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>

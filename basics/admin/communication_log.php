@@ -80,7 +80,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <?php endif; ?>
   </form>
 
-  <p class="text-muted small mb-3">Showing the most recent 300 Basics SMS/email sends — automatic triggers and admin-initiated messages alike.</p>
+  <p class="text-muted small mb-3">Showing the most recent 300 SMS/email sends — automatic triggers and admin-initiated messages alike.</p>
 
   <div class="panel-card">
     <div class="table-responsive">

@@ -58,7 +58,7 @@
     })();
   </script>
 <?php if (!empty($is_basics_admin_page)): ?>
-  <!-- DataTables (search/sort) + Buttons (print) — every table on the Basics admin side. -->
+  <!-- DataTables (search/sort) + Buttons (print) — every table on the admin side. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.11/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.11/js/dataTables.bootstrap5.min.js"></script>

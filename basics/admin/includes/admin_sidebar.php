@@ -47,7 +47,7 @@ $nav_groups = [
     'Overview' => [
         '/basics/admin/index.php' => ['icon' => 'fa-gauge-high', 'label' => 'Dashboard'],
     ],
-    'Basics' => [
+    'Store' => [
         '__people' => [
             'icon' => 'fa-users', 'label' => 'People',
             'children' => [
@@ -164,18 +164,18 @@ $basics_dashboard_url = basics_admin_landing_url();
     <div class="offcanvas-header d-lg-none">
       <div class="d-flex align-items-center gap-2">
         <div class="brand-logo-box">
-          <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:30px;">
+          <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="TindaGo" class="brand-logo" style="height:30px;">
         </div>
-        <span class="admin-sidebar-brand-name">JMC Foodies Basics</span>
+        <span class="admin-sidebar-brand-name">TindaGo</span>
       </div>
       <label for="adminSidebarToggle" class="btn-close btn-close-white" aria-label="Close"></label>
     </div>
     <div class="offcanvas-body admin-sidebar-body">
       <a href="<?= BASE_URL . $basics_dashboard_url ?>" class="admin-sidebar-brand d-none d-lg-flex">
         <div class="brand-logo-box">
-          <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:34px;">
+          <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="TindaGo" class="brand-logo" style="height:34px;">
         </div>
-        <span class="admin-sidebar-brand-name">JMC Foodies Basics</span>
+        <span class="admin-sidebar-brand-name">TindaGo</span>
       </a>
       <nav class="admin-sidebar-nav">
         <?php foreach ($nav_groups as $group_label => $group_items): ?>
@@ -223,7 +223,7 @@ $basics_dashboard_url = basics_admin_landing_url();
         <i class="fas fa-bars"></i>
       </label>
       <div class="brand-logo-box">
-        <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="JMC Foodies Basics" class="brand-logo" style="height:28px;">
+        <img src="<?= BASE_URL ?>/assets/img/basics/logo.jpg" alt="TindaGo" class="brand-logo" style="height:28px;">
       </div>
     </div>
     <div class="admin-content">

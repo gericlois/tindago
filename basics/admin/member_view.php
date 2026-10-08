@@ -35,29 +35,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
         }
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'update_basics_credit', 'Updated purchase limit for Basics member #' . $id . ' (weekly ' . format_price($weekly_limit) . ', emergency ' . format_price($emergency_limit) . ')');
+        log_activity($conn, 'update_basics_credit', 'Updated purchase limit for member #' . $id . ' (weekly ' . format_price($weekly_limit) . ', emergency ' . format_price($emergency_limit) . ')');
         basics_add_notification($conn, $id, 'account', 'Purchase limit updated', 'Your weekly purchase limit is now ' . format_price($weekly_limit) . ' and your Emergency Cash Loan limit is ' . format_price($emergency_limit) . '.', '/dashboard.php');
     } elseif ($action === 'suspend') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'suspended' WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'suspend_basics_member', 'Suspended Basics member #' . $id);
-        basics_add_notification($conn, $id, 'account', 'Membership suspended', 'Your JMC Foodies Basics membership has been suspended. For questions, please contact us.');
+        log_activity($conn, 'suspend_basics_member', 'Suspended member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership suspended', 'Your TindaGo membership has been suspended. For questions, please contact us.');
     } elseif ($action === 'reinstate') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'active', suspended_until = NULL WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'reinstate_basics_member', 'Reinstated Basics member #' . $id);
-        basics_add_notification($conn, $id, 'account', 'Membership reinstated', 'Your JMC Foodies Basics membership is active again. You can place orders as usual.', '/catalog.php');
+        log_activity($conn, 'reinstate_basics_member', 'Reinstated member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership reinstated', 'Your TindaGo membership is active again. You can place orders as usual.', '/catalog.php');
     } elseif ($action === 'terminate') {
         $stmt = $conn->prepare("UPDATE basics_members SET membership_status = 'terminated' WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'terminate_basics_member', 'Terminated Basics member #' . $id);
-        basics_add_notification($conn, $id, 'account', 'Membership terminated', 'Your JMC Foodies Basics membership has been terminated. For questions, please contact us.');
+        log_activity($conn, 'terminate_basics_member', 'Terminated member #' . $id);
+        basics_add_notification($conn, $id, 'account', 'Membership terminated', 'Your TindaGo membership has been terminated. For questions, please contact us.');
     } elseif ($action === 'toggle_partner') {
         $stmt = $conn->prepare("SELECT is_community_partner, referral_code FROM basics_members WHERE id = ?");
         $stmt->bind_param('i', $id);
@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
             }
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'toggle_basics_partner', ($activating ? 'Designated' : 'Revoked') . ' Community Partner status for Basics member #' . $id);
+            log_activity($conn, 'toggle_basics_partner', ($activating ? 'Designated' : 'Revoked') . ' Community Partner status for member #' . $id);
         }
     } elseif ($action === 'tag_member') {
         $tag_member_id = (int) ($_POST['tag_member_id'] ?? 0);
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($_POST['action'] ?? '', [
             $stmt->bind_param('ii', $id, $tag_member_id);
             $stmt->execute();
             if ($stmt->affected_rows > 0) {
-                log_activity($conn, 'tag_basics_member', 'Tagged Basics member #' . $tag_member_id . ' under Community Partner #' . $id);
+                log_activity($conn, 'tag_basics_member', 'Tagged member #' . $tag_member_id . ' under Community Partner #' . $id);
             }
             $stmt->close();
         }
@@ -133,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
     }
 
     if (empty($email_errors)) {
-        if (send_email($member['email'], $email_subject, "Hi {$member['full_name']},\r\n\r\n{$email_message}\r\n\r\n— JMC Foodies Basics Team")) {
-            log_activity($conn, 'send_basics_member_email', 'Emailed Basics member "' . $member['full_name'] . '" (subject: ' . $email_subject . ')');
+        if (send_email($member['email'], $email_subject, "Hi {$member['full_name']},\r\n\r\n{$email_message}\r\n\r\n— TindaGo Team")) {
+            log_activity($conn, 'send_basics_member_email', 'Emailed member "' . $member['full_name'] . '" (subject: ' . $email_subject . ')');
             basics_add_notification($conn, $id, 'message', $email_subject, $email_message);
             redirect('/basics/admin/member_view.php?id=' . $id . '&email_sent=1');
         } else {
@@ -159,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
 
     if (empty($sms_errors)) {
         if (send_sms($member['contact_number'], $sms_message)) {
-            log_activity($conn, 'send_basics_member_sms', 'Texted Basics member "' . $member['full_name'] . '"');
-            basics_add_notification($conn, $id, 'message', 'Message from JMC Foodies Basics', basics_notification_text($sms_message));
+            log_activity($conn, 'send_basics_member_sms', 'Texted member "' . $member['full_name'] . '"');
+            basics_add_notification($conn, $id, 'message', 'Message from TindaGo', basics_notification_text($sms_message));
             redirect('/basics/admin/member_view.php?id=' . $id . '&sms_sent=1');
         } else {
             $sms_errors[] = 'Failed to send — check the Semaphore SMS configuration (config/sms.php).';
@@ -174,10 +174,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
     }
 
     if (empty($reset_errors)) {
-        $sent = reset_member_password($conn, 'basics_users', $member['user_id'], 'JMC Foodies Basics', $member['full_name'], (string) $member['email'], (string) $member['contact_number'], false);
+        $sent = reset_member_password($conn, 'basics_users', $member['user_id'], 'TindaGo', $member['full_name'], (string) $member['email'], (string) $member['contact_number'], false);
         if ($sent['email'] || $sent['sms']) {
             $via = $sent['email'] && $sent['sms'] ? 'email and SMS' : ($sent['email'] ? 'email' : 'SMS');
-            log_activity($conn, 'reset_basics_member_password', 'Reset password for Basics member "' . $member['full_name'] . '" and sent the new temporary password by ' . $via);
+            log_activity($conn, 'reset_basics_member_password', 'Reset password for member "' . $member['full_name'] . '" and sent the new temporary password by ' . $via);
             redirect('/basics/admin/member_view.php?id=' . $id . '&password_reset=' . ($sent['email'] && $sent['sms'] ? 'both' : ($sent['email'] ? 'email' : 'sms')));
         } else {
             $reset_errors[] = 'Nothing was sent, so the password was left unchanged — check the Gmail SMTP (config/email.php) and Semaphore SMS (config/sms.php) configuration.';
@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         $stmt->execute();
         $stmt->close();
 
-        log_activity($conn, 'update_basics_member_profile', 'Updated profile details for Basics member "' . $full_name . '" (#' . $id . ')');
+        log_activity($conn, 'update_basics_member_profile', 'Updated profile details for member "' . $full_name . '" (#' . $id . ')');
         redirect('/basics/admin/member_view.php?id=' . $id . '&profile_updated=1');
     }
 

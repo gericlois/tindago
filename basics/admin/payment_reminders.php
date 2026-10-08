@@ -73,11 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
             $penalty_note = $projection
                 ? ' A late penalty of ' . format_price($projection['amount']) . ' (' . (int) round($projection['rate'] * 100) . '%) applies, and paying now will trigger ' . $projection['impact'] . '.'
                 : '';
-            $message = "URGENT: Hi {$o['full_name']}, your balance of " . format_price($remaining) . " is now $days_overdue day" . ($days_overdue === 1 ? '' : 's') . " overdue (was due " . date('M j, Y', strtotime($o['payment_due_date'])) . ")." . $penalty_note . " Please settle immediately. - JMC Foodies Basics";
+            $message = "URGENT: Hi {$o['full_name']}, your balance of " . format_price($remaining) . " is now $days_overdue day" . ($days_overdue === 1 ? '' : 's') . " overdue (was due " . date('M j, Y', strtotime($o['payment_due_date'])) . ")." . $penalty_note . " Please settle immediately. - TindaGo";
         } elseif ($kind === 'due_today') {
-            $message = "URGENT: Hi {$o['full_name']}, your balance of " . format_price($remaining) . " is due TODAY. Please settle it as soon as possible to avoid a late payment penalty. - JMC Foodies Basics";
+            $message = "URGENT: Hi {$o['full_name']}, your balance of " . format_price($remaining) . " is due TODAY. Please settle it as soon as possible to avoid a late payment penalty. - TindaGo";
         } else {
-            $message = "Hi {$o['full_name']}, this is a reminder that your balance of " . format_price($remaining) . " is due tomorrow (" . date('M j, Y', strtotime($o['payment_due_date'])) . "). - JMC Foodies Basics";
+            $message = "Hi {$o['full_name']}, this is a reminder that your balance of " . format_price($remaining) . " is due tomorrow (" . date('M j, Y', strtotime($o['payment_due_date'])) . "). - TindaGo";
         }
         if (send_sms($o['contact_number'] ?? '', $message)) {
             $sent++;
@@ -93,14 +93,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
                 $email_body = "Hi {$o['full_name']},\r\n\r\n"
                     . "Your balance of " . format_price($remaining) . " for Order #{$o['order_id']} is now $days_overdue day" . ($days_overdue === 1 ? '' : 's') . " overdue (was due " . date('M j, Y', strtotime($o['payment_due_date'])) . ")." . $penalty_note . "\r\n\r\n"
                     . "Please settle immediately.\r\n\r\n"
-                    . '— JMC Foodies Basics Team';
-                $email_subject = 'Payment Overdue — JMC Foodies Basics';
+                    . '— TindaGo Team';
+                $email_subject = 'Payment Overdue — TindaGo';
             } else {
                 $email_body = "Hi {$o['full_name']},\r\n\r\n"
                     . "This is an urgent reminder that your balance of " . format_price($remaining) . " for Order #{$o['order_id']} is due TODAY (" . date('M j, Y', strtotime($o['payment_due_date'])) . ").\r\n\r\n"
                     . "Please settle it as soon as possible to avoid a late payment penalty.\r\n\r\n"
-                    . '— JMC Foodies Basics Team';
-                $email_subject = 'Payment Due Today — JMC Foodies Basics';
+                    . '— TindaGo Team';
+                $email_subject = 'Payment Due Today — TindaGo';
             }
             if (send_email($o['email'] ?? '', $email_subject, $email_body)) {
                 $emails_sent++;
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_
     }
 
     if ($sent > 0 || $emails_sent > 0) {
-        log_activity($conn, 'send_basics_payment_reminders', 'Sent ' . $sent . ' Basics payment reminder SMS and ' . $emails_sent . ' email(s) (' . $kind . ')');
+        log_activity($conn, 'send_basics_payment_reminders', 'Sent ' . $sent . ' payment reminder SMS and ' . $emails_sent . ' email(s) (' . $kind . ')');
     }
     redirect('/basics/admin/payment_reminders.php?sent=' . $sent . '&emails=' . $emails_sent . '&kind=' . $kind);
 }

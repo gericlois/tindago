@@ -1,17 +1,17 @@
 <?php
-// PWA manifest for the JMC Foodies Basics module. See ../manifest.php (hub)
-// for why this is a PHP script instead of a static .json file.
+// PWA manifest for TindaGo. A PHP script instead of a static .json file
+// because BASE_URL is only known at request time.
 require __DIR__ . '/../config/constants.php';
 header('Content-Type: application/manifest+json');
 echo json_encode([
-    'name' => 'JMC Foodies Basics',
-    'short_name' => 'JMC Basics',
+    'name' => 'TindaGo',
+    'short_name' => 'TindaGo',
     'description' => 'A weekly grocery purchase line for employees of partner companies. Basic needs, everyday, for every family.',
     'start_url' => BASICS_URL . '/index.php',
     'scope' => BASE_URL . '/',
     'display' => 'standalone',
     'background_color' => '#ffffff',
-    'theme_color' => '#e8720c',
+    'theme_color' => '#003fab',
     'icons' => [
         ['src' => BASE_URL . '/assets/img/basics/icons/icon-192.png', 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
         ['src' => BASE_URL . '/assets/img/basics/icons/icon-512.png', 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],

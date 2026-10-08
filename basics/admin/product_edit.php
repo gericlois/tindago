@@ -107,9 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('s', $category);
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'create_basics_product_category', 'Added Basics product category "' . $category . '"');
+            log_activity($conn, 'create_basics_product_category', 'Added product category "' . $category . '"');
         } catch (mysqli_sql_exception $e) {
-            error_log('Adding Basics product category failed: ' . $e->getMessage());
+            error_log('Adding product category failed: ' . $e->getMessage());
             $errors[] = 'Could not add the new category. Make sure database/live_add_basics_product_categories.sql has been run.';
         }
     }
@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('ssssdssidsi', $sku, $category, $name, $unit, $srp, $image, $status, $is_featured, $flash_deal_price, $flash_deal_ends_at, $id);
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'update_basics_product', 'Updated Basics product "' . $name . '" (' . $sku . ')');
+            log_activity($conn, 'update_basics_product', 'Updated product "' . $name . '" (' . $sku . ')');
             redirect('/basics/admin/product_edit.php?id=' . $id . '&saved=1');
         } else {
             $stmt = $conn->prepare("INSERT INTO basics_products (sku, category, name, unit, srp, image, status, is_featured, flash_deal_price, flash_deal_ends_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $new_id = $stmt->insert_id;
             $stmt->close();
-            log_activity($conn, 'create_basics_product', 'Created Basics product "' . $name . '" (' . $sku . ')');
+            log_activity($conn, 'create_basics_product', 'Created product "' . $name . '" (' . $sku . ')');
             redirect('/basics/admin/product_edit.php?id=' . $new_id . '&saved=1');
         }
     }

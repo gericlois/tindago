@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'submi
             }
 
             $conn->commit();
-            basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$benefit_type] . " request is under review. - JMC Foodies Basics", 'benefit', 'Benefit request submitted', '/benefits.php');
+            basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$benefit_type] . " request is under review. - TindaGo", 'benefit', 'Benefit request submitted', '/benefits.php');
             redirect('/basics/benefits.php?submitted=1');
         } catch (Exception $e) {
             $conn->rollback();

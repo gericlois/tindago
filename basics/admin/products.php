@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $stmt->execute();
         $stmt->close();
 
-        log_activity($conn, 'delete_basics_product', 'Deleted Basics product "' . ($product['name'] ?? "#$id") . '"');
+        log_activity($conn, 'delete_basics_product', 'Deleted product "' . ($product['name'] ?? "#$id") . '"');
 
         if ($product && $product['image'] && is_file(UPLOAD_PATH . 'basics_products/' . $product['image'])) {
             unlink(UPLOAD_PATH . 'basics_products/' . $product['image']);
@@ -52,7 +52,7 @@ if (in_array($category_filter, $valid_categories, true)) {
 $sql .= " ORDER BY p.category ASC, p.name ASC";
 $products = $conn->query($sql);
 
-$page_title = 'Basics Products';
+$page_title = 'Products';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>

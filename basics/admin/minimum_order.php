@@ -10,8 +10,8 @@ require_basics_admin_role(['super_admin']);
 // Default announcement wording — friendlier when the minimum goes down.
 function minimum_order_default_message($new_amount, $old_amount) {
     return $new_amount < $old_amount
-        ? 'Good news! Our minimum order is now just ' . format_price($new_amount) . ' (was ' . format_price($old_amount) . '). Order your groceries anytime in the app. - JMC Foodies Basics'
-        : 'Heads up: our minimum order is now ' . format_price($new_amount) . ' (was ' . format_price($old_amount) . '), effective today. - JMC Foodies Basics';
+        ? 'Good news! Our minimum order is now just ' . format_price($new_amount) . ' (was ' . format_price($old_amount) . '). Order your groceries anytime in the app. - TindaGo'
+        : 'Heads up: our minimum order is now ' . format_price($new_amount) . ' (was ' . format_price($old_amount) . '), effective today. - TindaGo';
 }
 
 $current_minimum = basics_minimum_order($conn);
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
         $sent_parts = [];
         if ($sms_count !== null) $sent_parts[] = $sms_count . ' SMS';
         if ($email_count !== null) $sent_parts[] = $email_count . ' email';
-        log_activity($conn, 'change_basics_minimum_order', 'Changed Basics minimum order from ' . format_price($current_minimum) . ' to ' . format_price($new_minimum)
+        log_activity($conn, 'change_basics_minimum_order', 'Changed minimum order from ' . format_price($current_minimum) . ' to ' . format_price($new_minimum)
             . ($sent_parts ? ', announced to ' . implode(' and ', $sent_parts) . ' recipient(s)' : ', no SMS/email sent'));
         redirect('/basics/admin/minimum_order.php?' . http_build_query(['saved' => 1, 'sms' => $sms_count, 'email' => $email_count]));
     }
@@ -174,8 +174,8 @@ require __DIR__ . '/includes/admin_sidebar.php';
       return;
     }
     hint.textContent = 'Leave blank to send: "' + (next < current
-      ? 'Good news! Our minimum order is now just ' + peso(next) + ' (was ' + peso(current) + '). Order your groceries anytime in the app. - JMC Foodies Basics'
-      : 'Heads up: our minimum order is now ' + peso(next) + ' (was ' + peso(current) + '), effective today. - JMC Foodies Basics') + '"';
+      ? 'Good news! Our minimum order is now just ' + peso(next) + ' (was ' + peso(current) + '). Order your groceries anytime in the app. - TindaGo'
+      : 'Heads up: our minimum order is now ' + peso(next) + ' (was ' + peso(current) + '), effective today. - TindaGo') + '"';
   }
   input.addEventListener('input', update);
   update();

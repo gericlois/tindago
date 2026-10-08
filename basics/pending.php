@@ -48,12 +48,12 @@ require __DIR__ . '/../includes/navbar.php';
         <?php elseif ($member['membership_status'] === 'suspended'): ?>
           <div class="hbi mx-auto mb-3" style="width:56px;height:56px;font-size:1.4rem;"><i class="fas fa-ban"></i></div>
           <h2 class="h5 mb-2">Account Suspended</h2>
-          <p class="text-muted mb-1">Your Basics membership is suspended<?= $member['suspended_until'] ? ' until ' . date('M j, Y', strtotime($member['suspended_until'])) : '' ?>.</p>
+          <p class="text-muted mb-1">Your TindaGo membership is suspended<?= $member['suspended_until'] ? ' until ' . date('M j, Y', strtotime($member['suspended_until'])) : '' ?>.</p>
           <p class="text-muted mb-0">Contact support if you believe this is an error.</p>
         <?php elseif ($member['membership_status'] === 'terminated'): ?>
           <div class="hbi mx-auto mb-3" style="width:56px;height:56px;font-size:1.4rem;"><i class="fas fa-lock"></i></div>
           <h2 class="h5 mb-2">Membership Terminated</h2>
-          <p class="text-muted mb-0">Your Basics membership has been permanently terminated. Contact support for more information.</p>
+          <p class="text-muted mb-0">Your TindaGo membership has been permanently terminated. Contact support for more information.</p>
         <?php endif; ?>
       </div>
     </div>

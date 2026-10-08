@@ -33,12 +33,12 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
         $stmt->close();
 
         if ($approved) {
-            log_activity($conn, 'approve_basics_application', 'Approved Basics application for member #' . $id . ' (weekly limit ' . format_price($weekly_limit) . ')');
+            log_activity($conn, 'approve_basics_application', 'Approved application for member #' . $id . ' (weekly limit ' . format_price($weekly_limit) . ')');
             $member = basics_get_member($conn, $conn->query("SELECT user_id FROM basics_members WHERE id = $id")->fetch_assoc()['user_id']);
             if ($member) {
                 // No password reset on approval — the applicant already
                 // chose their own at signup, so they log in with that.
-                basics_notify($conn, $member, "Hi {$member['full_name']}, your JMC Foodies Basics membership has been APPROVED! Weekly purchase limit: " . format_price($weekly_limit) . ". Log in with the username and password you set at signup. - JMC Foodies Basics", 'account', 'Membership approved', '/dashboard.php');
+                basics_notify($conn, $member, "Hi {$member['full_name']}, your TindaGo membership has been APPROVED! Weekly purchase limit: " . format_price($weekly_limit) . ". Log in with the username and password you set at signup. - TindaGo", 'account', 'Membership approved', '/dashboard.php');
                 send_basics_account_approved_email($member['email'], $member['full_name'], $member['username'], $weekly_limit);
             }
         }
@@ -52,10 +52,10 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
         $stmt->close();
 
         if ($denied) {
-            log_activity($conn, 'deny_basics_application', 'Denied Basics application for member #' . $id);
+            log_activity($conn, 'deny_basics_application', 'Denied application for member #' . $id);
             $member = basics_get_member($conn, $conn->query("SELECT user_id FROM basics_members WHERE id = $id")->fetch_assoc()['user_id']);
             if ($member) {
-                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the JMC Foodies Basics Program. Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying after 30 days. For questions and other concerns please call +63 917 323 8153. - JMC Foodies Basics", 'account', 'Application not approved');
+                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the TindaGo Program. Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying after 30 days. For questions and other concerns please call +63 917 323 8153. - TindaGo", 'account', 'Application not approved');
                 send_basics_account_denied_email($member['email'], $member['full_name']);
             }
         }

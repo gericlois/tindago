@@ -1,5 +1,5 @@
 <?php
-// JMC Foodies Basics business logic: continuous ordering, revolving
+// TindaGo business logic: continuous ordering, revolving
 // credit-line checks, and the tiered late-payment penalty engine.
 
 // Order fulfillment pipeline is admin-driven and fully decoupled from
@@ -213,10 +213,10 @@ function basics_notify_all_members($conn, $type, $title, $message, $link = null)
 }
 
 // SMS wording → feed wording: drops the "Hi Name, " greeting and the
-// " - JMC Foodies Basics" sign-off, which read oddly in a list.
+// " - TindaGo" sign-off, which read oddly in a list.
 function basics_notification_text($sms_message) {
     $text = preg_replace('/^Hi [^,]+, /', '', trim($sms_message));
-    $text = preg_replace('/\s*-\s*JMC Foodies Basics$/', '', $text);
+    $text = preg_replace('/\s*-\s*TindaGo$/', '', $text);
     return ucfirst($text);
 }
 
@@ -250,14 +250,14 @@ function send_basics_account_approved_email($to_email, $full_name, $username, $w
     if (empty($to_email)) {
         return false;
     }
-    $subject = 'Your JMC Foodies Basics membership has been approved';
+    $subject = 'Your TindaGo membership has been approved';
     $message = "Hi {$full_name},\r\n\r\n"
-        . "Good news! Your JMC Foodies Basics membership application has been reviewed and approved.\r\n\r\n"
+        . "Good news! Your TindaGo membership application has been reviewed and approved.\r\n\r\n"
         . 'Weekly Purchase Limit: ' . format_price($weekly_limit) . "\r\n\r\n"
         . "You can now log in and start ordering with the username and password you set at signup:\r\n\r\n"
         . "Username: {$username}\r\n\r\n"
         . 'Log in here: ' . absolute_url(BASICS_URL . '/login.php') . "\r\n\r\n"
-        . '— JMC Foodies Basics Team';
+        . '— TindaGo Team';
     return send_email($to_email, $subject, $message);
 }
 
@@ -269,11 +269,11 @@ function send_basics_account_denied_email($to_email, $full_name) {
     if (empty($to_email)) {
         return false;
     }
-    $subject = 'Your JMC Foodies Basics application status';
+    $subject = 'Your TindaGo application status';
     $message = "Hi {$full_name},\r\n\r\n"
-        . "Thank you for choosing to apply for the JMC Foodies Basics Program.\r\n\r\n"
+        . "Thank you for choosing to apply for the TindaGo Program.\r\n\r\n"
         . "Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying again after 30 days.\r\n\r\n"
-        . '— JMC Foodies Basics Team';
+        . '— TindaGo Team';
     return send_email($to_email, $subject, $message);
 }
 
@@ -347,16 +347,14 @@ function basics_get_member($conn, $user_id) {
 // Community Partner Account — a regular member (same benefits/privileges,
 // can order for themselves) who also earns a % override on orders placed by
 // other members tagged under them via referral code at signup
-// (basics/apply.php). Mirrors the Wellness referral/wallet system
-// (generate_referral_code()/wallet_*() in includes/functions.php) but kept
-// entirely separate: this wallet is only an override-earnings ledger, never
-// used to pay for groceries (Basics purchases stay on the credit-line/
+// (basics/apply.php). This wallet is only an override-earnings ledger,
+// never used to pay for groceries (purchases stay on the credit-line/
 // payment-due system).
 // ---------------------------------------------------------------
 function basics_generate_referral_code($conn) {
     $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
     do {
-        $code = 'JMCB-';
+        $code = 'TG-';
         for ($i = 0; $i < 9; $i++) {
             $code .= $chars[random_int(0, strlen($chars) - 1)];
         }
@@ -441,12 +439,12 @@ function basics_deliver_order($conn, $order_id, $admin_id) {
         }
     }
 
-    log_activity($conn, 'deliver_basics_order', 'Marked Basics order #' . $order_id . ' as delivered');
+    log_activity($conn, 'deliver_basics_order', 'Marked order #' . $order_id . ' as delivered');
     basics_record_order_status($conn, $order_id, 'delivered', basics_admin_name_by_id($conn, $admin_id));
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
         $due_date = date('Y-m-d', strtotime('+7 days'));
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - JMC Foodies Basics", 'order', 'Order delivered', '/order_view.php?id=' . $order_id);
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order has been delivered! Please settle your balance by " . date('M j, Y', strtotime($due_date)) . ". - TindaGo", 'order', 'Order delivered', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -486,16 +484,16 @@ function basics_notify_order_change($conn, $order_id, $change) {
     $order = $conn->query("SELECT total_amount, is_gift FROM basics_orders WHERE id = " . (int) $order_id)->fetch_assoc();
     $total_note = $order && !$order['is_gift'] ? ' New order total: ' . format_price($order['total_amount']) . '.' : '';
 
-    basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} was updated: {$change}{$total_note} - JMC Foodies Basics",
+    basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} was updated: {$change}{$total_note} - TindaGo",
         'order', 'Order updated', '/order_view.php?id=' . (int) $order_id);
 
     if (!empty($member['email'])) {
         send_email($member['email'], 'Your order #' . $order_id . ' was updated',
             "Hi {$member['full_name']},\r\n\r\n"
-            . "Your JMC Foodies Basics order #{$order_id} was updated by our team:\r\n\r\n"
+            . "Your TindaGo order #{$order_id} was updated by our team:\r\n\r\n"
             . $change . "\r\n" . ($total_note !== '' ? trim($total_note) . "\r\n" : '') . "\r\n"
             . 'You can review your order here: ' . absolute_url(BASICS_URL . '/order_view.php?id=' . (int) $order_id) . "\r\n\r\n"
-            . '— JMC Foodies Basics Team');
+            . '— TindaGo Team');
     }
 }
 
@@ -536,10 +534,10 @@ function basics_confirm_order($conn, $order_id, $actor_label) {
     }
 
     basics_record_order_status($conn, $order_id, 'confirmed', $actor_label);
-    log_activity($conn, 'confirm_basics_order', 'Approved Basics order #' . $order_id);
+    log_activity($conn, 'confirm_basics_order', 'Approved order #' . $order_id);
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been approved and is being prepared. - JMC Foodies Basics", 'order', 'Order approved', '/order_view.php?id=' . $order_id);
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been approved and is being prepared. - TindaGo", 'order', 'Order approved', '/order_view.php?id=' . $order_id);
     }
     return 'confirmed';
 }
@@ -556,10 +554,10 @@ function basics_send_order_out_for_delivery($conn, $order_id, $actor_label) {
     }
 
     basics_record_order_status($conn, $order_id, 'out_for_delivery', $actor_label);
-    log_activity($conn, 'basics_order_out_for_delivery', 'Marked Basics order #' . $order_id . ' as out for delivery');
+    log_activity($conn, 'basics_order_out_for_delivery', 'Marked order #' . $order_id . ' as out for delivery');
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} is out for delivery! - JMC Foodies Basics", 'order', 'Out for delivery', '/order_view.php?id=' . $order_id);
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} is out for delivery! - TindaGo", 'order', 'Out for delivery', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -598,11 +596,11 @@ function basics_cancel_order($conn, $order_id, $actor_label, $cancel_reason = nu
     }
 
     basics_record_order_status($conn, $order_id, 'cancelled', $actor_label, $cancel_reason);
-    log_activity($conn, 'cancel_basics_order', 'Cancelled Basics order #' . $order_id . ($cancel_reason ? ': ' . $cancel_reason : ''));
+    log_activity($conn, 'cancel_basics_order', 'Cancelled order #' . $order_id . ($cancel_reason ? ': ' . $cancel_reason : ''));
     $member = basics_member_by_order_id($conn, $order_id);
     if ($member) {
         $reason_note = $cancel_reason ? " Reason: {$cancel_reason}" : '';
-        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been cancelled.{$reason_note} - JMC Foodies Basics", 'order', 'Order cancelled', '/order_view.php?id=' . $order_id);
+        basics_notify($conn, $member, "Hi {$member['full_name']}, your order #{$order_id} has been cancelled.{$reason_note} - TindaGo", 'order', 'Order cancelled', '/order_view.php?id=' . $order_id);
     }
     return true;
 }
@@ -677,7 +675,7 @@ function basics_force_order_status($conn, $order_id, $new_status, $actor_label, 
         }
     }
 
-    log_activity($conn, 'force_basics_order_status', 'Corrected the live status of Basics order #' . $order_id . ' to ' . $new_status . ' (' . $actor_label . ')');
+    log_activity($conn, 'force_basics_order_status', 'Corrected the live status of order #' . $order_id . ' to ' . $new_status . ' (' . $actor_label . ')');
     return true;
 }
 
@@ -1004,20 +1002,20 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $stmt->execute();
     $stmt->close();
 
-    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($settles ? ($is_late ? 'late' : 'on-time') : 'partial') . ' payment of ' . format_price($amount_paid) . ' for Basics order #' . $order_id
+    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($settles ? ($is_late ? 'late' : 'on-time') : 'partial') . ' payment of ' . format_price($amount_paid) . ' for order #' . $order_id
         . ($payment_method !== null ? ' via ' . $payment_method : '') . (!$settles ? ' (' . format_price($remaining_after) . ' still due)' : ''));
 
     $notify_member = basics_get_member($conn, $member['user_id']);
     if ($notify_member && !$settles) {
         $due_note = $due_date !== null ? 'due by ' . date('M j, Y', strtotime($due_date)) : 'due 7 days after delivery';
-        basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your partial payment of " . format_price($amount_paid) . " for order #{$order_id}. Your remaining balance of " . format_price($remaining_after) . " is {$due_note}. - JMC Foodies Basics", 'payment', 'Partial payment received', '/order_view.php?id=' . $order_id);
+        basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your partial payment of " . format_price($amount_paid) . " for order #{$order_id}. Your remaining balance of " . format_price($remaining_after) . " is {$due_note}. - TindaGo", 'payment', 'Partial payment received', '/order_view.php?id=' . $order_id);
     } elseif ($notify_member) {
         if ($new_status === 'active') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - JMC Foodies Basics", 'payment', 'Payment received', '/order_view.php?id=' . $order_id);
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - TindaGo", 'payment', 'Payment received', '/order_view.php?id=' . $order_id);
         } elseif ($new_status === 'suspended') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your membership has been suspended until " . date('M j, Y', strtotime($new_suspended_until)) . ". - JMC Foodies Basics", 'account', 'Payment received — membership suspended', '/order_view.php?id=' . $order_id);
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your membership has been suspended until " . date('M j, Y', strtotime($new_suspended_until)) . ". - TindaGo", 'account', 'Payment received — membership suspended', '/order_view.php?id=' . $order_id);
         } elseif ($new_status === 'terminated') {
-            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your JMC Foodies Basics membership has been terminated. - JMC Foodies Basics", 'account', 'Payment received — membership terminated', '/order_view.php?id=' . $order_id);
+            basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Due to repeated late payment, your TindaGo membership has been terminated. - TindaGo", 'account', 'Payment received — membership terminated', '/order_view.php?id=' . $order_id);
         }
     }
 
@@ -1083,7 +1081,7 @@ function basics_analyze_payment_proof($conn, $submission_id) {
     $stmt->execute();
     $stmt->close();
 
-    log_activity($conn, 'ai_analyze_payment_proof', 'Ran AI review on Basics payment submission #' . $submission_id);
+    log_activity($conn, 'ai_analyze_payment_proof', 'Ran AI review on payment submission #' . $submission_id);
 
     return ['success' => true, 'amount' => $extracted_amount, 'reference_number' => $extracted_reference, 'notes' => $notes];
 }
@@ -1112,8 +1110,8 @@ function basics_kyc_doc_expectations() {
         'valid_id_1' => $valid_id,
         'valid_id_2' => $valid_id,
         'barangay_clearance' => 'a barangay clearance certificate',
-        'membership_application_form' => 'the FRONT page of a filled-in, signed JMC Foodies Basics membership application form',
-        'membership_application_form_back' => 'the BACK page of a filled-in, signed JMC Foodies Basics membership application form',
+        'membership_application_form' => 'the FRONT page of a filled-in, signed TindaGo membership application form',
+        'membership_application_form_back' => 'the BACK page of a filled-in, signed TindaGo membership application form',
         'certificate_of_employment' => 'a certificate of employment or work clearance issued by an employer',
     ];
 }

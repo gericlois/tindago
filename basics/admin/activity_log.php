@@ -85,7 +85,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <?php endif; ?>
   </form>
 
-  <p class="text-muted small mb-3">Showing the most recent 300 Basics admin entries.</p>
+  <p class="text-muted small mb-3">Showing the most recent 300 admin entries.</p>
 
   <div class="panel-card">
     <div class="table-responsive">

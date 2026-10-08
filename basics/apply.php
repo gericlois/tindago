@@ -6,8 +6,8 @@ require __DIR__ . '/../includes/auth.php';
 require __DIR__ . '/includes/module.php';
 require __DIR__ . '/includes/functions.php';
 
-// Basics has its own account system (basics_users), separate from Wellness —
-// applying always creates a brand-new Basics account. If this browser is
+// Applying always creates a brand-new member account (basics_users). If this
+// browser is
 // already logged into one, just send them to their existing application.
 if (basics_is_logged_in()) {
     redirect('/basics/pending.php');
@@ -29,8 +29,7 @@ $employer_name = '';
 $employer_contact = '';
 $position = '';
 $employer_address = '';
-// Optional, unlike Wellness's referral program (which requires one to
-// register at all) — Basics membership is open to any employee of a partner
+// Optional — membership is open to any employee of a partner
 // company regardless of referral. An invalid/unknown code is never a hard
 // error, just silently treated as "no referral" (see the lookup below).
 $ref_code = trim($_GET['ref'] ?? $_POST['ref_code'] ?? '');
@@ -167,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->commit();
 
-            send_sms($contact_number, "Hi $full_name, we've received your JMC Foodies Basics membership application. It's now under review for processing and approval. - JMC Foodies Basics");
+            send_sms($contact_number, "Hi $full_name, we've received your TindaGo membership application. It's now under review for processing and approval. - TindaGo");
 
             session_regenerate_id(true);
             $_SESSION['basics_user_id'] = $user_id;
@@ -188,7 +187,7 @@ require __DIR__ . '/../includes/navbar.php';
 <div class="inner-hero">
   <div class="container">
     <span class="slbl">Join Us</span>
-    <h1 class="stitle">Apply for <span>Basics Membership</span></h1>
+    <h1 class="stitle">Apply for <span>TindaGo Membership</span></h1>
     <div class="sline"></div>
   </div>
 </div>
@@ -332,7 +331,7 @@ require __DIR__ . '/../includes/navbar.php';
 
           <button type="submit" class="btn-red w-100 justify-content-center"><i class="fas fa-paper-plane"></i>Submit Application</button>
         </form>
-        <p class="text-center mt-3 small mb-0">Already have a Basics account? <a href="<?= BASICS_URL ?>/login.php">Login</a></p>
+        <p class="text-center mt-3 small mb-0">Already have a TindaGo account? <a href="<?= BASICS_URL ?>/login.php">Login</a></p>
       </div>
     </div>
   </div>

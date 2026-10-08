@@ -1,10 +1,10 @@
-// Service worker for the JMC Digital PWA (covers Wellness, Basics, and the
-// hub — one registration, whole-site scope). Deliberately conservative:
+// Service worker for the TindaGo PWA (one registration, whole-site
+// scope). Deliberately conservative:
 // only same-origin, versionless static assets (CSS/JS/images/fonts) get
 // cached. Every .php page is left to the network untouched, since this app
 // shows real-time wallet balances, credit lines, and order/payment status
 // that must never be served stale from a cache.
-const CACHE_NAME = 'jmc-digital-static-v1';
+const CACHE_NAME = 'tindago-static-v1';
 const PRECACHE_ASSETS = [
   './assets/css/theme.css',
   './assets/css/style.css',

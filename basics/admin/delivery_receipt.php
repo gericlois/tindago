@@ -51,7 +51,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="panel-card">
     <div class="d-flex justify-content-between align-items-start mb-4">
       <div>
-        <h2 class="h6 mb-1">JMC Foodies Basics</h2>
+        <h2 class="h6 mb-1">TindaGo</h2>
         <p class="text-muted small mb-0">Weekly Grocery Purchase Line</p>
       </div>
       <div class="text-end">

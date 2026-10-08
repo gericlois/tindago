@@ -1,5 +1,5 @@
 # Local database backups/exports — may contain real user data.
-# (database/referral_platform.sql is the app's schema+seed source, not a
+# (database/tindago_schema.sql is the app's schema+seed source, not a
 # live-data dump, so it's intentionally NOT excluded here.)
 /referral_platform_backup.sql
 /database/backups/

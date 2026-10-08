@@ -1,15 +1,8 @@
 <?php
 // Same module-data-driven convention as navbar.php.
 $module_name = $module_name ?? SITE_NAME;
-$module_logo_url = $module_logo_url ?? BASE_URL . '/assets/img/wellness/logo.jpg';
-$module_home_url = $module_home_url ?? BASE_URL . '/index.php';
-$module_nav_items = $module_nav_items ?? [];
-$module_guest_nav_items = $module_guest_nav_items ?? [];
-$module_register_url = $module_register_url ?? null;
-$module_footer_desc = $module_footer_desc ?? 'JMC Digital brings together JMC Foodies Wellness and JMC Foodies Basics — two ways to save, earn, and shop with JMC Foodies.';
-// Wellness and Basics have fully separate login sessions — see navbar.php.
-$module_is_logged_in = $module_name === 'JMC Foodies Basics' ? basics_is_logged_in() : is_logged_in();
-$module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login.php' : BASE_URL . '/login.php';
+$module_logo_url = $module_logo_url ?? BASE_URL . '/assets/img/basics/logo.jpg';
+$module_footer_desc = $module_footer_desc ?? '';
 ?>
   <footer>
     <div class="container">
@@ -20,37 +13,15 @@ $module_login_url = $module_name === 'JMC Foodies Basics' ? BASICS_URL . '/login
           </div>
           <p class="fdesc"><?= sanitize($module_footer_desc) ?></p>
         </div>
-        <?php // Basics' navbar already covers all of these on mobile (its own
-              // menu), so the footer copy just duplicates it — kept for
-              // Wellness/hub pages, hidden for Basics. ?>
-        <?php if ($module_name !== 'JMC Foodies Basics'): ?>
-        <div class="col-sm-6 col-lg-4">
-          <div class="ftit">Quick Links</div>
-          <ul class="flinks ps-0">
-            <li><a href="<?= sanitize($module_home_url) ?>"><i class="fas fa-chevron-right"></i>Home</a></li>
-            <?php if ($module_is_logged_in): ?>
-              <?php // Navbar dropdown groups (arrays) are listed flat here. ?>
-              <?php foreach ($module_nav_items as $label => $url): ?>
-                <?php foreach (is_array($url) ? $url : [$label => $url] as $link_label => $link_url): ?>
-                  <li><a href="<?= sanitize($link_url) ?>"><i class="fas fa-chevron-right"></i><?= sanitize($link_label) ?></a></li>
-                <?php endforeach; ?>
-              <?php endforeach; ?>
-            <?php else: ?>
-              <?php foreach ($module_guest_nav_items as $label => $url): ?>
-                <li><a href="<?= sanitize($url) ?>"><i class="fas fa-chevron-right"></i><?= sanitize($label) ?></a></li>
-              <?php endforeach; ?>
-              <?php if ($module_register_url): ?>
-                <li><a href="<?= sanitize($module_register_url) ?>"><i class="fas fa-chevron-right"></i>Register</a></li>
-              <?php endif; ?>
-              <li><a href="<?= $module_login_url ?>"><i class="fas fa-chevron-right"></i>Login</a></li>
-            <?php endif; ?>
-          </ul>
-        </div>
-        <?php endif; ?>
         <div class="col-lg-4">
           <div class="ftit">Get In Touch</div>
-          <div class="fci"><div class="fciinfo"><strong>Email:</strong> <?= sanitize(setting($conn, 'company_email', 'support@example.com')) ?></div></div>
-          <div class="fci"><div class="fciinfo"><strong>Facebook:</strong> <a href="<?= FACEBOOK_URL ?>" target="_blank" rel="noopener">JMC Foodies on Facebook</a></div></div>
+          <?php $company_email = setting($conn, 'company_email', ''); ?>
+          <?php if ($company_email !== ''): ?>
+            <div class="fci"><div class="fciinfo"><strong>Email:</strong> <?= sanitize($company_email) ?></div></div>
+          <?php endif; ?>
+          <?php if (FACEBOOK_URL !== ''): ?>
+            <div class="fci"><div class="fciinfo"><strong>Facebook:</strong> <a href="<?= sanitize(FACEBOOK_URL) ?>" target="_blank" rel="noopener"><?= sanitize(SITE_NAME) ?> on Facebook</a></div></div>
+          <?php endif; ?>
           <?php $company_address = setting($conn, 'company_address', ''); ?>
           <?php if ($company_address !== ''): ?>
             <div class="fci"><div class="fciinfo"><strong>Address:</strong> <?= sanitize($company_address) ?></div></div>

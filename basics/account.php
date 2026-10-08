@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
-        log_activity($conn, 'update_basics_account', 'Basics member updated their own account info');
+        log_activity($conn, 'update_basics_account', 'member updated their own account info');
 
         $user = basics_get_member($conn, $user_id);
         $saved = true;

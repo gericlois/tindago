@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Same confirmation message whether or not the account/email/phone
         // exists, so this form can't be used to enumerate registered usernames.
         if ($user && (!empty($user['email']) || !empty($user['contact_number']))) {
-            $module_name = 'JMC Foodies Basics';
+            $module_name = 'TindaGo';
             $subject = "Your {$module_name} password has been reset";
             $sms_prefix = password_reset_sms_prefix($module_name) . '%';
 

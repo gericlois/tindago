@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_p
         }
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'toggle_basics_partner', 'Designated Community Partner status for Basics member #' . $member_id);
+        log_activity($conn, 'toggle_basics_partner', 'Designated Community Partner status for member #' . $member_id);
         redirect('/basics/admin/member_view.php?id=' . $member_id);
     }
 }

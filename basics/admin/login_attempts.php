@@ -7,14 +7,9 @@ require __DIR__ . '/../includes/functions.php';
 
 require_basics_admin_role(['super_admin']);
 
-// Only the two admin-panel scopes — this page is about who tried to log in
-// as an admin, not the much noisier member-login scopes (wellness, basics).
-$scope_options = ['' => 'All Admin Panels', 'basics_admin' => 'Basics Admin', 'wellness_admin' => 'Wellness Admin'];
-$scope_filter = $_GET['scope'] ?? '';
-if (!isset($scope_options[$scope_filter])) {
-    $scope_filter = '';
-}
-$scopes_in_play = $scope_filter === '' ? ['basics_admin', 'wellness_admin'] : [$scope_filter];
+// Only the admin-panel scope — this page is about who tried to log in
+// as an admin, not the much noisier member-login scope (basics).
+$scopes_in_play = ['basics_admin'];
 $scope_placeholders = implode(',', array_fill(0, count($scopes_in_play), '?'));
 $scope_types = str_repeat('s', count($scopes_in_play));
 
@@ -48,7 +43,7 @@ $ip_wide = $conn->query("SELECT ip, COUNT(*) AS c, MAX(created_at) AS last_attem
     HAVING c >= 60
     ORDER BY c DESC")->fetch_all(MYSQLI_ASSOC);
 
-$scope_labels = ['basics_admin' => 'Basics Admin', 'wellness_admin' => 'Wellness Admin'];
+$scope_labels = ['basics_admin' => 'Admin Panel'];
 
 $page_title = 'Admin Login Attempts';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -74,12 +69,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
   <?php endif; ?>
 
-  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-    <div class="d-flex flex-wrap gap-2">
-      <?php foreach ($scope_options as $key => $label): ?>
-        <a href="?scope=<?= sanitize($key) ?>" class="filter-pill <?= $scope_filter === $key ? 'active' : '' ?>"><?= sanitize($label) ?></a>
-      <?php endforeach; ?>
-    </div>
+  <div class="d-flex justify-content-end mb-3">
     <button type="button" class="btn-outline-theme no-print" onclick="window.print()"><i class="fas fa-print"></i>Print</button>
   </div>
 

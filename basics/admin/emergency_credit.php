@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
             log_activity($conn, 'approve_emergency_credit', 'Approved Emergency Cash Loan request #' . $id . ', released ' . format_price($amount_released));
             $member = basics_member_by_id($conn, $request['member_id']);
             if ($member) {
-                basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan of " . format_price($amount_released) . " has been released. - JMC Foodies Basics", 'loan', 'Emergency loan released', '/emergency_credit.php');
+                basics_notify($conn, $member, "Hi {$member['full_name']}, your Emergency Cash Loan of " . format_price($amount_released) . " has been released. - TindaGo", 'loan', 'Emergency loan released', '/emergency_credit.php');
             }
             redirect('/basics/admin/emergency_credit.php?approved=1');
         }

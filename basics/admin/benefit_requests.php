@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'appro
             if ($req_row) {
                 $member = basics_member_by_id($conn, $req_row['member_id']);
                 if ($member) {
-                    basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$req_row['benefit_type']] . " of " . format_price($amount_paid) . " has been released to your registered account. - JMC Foodies Basics", 'benefit', 'Benefit released', '/benefits.php');
+                    basics_notify($conn, $member, "Hi {$member['full_name']}, your " . $type_labels[$req_row['benefit_type']] . " of " . format_price($amount_paid) . " has been released to your registered account. - TindaGo", 'benefit', 'Benefit released', '/benefits.php');
                 }
             }
             redirect('/basics/admin/benefit_requests.php?approved=1');
@@ -94,13 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'remin
     } else {
         $link = absolute_url(BASICS_URL . '/payout_account.php');
         $benefit = $type_labels[$req_row['benefit_type']] ?? 'benefit';
-        $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - JMC Foodies Basics", 'benefit', 'Add your payout account', '/payout_account.php');
+        $sms_sent = basics_notify($conn, $member, "Hi {$member['full_name']}, to receive your {$benefit} payout, please add your GCash, GoTyme or bank account here: {$link} - TindaGo", 'benefit', 'Add your payout account', '/payout_account.php');
         $email_sent = !empty($member['email']) && send_email($member['email'], 'Add your payout account to receive your ' . $benefit,
             "Hi {$member['full_name']},\r\n\r\n"
             . "Your {$benefit} request is being reviewed, but we can't send the payout yet because you haven't added a payout account.\r\n\r\n"
             . "Please add your GCash, GoTyme or bank account here:\r\n{$link}\r\n\r\n"
             . "Once it's added, we can release your payout.\r\n\r\n"
-            . '— JMC Foodies Basics Team');
+            . '— TindaGo Team');
 
         $channels = array_keys(array_filter(['SMS' => $sms_sent, 'email' => $email_sent]));
         if ($channels) {
@@ -398,7 +398,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <p class="small text-muted mb-0">Send the money first, then approve &mdash; approving texts the member that it's been released.</p>
           <?php else: ?>
             <div class="errmsg mb-0">
-              <p class="mb-2"><strong>No payout account enrolled.</strong> This member hasn't added a GCash, GoTyme or bank account yet, so there's nowhere to send the payout. Ask them to enroll one under <em>Payout Account</em> in their Basics account, then approve. You can still deny the request below.</p>
+              <p class="mb-2"><strong>No payout account enrolled.</strong> This member hasn't added a GCash, GoTyme or bank account yet, so there's nowhere to send the payout. Ask them to enroll one under <em>Payout Account</em> in their TindaGo account, then approve. You can still deny the request below.</p>
               <form method="post" class="mb-0">
                 <input type="hidden" name="action" value="remind_payout">
                 <input type="hidden" name="id" value="<?= (int) $r['id'] ?>">

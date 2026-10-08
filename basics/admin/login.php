@@ -10,7 +10,7 @@ if (basics_is_admin_logged_in()) {
 
 $errors = [];
 $username = '';
-$maintenance_message = 'Basics is under maintenance. Only super admins can log in right now.';
+$maintenance_message = 'TindaGo is under maintenance. Only super admins can log in right now.';
 
 if (isset($_GET['maintenance'])) {
     $errors[] = $maintenance_message;
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_title = 'Basics Admin Login';
+$page_title = 'Admin Login';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 ?>
 <div style="background:var(--dark);min-height:100vh;display:flex;align-items:center;">
@@ -55,7 +55,7 @@ require __DIR__ . '/../../admin/includes/admin_header.php';
       <div class="col-12 col-sm-8 col-md-5 col-lg-4">
         <div class="text-center mb-4">
           <div class="hbi mx-auto mb-3" style="width:56px;height:56px;font-size:1.4rem;"><i class="fas fa-basket-shopping"></i></div>
-          <h1 class="h4" style="color:#fff;font-family:'Playfair Display',serif;font-weight:900;">JMC Foodies Basics</h1>
+          <h1 class="h4" style="color:#fff;font-family:'Playfair Display',serif;font-weight:900;">TindaGo</h1>
           <p class="small" style="color:rgba(255,255,255,.5);">Admin Panel</p>
         </div>
 

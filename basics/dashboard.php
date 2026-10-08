@@ -56,7 +56,7 @@ require __DIR__ . '/../includes/navbar.php';
         <?php endif; ?>
       <?php else: ?>
         <p class="mb-3">
-          <?= $birthday['is_today'] ? 'Everyone at JMC Foodies Basics is celebrating with you today.' : 'We hope you had a wonderful birthday.' ?>
+          <?= $birthday['is_today'] ? 'Everyone at TindaGo is celebrating with you today.' : 'We hope you had a wonderful birthday.' ?>
           Your <strong>Birthday Grocery Gift</strong> is waiting for you<?= $birthday['is_today'] ? '' : ' &mdash; claim it by ' . date('M j, Y', strtotime($birthday['claim_by'])) ?>.
         </p>
         <form method="post">
@@ -133,7 +133,7 @@ require __DIR__ . '/../includes/navbar.php';
 
       <div class="panel-card text-center">
         <h2 class="h6 mb-3">Member Benefits</h2>
-        <img src="<?= BASE_URL ?>/assets/img/basics/JMCBasics_catalog.jpg" alt="JMC Foodies Basics membership benefits" class="highlight-poster mb-3" style="max-width:600px;">
+        <p class="mb-3">Members can request an Electric Bill Cash Subsidy, Hospital or Burial Financial Assistance, and the Baon Eskwela Subsidy.</p>
         <div>
           <a href="<?= BASICS_URL ?>/benefits.php" class="btn-red justify-content-center"><i class="fas fa-hand-holding-heart"></i>Request Assistance</a>
         </div>

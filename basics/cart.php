@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
                 $stmt->execute();
                 $stmt->close();
 
-                basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your order of " . format_price($order['total_amount']) . ". We'll notify you once it's confirmed and again once it's delivered. - JMC Foodies Basics", 'order', 'Order placed', '/order_view.php?id=' . $order['id']);
+                basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your order of " . format_price($order['total_amount']) . ". We'll notify you once it's confirmed and again once it's delivered. - TindaGo", 'order', 'Order placed', '/order_view.php?id=' . $order['id']);
 
                 redirect('/basics/orders.php?placed=1');
             }

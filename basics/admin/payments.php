@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
             } elseif ($submission['payment_for'] === 'loan') {
                 $member = basics_member_by_id($conn, $submission['member_id']);
                 if ($member) {
-                    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your payment of " . format_price($submission['amount']) . " for your Emergency Cash Loan. - JMC Foodies Basics", 'payment', 'Loan payment received', '/payments.php');
+                    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your payment of " . format_price($submission['amount']) . " for your Emergency Cash Loan. - TindaGo", 'payment', 'Loan payment received', '/payments.php');
                 }
             } else {
                 basics_add_notification($conn, $submission['member_id'], 'payment', 'Payment confirmed',

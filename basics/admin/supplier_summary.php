@@ -80,7 +80,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="panel-card mb-4">
     <div class="d-flex justify-content-between align-items-start mb-3">
       <div>
-        <h2 class="h6 mb-1">JMC Foodies Basics</h2>
+        <h2 class="h6 mb-1">TindaGo</h2>
         <p class="text-muted small mb-0">Supplier Procurement Summary</p>
       </div>
       <div class="text-end">
@@ -115,7 +115,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 <script>
 document.getElementById('copyBtn').addEventListener('click', function () {
   var lines = [
-    'JMC Foodies Basics - Supplier Order Summary',
+    'TindaGo - Supplier Order Summary',
     'Order Date<?= $start_date === $end_date ? '' : ' Range' ?>: <?= addslashes(strip_tags(str_replace('&ndash;', '-', $range_label))) ?>',
     ''
   ];

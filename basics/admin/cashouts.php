@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->close();
 
-            log_activity($conn, 'approve_basics_cashout', 'Approved Basics cashout #' . $id . ' (' . format_price($cashout['net_amount']) . ') for ' . $cashout['full_name']);
+            log_activity($conn, 'approve_basics_cashout', 'Approved cashout #' . $id . ' (' . format_price($cashout['net_amount']) . ') for ' . $cashout['full_name']);
             basics_add_notification($conn, $cashout['member_id'], 'earnings', 'Cash-out approved',
                 'Your cash-out of ' . format_price($cashout['net_amount']) . ' has been approved and is being sent to you.', '/wallet.php');
         } elseif ($action === 'reject') {
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Cashout request #' . $id . ' rejected — funds returned');
 
                 $conn->commit();
-                log_activity($conn, 'reject_basics_cashout', 'Rejected Basics cashout #' . $id . ' (' . format_price($cashout['amount']) . ') for ' . $cashout['full_name']);
+                log_activity($conn, 'reject_basics_cashout', 'Rejected cashout #' . $id . ' (' . format_price($cashout['amount']) . ') for ' . $cashout['full_name']);
                 basics_add_notification($conn, $cashout['member_id'], 'earnings', 'Cash-out not approved',
                     'Your cash-out request of ' . format_price($cashout['amount']) . ' was not approved. The amount has been returned to your earnings balance.', '/wallet.php');
             } catch (Exception $e) {

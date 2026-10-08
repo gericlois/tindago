@@ -1,2 +1,0 @@
-# Only ever loaded by PHP itself, never requested directly by a browser.
-Require all denied

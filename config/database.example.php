@@ -17,7 +17,7 @@ if ($is_local) {
     $db_host = 'localhost';
     $db_user = 'root';
     $db_pass = '';
-    $db_name = 'referral_platform';
+    $db_name = 'tindago';
 } else {
     // Live (fill in with real host/credentials before deploying)
     $db_host = '';

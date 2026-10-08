@@ -1,6 +1,6 @@
 <?php
 // ---------------------------------------------------------------
-// JMC Basics — Birthday Grocery Gift.
+// TindaGo — Birthday Grocery Gift.
 //   * Members (approved + active) get an email + SMS greeting at 6AM on
 //     their birthday, and a dashboard greeting with a "claim" button.
 //   * The claim stays open for basics_birthday_claim_days (default 7) days
@@ -201,19 +201,19 @@ function basics_claim_birthday_gift($conn, $member) {
     basics_record_order_status($conn, $order_id, 'pending', $member['full_name'], 'Birthday gift claimed');
 
     log_activity($conn, 'claim_birthday_gift', 'Member #' . $member['id'] . ' claimed their Birthday Grocery Gift (' . $status['year'] . '), created order #' . $order_id);
-    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your Birthday Grocery Gift request (order #{$order_id}). Our team will review it and get it ready for you. - JMC Foodies Basics", 'order', 'Birthday gift request received', '/order_view.php?id=' . $order_id);
+    basics_notify($conn, $member, "Hi {$member['full_name']}, we've received your Birthday Grocery Gift request (order #{$order_id}). Our team will review it and get it ready for you. - TindaGo", 'order', 'Birthday gift request received', '/order_view.php?id=' . $order_id);
     return true;
 }
 
 function basics_birthday_messages($first_name, $claim_days) {
     return [
-        'subject' => 'Happy Birthday from JMC Foodies Basics!',
+        'subject' => 'Happy Birthday from TindaGo!',
         'email' => "Hi {$first_name},\r\n\r\n"
-            . "Happy Birthday from all of us at JMC Foodies Basics!\r\n\r\n"
+            . "Happy Birthday from all of us at TindaGo!\r\n\r\n"
             . "As a valued member, you have a Birthday Grocery Gift waiting for you. "
             . "Log in to your dashboard and press \"Claim My Birthday Gift\" within the next {$claim_days} days.\r\n\r\n"
-            . '— JMC Foodies Basics Team',
-        'sms' => "Happy Birthday, {$first_name}! Your JMC Foodies Basics Birthday Grocery Gift is waiting - log in to your dashboard and claim it within {$claim_days} days. - JMC Foodies Basics",
+            . '— TindaGo Team',
+        'sms' => "Happy Birthday, {$first_name}! Your TindaGo Birthday Grocery Gift is waiting - log in to your dashboard and claim it within {$claim_days} days. - TindaGo",
     ];
 }
 

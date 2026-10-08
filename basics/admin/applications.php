@@ -40,7 +40,7 @@ if ($ai_allowed) {
     }
 }
 
-$page_title = 'Basics Applications';
+$page_title = 'Membership Applications';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>

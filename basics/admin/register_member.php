@@ -114,8 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->commit();
 
-            log_activity($conn, 'register_basics_member', 'Registered Basics member "' . $full_name . '" (' . $username . ') — application #' . $member_id . ' pending approval');
-            send_sms($contact_number, "Hi $full_name, we've received your JMC Foodies Basics membership application. It's now under review for processing and approval. - JMC Foodies Basics");
+            log_activity($conn, 'register_basics_member', 'Registered member "' . $full_name . '" (' . $username . ') — application #' . $member_id . ' pending approval');
+            send_sms($contact_number, "Hi $full_name, we've received your TindaGo membership application. It's now under review for processing and approval. - TindaGo");
 
             $_SESSION['flash_registered'] = [
                 'member_id' => $member_id,

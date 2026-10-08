@@ -12,15 +12,12 @@
    again later for a plain card) and the second definition never resets
    position, so anything using .fcard silently inherits position:absolute
    and gets pulled out of the page flow. This is the safe replacement. */
-/* Hero background photo. theme.css set #hero to a plain --cream background
-   with dark text tuned for that; a real photo needs a dark overlay for the
-   same text to stay legible, so every hero text color is re-scoped below.
-   Path is relative to this CSS file (assets/css/ -> ../img/), not BASE_URL,
-   since a static stylesheet can't use PHP's dynamic subfolder constant. */
+/* Hero background. theme.css set #hero to a plain --cream background
+   with dark text tuned for that; the dark brand gradient needs the
+   hero text colors re-scoped below to stay legible. */
 #hero {
   background:
-    linear-gradient(rgba(13, 40, 24, 0.8), rgba(13, 40, 24, 0.72)),
-    url('../img/wellness/head_bg.jpg') center/cover no-repeat;
+    linear-gradient(rgba(0, 38, 102, 0.97), rgba(0, 63, 171, 0.92));
 }
 #hero .hbadge span {
   color: var(--dark);
@@ -35,7 +32,7 @@
   color: var(--secondary);
 }
 #hero .htitle .hl::before {
-  background: rgba(217, 165, 33, 0.25);
+  background: rgba(255, 210, 5, 0.25);
 }
 #hero .hstat .snum em {
   color: var(--secondary);
@@ -50,6 +47,15 @@
 #hero .btn-outline-theme:hover {
   border-color: var(--secondary);
   color: var(--secondary);
+}
+/* Main CTA in orange — a primary-blue button would disappear into the blue
+   hero gradient. */
+#hero .btn-red {
+  background: var(--secondary);
+  box-shadow: 0 8px 24px rgba(251, 112, 9, 0.35);
+}
+#hero .btn-red:hover {
+  background: #e05f00;
 }
 
 /* Time-boxed promo strip above the catalog hero (basics/catalog.php) —
@@ -91,13 +97,15 @@
   box-shadow: 0 6px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Real JMC Foodies brand palette (overrides theme.css's Sarab red/gold —
+/* TindaGo brand palette, taken from the logo (overrides theme.css's Sarab red/gold —
    this file loads after theme.css so these values win everywhere). */
 :root {
-  --primary: #34a853;
-  --secondary: #d9a521;
-  --dark: #0d2818;
-  --green: #2f9e63;
+  --primary: #003fab;
+  --primary-dark: #00317a;
+  --secondary: #fb7009;
+  --accent: #ffd205;
+  --dark: #002766;
+  --green: #5eaf22;
 }
 
 /* Real logo placement. JPG has a white background (no alpha), so on dark
@@ -153,10 +161,10 @@
 
 /* Compact page-header banner used on every inner page instead of the
    template's full-height hero (which only makes sense once, on index.php). */
-/* Light white gradient carrying the brand green/gold, used behind the
+/* Light white gradient carrying the brand yellow/blue, used behind the
    shop/product grid sections (menu.php and the index.php product teaser). */
 .shop-bg {
-  background: linear-gradient(135deg, #ffffff 0%, rgba(217, 165, 33, 0.08) 45%, rgba(20, 83, 45, 0.07) 100%);
+  background: linear-gradient(135deg, #ffffff 0%, rgba(255, 210, 5, 0.08) 45%, rgba(0, 63, 171, 0.07) 100%);
 }
 
 .inner-hero {
@@ -190,7 +198,7 @@
 .errmsg {
   text-align: left;
   padding: 16px 20px;
-  background: rgba(232, 40, 26, 0.07);
+  background: rgba(0, 63, 171, 0.07);
   border-radius: 11px;
   margin-bottom: 20px;
 }
@@ -237,7 +245,7 @@
 }
 
 /* theme.css hardcodes .btn-red, #btt, and .nav-cta to gradient into the old
-   Sarab red (#c01e12) regardless of --primary. Flattened to a solid
+   Sarab red (var(--primary-dark)) regardless of --primary. Flattened to a solid
    --primary fill here (no gradient), with color-mix only for the hover/
    shadow shade so this stays correct if --primary changes again later —
    no second hex to keep in sync. */
@@ -591,7 +599,7 @@
   border-bottom: none;
 }
 .table-theme tbody tr:hover {
-  background: rgba(232, 40, 26, 0.04);
+  background: rgba(0, 63, 171, 0.04);
 }
 
 /* Status / type badges */
@@ -828,7 +836,7 @@
   text-decoration: none;
 }
 .btn-chip-primary { background: var(--primary); color: #fff; }
-.btn-chip-primary:hover { background: #c01e12; color: #fff; }
+.btn-chip-primary:hover { background: var(--primary-dark); color: #fff; }
 .btn-chip-success { background: var(--green); color: #fff; }
 .btn-chip-success:hover { opacity: 0.88; color: #fff; }
 .btn-chip-outline { background: #fff; color: var(--dark); border: 2px solid #eee; }
@@ -932,7 +940,7 @@
 }
 
 /* Basics catalog — Shopee-style product grid (basics/catalog.php).
-   Square photo tile, own class (not .product-photo) so Wellness's
+   Square photo tile, own class (not .product-photo) so other
    product cards elsewhere are untouched. */
 .basics-catalog-grid {
   display: grid;

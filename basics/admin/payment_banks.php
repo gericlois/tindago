@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('ssssi', $name, $account_name, $account_number, $qr_filename, $next_order);
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'add_basics_payment_bank', 'Added Basics payment bank "' . $name . '"');
+            log_activity($conn, 'add_basics_payment_bank', 'Added payment bank "' . $name . '"');
             redirect('/basics/admin/payment_banks.php?added=1');
         }
     } elseif ($action === 'update_bank') {
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'update_basics_payment_bank', 'Updated Basics payment bank #' . $bank_id . ' (' . $name . ')');
+            log_activity($conn, 'update_basics_payment_bank', 'Updated payment bank #' . $bank_id . ' (' . $name . ')');
             redirect('/basics/admin/payment_banks.php?updated=1');
         }
     } elseif ($action === 'toggle_enabled') {
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param('i', $bank_id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'toggle_basics_payment_bank', 'Toggled enabled status for Basics payment bank #' . $bank_id);
+        log_activity($conn, 'toggle_basics_payment_bank', 'Toggled enabled status for payment bank #' . $bank_id);
         redirect('/basics/admin/payment_banks.php');
     } elseif ($action === 'delete_bank') {
         $bank_id = (int) ($_POST['bank_id'] ?? 0);
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param('i', $bank_id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'delete_basics_payment_bank', 'Deleted Basics payment bank #' . $bank_id);
+        log_activity($conn, 'delete_basics_payment_bank', 'Deleted payment bank #' . $bank_id);
         redirect('/basics/admin/payment_banks.php?deleted=1');
     }
 }

@@ -77,7 +77,7 @@ require __DIR__ . '/../includes/navbar.php';
       <?php endif; ?>
 
       <div class="panel-card">
-        <p class="text-muted small mb-3">This is where JMC Foodies Basics sends approved benefit payouts (Electric Subsidy, Hospital/Burial Assistance, Baon Eskwela).</p>
+        <p class="text-muted small mb-3">This is where TindaGo sends approved benefit payouts (Electric Subsidy, Hospital/Burial Assistance, Baon Eskwela).</p>
         <form method="post">
           <input type="hidden" name="action" value="save">
 

@@ -248,7 +248,7 @@ new Chart(document.getElementById('ordersPerDayChart'), {
     datasets: [{
       label: 'Orders Placed',
       data: <?= json_encode($orders_per_day_data) ?>,
-      backgroundColor: '#34a853',
+      backgroundColor: '#003fab',
       borderRadius: 4,
       maxBarThickness: 36
     }]

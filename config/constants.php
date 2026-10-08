@@ -1,27 +1,27 @@
 <?php
 date_default_timezone_set('Asia/Manila');
 
-// JMC Digital is the umbrella brand for two separate systems (JMC Foodies
-// Wellness and JMC Foodies Basics) that share one login. Each module sets
-// its own $module_name/$module_logo_url (see wellness/includes/module.php
-// and basics/includes/module.php) — SITE_NAME is only for the umbrella-level
-// bits (browser tab suffix, footer copyright, admin shell).
-define('SITE_NAME', 'JMC Digital');
-define('FACEBOOK_URL', 'https://www.facebook.com/profile.php?id=61594112565592');
+// Site-wide brand name (browser tab suffix, footer copyright, admin shell,
+// emails/SMS). The member-facing module identity (logo, colors, nav) lives in
+// basics/includes/module.php.
+define('SITE_NAME', 'TindaGo');
+// Leave blank to hide the Facebook link in the footer.
+define('FACEBOOK_URL', '');
 
 /*
  * BASE_URL CONFIGURATION
  * ======================
  * Auto-detects environment:
- *   - Local (localhost / 127.0.0.1) -> '/jmcfoodiespremium' (app runs in a subfolder)
+ *   - Local (localhost / 127.0.0.1) -> '/tindago' (app runs in a subfolder)
  *   - Live  (deployed at domain root) -> '' (empty string)
  */
 $host_header = $_SERVER['HTTP_HOST'] ?? '';
 $is_local = (strpos($host_header, 'localhost') !== false)
          || (strpos($host_header, '127.0.0.1') !== false);
-define('BASE_URL', $is_local ? '/jmcfoodiespremium' : '');
+define('BASE_URL', $is_local ? '/tindago' : '');
 
-define('WELLNESS_URL', BASE_URL . '/wellness');
+// The app's pages live under /basics (internal folder name kept from the
+// codebase this was built from); the site root redirects there.
 define('BASICS_URL', BASE_URL . '/basics');
 
 // ---------------------------------------------------------------

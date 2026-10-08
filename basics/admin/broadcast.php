@@ -40,7 +40,7 @@ function basics_broadcast_recipients($conn, $audience) {
 $audiences = [
     'active'  => 'Active & Approved Members',
     'pending' => 'Pending Applicants',
-    'all'     => 'All Basics Accounts',
+    'all'     => 'All Member Accounts',
 ];
 
 $ai_allowed = basics_ai_review_allowed();
@@ -54,7 +54,7 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
         echo json_encode(['success' => false, 'error' => 'Describe what you want to say (up to 500 characters).']);
     } else {
         $language = ($_POST['language'] ?? '') === 'taglish' ? 'taglish' : 'english';
-        echo json_encode(ai_draft_broadcast($instruction, $language, !empty($_POST['for_sms']), 'JMC Foodies Basics'));
+        echo json_encode(ai_draft_broadcast($instruction, $language, !empty($_POST['for_sms']), 'TindaGo'));
     }
     exit;
 }
@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
         $log_parts = [];
         if ($send_sms) $log_parts[] = $sent_count . ' SMS recipient(s)';
         if ($send_email) $log_parts[] = $email_sent_count . ' email recipient(s)';
-        log_activity($conn, 'send_basics_broadcast', 'Sent Basics announcement to ' . implode(' and ', $log_parts) . ' (' . $audiences[$audience] . ')');
+        log_activity($conn, 'send_basics_broadcast', 'Sent announcement to ' . implode(' and ', $log_parts) . ' (' . $audiences[$audience] . ')');
         // Members also see it in their notification feed (applicants can't
         // log in to one yet, so a pending-only broadcast skips this).
         if ($audience !== 'pending') {
@@ -207,7 +207,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <div class="panel-card mb-4">
       <h2 class="h6">Channel Controls <span class="small text-muted fw-normal">&mdash; Super Admin only</span></h2>
       <p class="text-muted small">Deactivate a channel to stop every admin from sending announcements through it (e.g. out of SMS credits, email provider issue). A reason is required and is shown to admins.</p>
-      <p class="small mb-3"><i class="fas fa-triangle-exclamation text-danger"></i> <strong>SMS is a site-wide switch:</strong> deactivating it stops <em>every</em> text on Wellness and Basics &mdash; announcements, automatic member notifications, admin "Send SMS", payment reminders, password resets and birthday greetings. In-app notifications and emails still go out.</p>
+      <p class="small mb-3"><i class="fas fa-triangle-exclamation text-danger"></i> <strong>SMS is a site-wide switch:</strong> deactivating it stops <em>every</em> text on TindaGo &mdash; announcements, automatic member notifications, admin "Send SMS", payment reminders, password resets and birthday greetings. In-app notifications and emails still go out.</p>
       <div class="row g-3">
         <?php foreach ($channels as $key => $ch): ?>
           <div class="col-md-6">

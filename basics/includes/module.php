@@ -1,23 +1,21 @@
 <?php
-// Sets the current module's identity for the shared header/navbar/footer.
-// Required by every page under basics/ before requiring the shared
-// includes/header.php. See wellness/includes/module.php for the parallel.
-$module_name = 'JMC Foodies Basics';
-$module_logo_url = is_file(__DIR__ . '/../../assets/img/basics/logo.jpg')
-    ? BASE_URL . '/assets/img/basics/logo.jpg'
-    : BASE_URL . '/assets/img/wellness/logo.jpg'; // falls back to the site logo until a Basics logo file is provided
+// Sets TindaGo's identity (name, logo, colors, nav) for the shared
+// header/navbar/footer. Required by every page under basics/ before
+// requiring the shared includes/header.php.
+$module_name = 'TindaGo';
+$module_logo_url = BASE_URL . '/assets/img/basics/logo.jpg';
 $module_home_url = BASICS_URL . '/index.php';
 $module_register_url = BASICS_URL . '/apply.php';
 $module_footer_desc = 'A weekly grocery purchase line for employees of partner companies. Basic needs, everyday, for every family.';
-// Orange + green — re-themes every shared button/badge/card component for
-// Basics pages via the CSS variable override in includes/header.php.
-$module_primary_color = '#e8720c';
-$module_secondary_color = '#2e7d32';
-// Header (topbar + nav) uses the same dark green as the footer instead of
+// TindaGo blue + orange (from the logo) — re-themes every shared button/badge/card component for
+// every page via the CSS variable override in includes/header.php.
+$module_primary_color = '#003fab';
+$module_secondary_color = '#fb7009';
+// Header (topbar + nav) uses the same deep blue as the footer instead of
 // theme.css's default white nav.
 $module_header_dark = true;
 // Bold sans-serif headings + squared, left-accented components instead of
-// Wellness's elegant-serif, fully-rounded look — see includes/header.php.
+// the base theme's elegant-serif, fully-rounded look — see includes/header.php.
 $module_squared_ui = true;
 
 // An array value renders as a dropdown of those links (includes/navbar.php).
@@ -57,9 +55,9 @@ if (isset($conn) && $conn instanceof mysqli && function_exists('basics_is_logged
 }
 
 // Maintenance mode toggle (basics/admin/maintenance.php). This file is
-// required by every Basics member-facing page but no basics/admin/*.php
+// required by every member-facing page but no basics/admin/*.php
 // page, so gating here blocks members site-wide while leaving the admin
-// panel (including the toggle itself) and all of Wellness untouched.
+// panel (including the toggle itself) untouched.
 if (isset($conn) && $conn instanceof mysqli && setting($conn, 'basics_maintenance_enabled', '0') === '1') {
     http_response_code(503);
     $page_title = 'Under Maintenance';
@@ -68,8 +66,11 @@ if (isset($conn) && $conn instanceof mysqli && setting($conn, 'basics_maintenanc
     <div class="container py-5 text-center" style="min-height:50vh;display:flex;flex-direction:column;justify-content:center;align-items:center;">
       <i class="fas fa-screwdriver-wrench mb-3" style="font-size:3rem;color:var(--primary);"></i>
       <h1 class="stitle">We'll be right back</h1>
-      <p class="sdesc mb-3">JMC Foodies Basics is temporarily down for maintenance. Please check back soon.</p>
-      <p class="mb-0 small">For questions, email <a href="mailto:jmcdigital2026@gmail.com">jmcdigital2026@gmail.com</a></p>
+      <p class="sdesc mb-3">TindaGo is temporarily down for maintenance. Please check back soon.</p>
+      <?php $maintenance_email = setting($conn, 'company_email', ''); ?>
+      <?php if ($maintenance_email !== ''): ?>
+        <p class="mb-0 small">For questions, email <a href="mailto:<?= sanitize($maintenance_email) ?>"><?= sanitize($maintenance_email) ?></a></p>
+      <?php endif; ?>
     </div>
     </body>
     </html>

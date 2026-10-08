@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
             $stmt->bind_param('ssss', $username, $hash, $name, $role);
             $stmt->execute();
             $stmt->close();
-            log_activity($conn, 'create_basics_admin', 'Created Basics admin "' . $username . '" (role: ' . $role . ')');
+            log_activity($conn, 'create_basics_admin', 'Created admin "' . $username . '" (role: ' . $role . ')');
             $_SESSION['flash_admin_password'] = $password;
             $_SESSION['flash_admin_username'] = $username;
             redirect('/basics/admin/admins.php?created=1');
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         $stmt->bind_param('ssi', $name, $role, $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'update_basics_admin', 'Updated Basics admin "' . $target['username'] . '" (role: ' . $role . ')');
+        log_activity($conn, 'update_basics_admin', 'Updated admin "' . $target['username'] . '" (role: ' . $role . ')');
         redirect('/basics/admin/admins.php?updated=1');
     }
 }
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
         $stmt->bind_param('si', $hash, $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'reset_basics_admin_password', 'Reset password for Basics admin "' . $target['username'] . '"');
+        log_activity($conn, 'reset_basics_admin_password', 'Reset password for admin "' . $target['username'] . '"');
         $_SESSION['flash_admin_password'] = $password;
         $_SESSION['flash_admin_username'] = $target['username'];
         redirect('/basics/admin/admins.php?reset=1');
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
-        log_activity($conn, 'delete_basics_admin', 'Deleted Basics admin "' . $target['username'] . '"');
+        log_activity($conn, 'delete_basics_admin', 'Deleted admin "' . $target['username'] . '"');
         redirect('/basics/admin/admins.php?deleted=1');
     }
 }
