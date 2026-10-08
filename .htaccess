@@ -3,6 +3,10 @@
 # No directory listings anywhere (e.g. browsing /uploads/basics_products/).
 Options -Indexes
 
+# The app's entry point wins over any host placeholder page (e.g.
+# GoDaddy's home.html) left in the web root.
+DirectoryIndex index.php index.html
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
