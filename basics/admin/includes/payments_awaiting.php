@@ -76,6 +76,7 @@
             <div class="mb-2">
               <label class="flbl">Amount Paid</label>
               <input type="number" step="0.01" min="0.01" name="amount_paid" class="fctrl" value="<?= sanitize($remaining) ?>" required>
+              <div class="form-text">Less than this is recorded as a partial payment &mdash; the rest stays due on the order until it's paid.</div>
             </div>
             <div class="mb-2">
               <label class="flbl">Payment Method</label>

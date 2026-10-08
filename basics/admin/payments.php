@@ -32,11 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
         $errors[] = 'Payment method "Other" needs a note saying how the member paid.';
     }
 
-    // No partial payments, same rule as the member's Submit Payment page: the
-    // amount must cover the order total minus what's already paid, plus the
-    // late penalty if the payment date is past the due date (the same test
-    // basics_record_payment() applies, so a backdated on-time payment owes
-    // no penalty).
+    // Partial payments are allowed here (e.g. ₱1,030 cash on a ₱1,030.50
+    // order): the rest stays due, and on-time/late is decided by the payment
+    // that settles the order (basics_record_payment()). A settling payment
+    // made after the due date must also cover the late penalty — the same
+    // date test basics_record_payment() uses, so a backdated on-time
+    // payment owes no penalty.
     $stmt = $conn->prepare("SELECT o.*, bm.offense_count,
                                    (SELECT COALESCE(SUM(amount_paid),0) FROM basics_payments p WHERE p.order_id = o.id) AS amount_paid
                             FROM basics_orders o JOIN basics_members bm ON bm.id = o.member_id
@@ -45,29 +46,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     $stmt->execute();
     $pay_order = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    $required = null;
+    $balance = null;   // order total still unpaid
+    $required = null;  // what a settling payment must cover (balance + any late penalty)
     $penalty = 0.0;
     if ($pay_order) {
         $due_date = basics_payment_due_date($pay_order);
         $is_late = $due_date !== null && date('Y-m-d', strtotime($paid_at)) > $due_date;
         $penalty = $is_late ? round((float) $pay_order['total_amount'] * basics_late_penalty_rate($conn, (int) $pay_order['offense_count'] + 1), 2) : 0.0;
-        $required = round((float) $pay_order['total_amount'] + $penalty - (float) $pay_order['amount_paid'], 2);
+        $balance = round((float) $pay_order['total_amount'] - (float) $pay_order['amount_paid'], 2);
+        $required = round($balance + $penalty, 2);
     }
 
     if ($errors) {
         // Payment method problem — reported above.
     } elseif ($amount_paid <= 0) {
         $errors[] = 'Enter a valid amount paid.';
-    } elseif ($required !== null && $amount_paid < $required) {
-        $errors[] = 'Amount paid (' . format_price($amount_paid) . ') is less than the amount due (' . format_price($required) . ') for order #' . $order_id
-            . ($penalty > 0 ? ', which includes the ' . format_price($penalty) . ' late penalty' : '')
-            . '. Partial payments are not accepted — record the full amount due.';
+    } elseif ($penalty > 0 && $amount_paid >= $balance && $amount_paid < $required) {
+        $errors[] = 'This payment pays off order #' . $order_id . ' after its due date, so it must also cover the ' . format_price($penalty) . ' late penalty — record ' . format_price($required)
+            . ', or record less than ' . format_price($balance) . ' as a partial payment.';
     } else {
         $conn->begin_transaction();
         try {
             $result = basics_record_payment($conn, $order_id, $amount_paid, $paid_at, basics_current_admin_id(), $notes, $payment_method);
             $conn->commit();
-            redirect('/basics/admin/order_view.php?id=' . $order_id . '&recorded=1');
+            redirect('/basics/admin/order_view.php?id=' . $order_id . '&recorded=1' . ($result['settled'] ? '' : '&remaining=' . $result['remaining']));
         } catch (Exception $e) {
             $conn->rollback();
             $errors[] = safe_error_message($e);

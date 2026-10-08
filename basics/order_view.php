@@ -137,7 +137,9 @@ require __DIR__ . '/../includes/navbar.php';
             <?php if (!empty($p['payment_method'])): ?>
               <p class="mb-1 small">Method: <?= sanitize($p['payment_method']) ?></p>
             <?php endif; ?>
-            <?php if ($p['is_late']): ?>
+            <?php if ($p['is_late'] && $p['offense_number'] === null): ?>
+              <p class="mb-1 small" style="color:var(--primary);">Partial payment, after the due date</p>
+            <?php elseif ($p['is_late']): ?>
               <p class="mb-1 small" style="color:var(--primary);">Late payment &mdash; <?= format_price($p['penalty_amount']) ?> penalty (<?= (int) ($p['penalty_rate'] * 100) ?>%)</p>
             <?php else: ?>
               <p class="mb-1 small" style="color:var(--green);">On time, no penalty</p>

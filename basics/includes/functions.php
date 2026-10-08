@@ -933,6 +933,18 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $is_late = $due_date !== null && $paid_date > $due_date;
     $amount_due = (float) $order['total_amount'];
 
+    // Partial payments (admin Record Payment only): a payment that leaves
+    // part of the order total unpaid just reduces the balance. Only the
+    // payment that settles the order decides on-time vs late — streak,
+    // penalty, offense and membership changes all happen then.
+    $stmt = $conn->prepare("SELECT COALESCE(SUM(amount_paid), 0) AS paid FROM basics_payments WHERE order_id = ?");
+    $stmt->bind_param('i', $order_id);
+    $stmt->execute();
+    $already_paid = (float) $stmt->get_result()->fetch_assoc()['paid'];
+    $stmt->close();
+    $remaining_after = round($amount_due - $already_paid - (float) $amount_paid, 2);
+    $settles = $remaining_after <= 0;
+
     $penalty_rate = 0.0;
     $penalty_amount = 0.0;
     $offense_number = null;
@@ -942,7 +954,9 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $new_status = $member['membership_status'];
     $new_suspended_until = $member['suspended_until'];
 
-    if ($is_late) {
+    if (!$settles) {
+        // Partial — no change to the member's standing yet.
+    } elseif ($is_late) {
         $offense_number = (int) $member['offense_count'] + 1;
         $penalty_rate = basics_late_penalty_rate($conn, $offense_number);
         $penalty_amount = round($amount_due * $penalty_rate, 2);
@@ -990,10 +1004,14 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
     $stmt->execute();
     $stmt->close();
 
-    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($is_late ? 'late' : 'on-time') . ' payment of ' . format_price($amount_paid) . ' for Basics order #' . $order_id . ($payment_method !== null ? ' via ' . $payment_method : ''));
+    log_activity($conn, 'record_basics_payment', 'Recorded ' . ($settles ? ($is_late ? 'late' : 'on-time') : 'partial') . ' payment of ' . format_price($amount_paid) . ' for Basics order #' . $order_id
+        . ($payment_method !== null ? ' via ' . $payment_method : '') . (!$settles ? ' (' . format_price($remaining_after) . ' still due)' : ''));
 
     $notify_member = basics_get_member($conn, $member['user_id']);
-    if ($notify_member) {
+    if ($notify_member && !$settles) {
+        $due_note = $due_date !== null ? 'due by ' . date('M j, Y', strtotime($due_date)) : 'due 7 days after delivery';
+        basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your partial payment of " . format_price($amount_paid) . " for order #{$order_id}. Your remaining balance of " . format_price($remaining_after) . " is {$due_note}. - JMC Foodies Basics", 'payment', 'Partial payment received', '/order_view.php?id=' . $order_id);
+    } elseif ($notify_member) {
         if ($new_status === 'active') {
             basics_notify($conn, $notify_member, "Hi {$notify_member['full_name']}, we've received your payment of " . format_price($amount_paid) . ". Your purchase limit has been restored - you may now place new orders. - JMC Foodies Basics", 'payment', 'Payment received', '/order_view.php?id=' . $order_id);
         } elseif ($new_status === 'suspended') {
@@ -1003,7 +1021,8 @@ function basics_record_payment($conn, $order_id, $amount_paid, $paid_at, $admin_
         }
     }
 
-    return ['is_late' => $is_late, 'penalty_amount' => $penalty_amount, 'membership_status' => $new_status];
+    return ['is_late' => $is_late, 'penalty_amount' => $penalty_amount, 'membership_status' => $new_status,
+            'settled' => $settles, 'remaining' => max(0, $remaining_after)];
 }
 
 // ---------------------------------------------------------------

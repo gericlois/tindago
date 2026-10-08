@@ -251,6 +251,11 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <?php elseif (($_GET['error'] ?? '') === 'last_item'): ?>
     <div class="errmsg mb-4"><p class="mb-0">That's the only item on this order. To drop it, use <strong>Cancel Order</strong> instead &mdash; it records a reason and notifies the member.</p></div>
   <?php endif; ?>
+  <?php if (isset($_GET['recorded'])): ?>
+    <div class="sucmsg is-visible mb-4"><p class="mb-0">
+      Payment recorded.<?php if (isset($_GET['remaining'])): ?> Partial payment &mdash; <strong><?= format_price((float) $_GET['remaining']) ?></strong> is still due on this order.<?php endif; ?>
+    </p></div>
+  <?php endif; ?>
   <?php if (isset($_GET['updated'])): ?>
     <div class="sucmsg is-visible mb-4"><p class="mb-0">Order updated. The member has been notified in-app, and by SMS and email where available.</p></div>
   <?php endif; ?>
@@ -405,7 +410,10 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <?php if (!empty($p['payment_method'])): ?>
               <p class="mb-1 small">Method: <?= sanitize($p['payment_method']) ?></p>
             <?php endif; ?>
-            <?php if ($p['is_late']): ?>
+            <?php if ($p['is_late'] && $p['offense_number'] === null): ?>
+              <?php // A partial payment after the due date — the offense/penalty land on the payment that settles the order. ?>
+              <p class="mb-1 small" style="color:var(--primary);">Partial payment, after the due date</p>
+            <?php elseif ($p['is_late']): ?>
               <p class="mb-1 small" style="color:var(--primary);">Late &mdash; offense #<?= (int) $p['offense_number'] ?>, <?= format_price($p['penalty_amount']) ?> penalty</p>
             <?php else: ?>
               <p class="mb-1 small" style="color:var(--green);">On time</p>
