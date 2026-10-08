@@ -6,7 +6,7 @@ header('Content-Type: application/manifest+json');
 echo json_encode([
     'name' => 'TindaGo',
     'short_name' => 'TindaGo',
-    'description' => 'A weekly grocery purchase line for employees of partner companies. Basic needs, everyday, for every family.',
+    'description' => 'Digital wholesale marketplace para sa mga tindahan. Mas Mura. Mas Madali. Mas Malaki ang Kita.',
     'start_url' => BASICS_URL . '/index.php',
     'scope' => BASE_URL . '/',
     'display' => 'standalone',

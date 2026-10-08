@@ -87,7 +87,7 @@ require __DIR__ . '/../includes/navbar.php';
     <div class="col-12 col-md-7">
       <div class="panel-card mb-4">
         <h2 class="h6">Order Details</h2>
-        <p class="mb-1">Deliver To (<?= $order['delivery_location'] === 'company' ? 'Company' : 'Home' ?>): <?= sanitize($order['delivery_address']) ?></p>
+        <p class="mb-1">Deliver To (<?= $order['delivery_location'] === 'company' ? 'Other Address' : 'Store' ?>): <?= sanitize($order['delivery_address']) ?></p>
         <?php if ($order['delivered_at']): ?>
           <p class="mb-1">Delivered: <?= date('M j, Y', strtotime($order['delivered_at'])) ?></p>
         <?php endif; ?>

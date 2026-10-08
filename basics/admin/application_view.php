@@ -55,16 +55,32 @@ if ($ai_allowed && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ??
             log_activity($conn, 'deny_basics_application', 'Denied application for member #' . $id);
             $member = basics_get_member($conn, $conn->query("SELECT user_id FROM basics_members WHERE id = $id")->fetch_assoc()['user_id']);
             if ($member) {
-                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the TindaGo Program. Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying after 30 days. For questions and other concerns please call +63 917 323 8153. - TindaGo", 'account', 'Application not approved');
+                basics_notify($conn, $member, "Hi {$member['full_name']}, thank you for choosing to apply for the TindaGo Program. Unfortunately, we are unable to approve your application at this time, based on your available purchase capacity and financial information. However, we would like you to consider applying after 30 days. - TindaGo", 'account', 'Application not approved');
                 send_basics_account_denied_email($member['email'], $member['full_name']);
             }
         }
+    } elseif ($action === 'save_assignment') {
+        // Section 10 of the form (For TindaGo Use Only): agent and territory
+        // can be set or corrected at any stage of the application.
+        $assigned_agent = trim($_POST['assigned_agent'] ?? '');
+        $territory = trim($_POST['territory'] ?? '');
+        $agent_to_store = $assigned_agent !== '' ? $assigned_agent : null;
+        $territory_to_store = $territory !== '' ? $territory : null;
+        $stmt = $conn->prepare("UPDATE basics_members SET assigned_agent = ?, territory = ? WHERE id = ?");
+        $stmt->bind_param('ssi', $agent_to_store, $territory_to_store, $id);
+        $stmt->execute();
+        $stmt->close();
+        log_activity($conn, 'update_store_assignment', 'Set agent/territory for member #' . $id);
     }
     redirect('/basics/admin/application_view.php?id=' . $id);
 }
 
-$stmt = $conn->prepare("SELECT bm.*, u.full_name, u.username, u.email, u.contact_number, u.address, u.birthdate
-                         FROM basics_members bm JOIN basics_users u ON u.id = bm.user_id WHERE bm.id = ?");
+$stmt = $conn->prepare("SELECT bm.*, u.full_name, u.username, u.email, u.contact_number, u.address, u.birthdate,
+                                ra.name AS reviewer_name, ref.referral_code AS referrer_code
+                         FROM basics_members bm JOIN basics_users u ON u.id = bm.user_id
+                         LEFT JOIN basics_admins ra ON ra.id = bm.reviewed_by
+                         LEFT JOIN basics_members ref ON ref.id = bm.referred_by
+                         WHERE bm.id = ?");
 $stmt->bind_param('i', $id);
 $stmt->execute();
 $application = $stmt->get_result()->fetch_assoc();
@@ -79,14 +95,7 @@ $stmt->bind_param('i', $id);
 $stmt->execute();
 $documents = $stmt->get_result();
 
-$doc_labels = [
-    'valid_id_1' => 'Valid ID #1',
-    'valid_id_2' => 'Valid ID #2',
-    'barangay_clearance' => 'Barangay Clearance',
-    'membership_application_form' => 'Membership Application Form (signed) - Front Page',
-    'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
-    'certificate_of_employment' => 'Certificate of Employment / Work Clearance',
-];
+$doc_labels = tindago_kyc_doc_labels();
 
 $page_title = 'Review Application';
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -108,18 +117,15 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="row g-4">
     <div class="col-12 col-md-6">
       <div class="panel-card mb-4">
-        <h2 class="h6">Applicant</h2>
-        <p class="mb-1">Username: <?= sanitize($application['username']) ?></p>
-        <p class="mb-1">Email: <?= sanitize($application['email']) ?></p>
-        <p class="mb-1">Contact #: <?= sanitize($application['contact_number']) ?></p>
-        <p class="mb-1">Address: <?= sanitize($application['address']) ?></p>
-        <p class="mb-0">Birthdate: <?= date('M j, Y', strtotime($application['birthdate'])) ?></p>
+        <h2 class="h6">Store Partner Application</h2>
+        <?php $sp_row = $application; require __DIR__ . '/includes/store_profile_view.php'; ?>
       </div>
       <div class="panel-card mb-4">
-        <h2 class="h6">Employer</h2>
-        <p class="mb-1">Employer: <?= sanitize($application['employer_name']) ?></p>
-        <p class="mb-1">Contact: <?= $application['employer_contact'] ? sanitize($application['employer_contact']) : '—' ?></p>
-        <p class="mb-0">Position: <?= $application['position'] ? sanitize($application['position']) : '—' ?></p>
+        <h2 class="h6">TindaGo Account Details</h2>
+        <p class="mb-1">Username: <?= sanitize($application['username']) ?></p>
+        <p class="mb-1">Email: <?= $application['email'] ? sanitize($application['email']) : '—' ?></p>
+        <p class="mb-1">Owner's Birthdate: <?= date('M j, Y', strtotime($application['birthdate'])) ?></p>
+        <p class="mb-0">Referral / Agent Code: <?= $application['referrer_code'] ? sanitize($application['referrer_code']) : '—' ?></p>
       </div>
       <div class="panel-card">
         <h2 class="h6">Submitted Documents</h2>
@@ -150,8 +156,41 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
 
     <div class="col-12 col-md-6">
+      <div class="panel-card mb-4">
+        <h2 class="h6">For TindaGo Use Only</h2>
+        <dl class="row small mb-3">
+          <dt class="col-sm-5 fw-semibold">Application No.</dt>
+          <dd class="col-sm-7 mb-1"><?= str_pad((string) (int) $application['id'], 6, '0', STR_PAD_LEFT) ?></dd>
+          <dt class="col-sm-5 fw-semibold">Date Received</dt>
+          <dd class="col-sm-7 mb-1"><?= date('M j, Y', strtotime($application['applied_at'])) ?></dd>
+          <dt class="col-sm-5 fw-semibold">Store ID</dt>
+          <dd class="col-sm-7 mb-1"><?= $application['application_status'] === 'approved' ? 'TGS-' . str_pad((string) (int) $application['id'], 6, '0', STR_PAD_LEFT) : '— (assigned on approval)' ?></dd>
+          <dt class="col-sm-5 fw-semibold">Credit Line Approved</dt>
+          <dd class="col-sm-7 mb-1"><?= $application['application_status'] === 'approved' ? format_price($application['weekly_credit_limit']) : '—' ?></dd>
+          <dt class="col-sm-5 fw-semibold">Payment Terms</dt>
+          <dd class="col-sm-7 mb-1">7 days after delivery</dd>
+          <dt class="col-sm-5 fw-semibold">Approved By</dt>
+          <dd class="col-sm-7 mb-1"><?= $application['application_status'] === 'approved' && $application['reviewer_name'] ? sanitize($application['reviewer_name']) : '—' ?></dd>
+          <dt class="col-sm-5 fw-semibold">Date Approved</dt>
+          <dd class="col-sm-7 mb-1"><?= $application['application_status'] === 'approved' && $application['reviewed_at'] ? date('M j, Y', strtotime($application['reviewed_at'])) : '—' ?></dd>
+        </dl>
+        <form method="post">
+          <input type="hidden" name="action" value="save_assignment">
+          <div class="row">
+            <div class="col-sm-6 mb-2">
+              <label class="flbl">Assigned Agent</label>
+              <input type="text" name="assigned_agent" class="fctrl" value="<?= sanitize($application['assigned_agent'] ?? '') ?>">
+            </div>
+            <div class="col-sm-6 mb-2">
+              <label class="flbl">Assigned Territory</label>
+              <input type="text" name="territory" class="fctrl" value="<?= sanitize($application['territory'] ?? '') ?>">
+            </div>
+          </div>
+          <button type="submit" class="btn-chip btn-chip-outline"><i class="fas fa-floppy-disk"></i> Save Assignment</button>
+        </form>
+      </div>
       <div class="panel-card">
-        <h2 class="h6">Application Status</h2>
+        <h2 class="h6">Verification Status</h2>
         <p class="mb-3">Status: <span class="pill pill-<?= $application['application_status'] === 'approved' ? 'approved' : ($application['application_status'] === 'denied' ? 'rejected' : 'pending') ?>"><?= sanitize($application['application_status']) ?></span></p>
 
         <?php if ($application['application_status'] === 'pending'): ?>
@@ -159,7 +198,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
             <input type="hidden" name="action" value="approve">
             <h3 class="h6 mb-2">Approve &amp; Set Purchase Line</h3>
             <div class="mb-2">
-              <label class="flbl">Weekly Grocery Purchase Limit (₱3,000&ndash;4,000)</label>
+              <label class="flbl">Weekly Purchase Limit (up to ₱10,000)</label>
               <input type="number" step="0.01" min="0" name="weekly_credit_limit" class="fctrl" value="3000" required>
             </div>
             <div class="mb-3">

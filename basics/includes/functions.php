@@ -2,6 +2,8 @@
 // TindaGo business logic: continuous ordering, revolving
 // credit-line checks, and the tiered late-payment penalty engine.
 
+require_once __DIR__ . '/store_profile.php';
+
 // Order fulfillment pipeline is admin-driven and fully decoupled from
 // payment: Checking (pending) -> Preparing (confirmed) -> In Transit
 // (out_for_delivery) -> Delivered. Cancelled is the only exit branch, only
@@ -1109,10 +1111,12 @@ function basics_kyc_doc_expectations() {
     return [
         'valid_id_1' => $valid_id,
         'valid_id_2' => $valid_id,
-        'barangay_clearance' => 'a barangay clearance certificate',
+        'barangay_clearance' => "proof of the store's address, such as a barangay certificate or barangay clearance",
+        'store_photo_front' => 'a photo of the FRONT of a sari-sari store or small retail store (storefront, signage, or the window/counter facing the street)',
+        'store_photo_inside' => 'a photo of the INSIDE of a sari-sari store or small retail store (shelves or displays of products for sale)',
         'membership_application_form' => 'the FRONT page of a filled-in, signed TindaGo membership application form',
         'membership_application_form_back' => 'the BACK page of a filled-in, signed TindaGo membership application form',
-        'certificate_of_employment' => 'a certificate of employment or work clearance issued by an employer',
+        'certificate_of_employment' => 'a business permit, DTI/SEC registration, or barangay business clearance for a sari-sari store or small retail business',
     ];
 }
 
@@ -1136,7 +1140,7 @@ function basics_analyze_kyc_document($conn, $doc_id) {
         . "The applicant uploaded this as: {$expected}.\n"
         . "Applicant's name: {$doc['full_name']}\n"
         . "Applicant's birthdate: {$doc['birthdate']}\n"
-        . "Applicant's employer: {$doc['employer_name']}\n\n"
+        . "Applicant's store / business name: {$doc['employer_name']}\n\n"
         . "Read the document and respond with ONLY a JSON object (no markdown, no other text) in this exact shape:\n"
         . '{"detected_document": "<what this document actually is, a few words>", '
         . '"is_expected_document": <true if it is the kind of document described above, else false>, '
@@ -1145,10 +1149,10 @@ function basics_analyze_kyc_document($conn, $doc_id) {
         . '"name_matches_applicant": <true, false, or null if no name is visible — allow for middle names, initials, suffixes and different name order>, '
         . '"birthdate": "<YYYY-MM-DD as printed, or null>", '
         . '"expiry_date": "<YYYY-MM-DD, or null if none>", '
-        . '"employer_on_document": "<employer/company name, or null>", '
-        . '"employer_matches": <true, false, or null if no employer is shown>, '
+        . '"employer_on_document": "<store/business name as printed, or null>", '
+        . '"employer_matches": <true if the store/business name matches the application, false if it differs, null if none is shown>, '
         . '"signed": <true if a handwritten signature is visible, false if there is a signature line left blank, null if not applicable>, '
-        . '"concerns": [<short strings for anything else an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry — empty array if none. Don\'t repeat name, birthdate, expiry, employer or signature mismatches here; those are compared separately>]}';
+        . '"concerns": [<short strings for anything else an admin should double-check: signs of editing or tampering, cropped or cut-off, photo of a screen, blurry — empty array if none. Don\'t repeat name, birthdate, expiry, business name or signature mismatches here; those are compared separately>]}';
 
     $result = gemini_generate_json($prompt, UPLOAD_PATH . 'basics_kyc/' . $doc['file_path']);
     if (!$result['success']) {
@@ -1176,7 +1180,7 @@ function basics_analyze_kyc_document($conn, $doc_id) {
         $concerns[] = 'Expired';
     }
     if ($doc['doc_type'] === 'certificate_of_employment' && ($ai['employer_matches'] ?? null) === false) {
-        $concerns[] = "Employer doesn't match the application";
+        $concerns[] = "Store / business name doesn't match the application";
     }
     if (($ai['signed'] ?? null) === false) {
         $concerns[] = 'No signature visible';
@@ -1188,7 +1192,7 @@ function basics_analyze_kyc_document($conn, $doc_id) {
             'Name' => trim((string) ($ai['name_on_document'] ?? '')),
             'Birthdate' => $birthdate ? date('M j, Y', strtotime($birthdate)) : null,
             'Expires' => $expiry ? date('M j, Y', strtotime($expiry)) : null,
-            'Employer' => trim((string) ($ai['employer_on_document'] ?? '')),
+            'Business' => trim((string) ($ai['employer_on_document'] ?? '')),
         ],
         $concerns
     );
@@ -1389,12 +1393,12 @@ function basics_prescreen_emergency_request($conn, $request_id) {
         'Requested' => format_price($request['amount_requested']) . ($request['reason'] ? ' — "' . $request['reason'] . '"' : ''),
         'Member since' => date('M j, Y', strtotime($member_since)) . ' (' . max(0, (int) floor((time() - strtotime($member_since)) / 86400)) . ' days)',
         'Membership status' => ucfirst($request['membership_status']) . ($request['credit_limit_frozen'] ? ', purchase limit frozen' : ''),
-        'Grocery payments' => (int) $payments['total'] . ' recorded, ' . (int) $payments['late'] . ' late',
+        'Order payments' => (int) $payments['total'] . ' recorded, ' . (int) $payments['late'] . ' late',
         'Late offenses' => (int) $request['offense_count'] . ' (penalties paid ' . format_price($payments['penalties']) . ')',
         'On-time streak' => (int) $request['consecutive_on_time_payments'] . ' payment(s) in a row',
         'Last payment' => $payments['last_paid'] ? date('M j, Y', strtotime($payments['last_paid'])) : 'None yet',
         'Recent payments' => $recent ? implode('; ', $recent) : 'None yet',
-        'Unpaid grocery balance' => format_price(basics_outstanding_balance($conn, $member_id)) . ' (' . $overdue_orders . ' order(s) overdue)',
+        'Unpaid order balance' => format_price(basics_outstanding_balance($conn, $member_id)) . ' (' . $overdue_orders . ' order(s) overdue)',
         'Previous loans' => $previous_loans . ' approved, ' . format_price($loan_outstanding) . ' still owed',
         'Loan limit available' => format_price($loan_available) . ' of ' . format_price($request['emergency_credit_limit']),
     ];
@@ -1403,7 +1407,7 @@ function basics_prescreen_emergency_request($conn, $request_id) {
     foreach ($facts as $label => $value) {
         $fact_lines .= "- {$label}: {$value}\n";
     }
-    $prompt = "You are helping an admin of a Philippine grocery-credit member program review an Emergency Cash Loan request. "
+    $prompt = "You are helping an admin of a Philippine wholesale store-partner program (sari-sari stores ordering stock on credit) review an Emergency Cash Loan request. "
         . "Today is " . date('M j, Y') . ". Here are the facts about this member, taken from the program's records:\n{$fact_lines}\n"
         . "Write a short, neutral pre-screen for the admin using ONLY these facts — don't assume anything that isn't listed. "
         . "Do NOT recommend approving or denying; the admin decides. "

@@ -190,8 +190,8 @@ require __DIR__ . '/../includes/navbar.php';
 
 <div class="inner-hero">
   <div class="container">
-    <span class="slbl">Grocery Catalog</span>
-    <h1 class="stitle">Browse <span>Basic Needs</span></h1>
+    <span class="slbl">Para sa mga Tindahan</span>
+    <h1 class="stitle">Wholesale <span>Catalog</span></h1>
     <div class="sline"></div>
   </div>
 </div>

@@ -79,7 +79,7 @@ require __DIR__ . '/../includes/navbar.php';
         <li class="mb-2">Up to <strong>₱1,000</strong>, at <strong>0% interest</strong> — no interest is ever added to what you owe.</li>
         <li class="mb-2">Every request is <strong>subject to approval</strong> and your <strong>payment performance</strong> — approval isn't automatic, and admins may release less than requested.</li>
         <li class="mb-2">This loan facility is a <strong>privilege</strong>, not a guarantee — it may be adjusted, suspended, or revoked at any time.</li>
-        <li class="mb-2">Two or more late payments (on grocery or emergency loan obligations) may result in your loan limit being reduced, suspended, or revoked.</li>
+        <li class="mb-2">Two or more late payments (on order or emergency loan obligations) may result in your loan limit being reduced, suspended, or revoked.</li>
         <li class="mb-0">Repay promptly and on time to stay in good standing for future requests and higher limits.</li>
       </ul>
     </div>
@@ -89,7 +89,7 @@ require __DIR__ . '/../includes/navbar.php';
     <div class="panel-card">
       <h2 class="h6 mb-3">How to Increase Your Limit</h2>
       <ul class="mb-0" style="padding-left:1.1rem;">
-        <li class="mb-2">Make <strong>12 consecutive on-time grocery payments</strong> to become eligible for a higher limit review. Track your streak on the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page.</li>
+        <li class="mb-2">Make <strong>12 consecutive on-time order payments</strong> to become eligible for a higher limit review. Track your streak on the <a href="<?= BASICS_URL ?>/payments.php">Payments</a> page.</li>
         <li class="mb-2">One late payment doesn't lower your limit — it just freezes it in place until your payment record improves.</li>
         <li class="mb-2">Two or more late payments move things the other way: your loan limit may be reduced, suspended, or revoked instead.</li>
         <li class="mb-0">Reaching 12 on-time payments makes you <strong>eligible</strong>, not automatically approved — an admin still reviews and decides whether to raise your limit.</li>

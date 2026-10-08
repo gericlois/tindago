@@ -1,0 +1,20 @@
+# TindaGo — site-wide Apache rules (cPanel / Apache with mod_rewrite).
+
+# No directory listings anywhere (e.g. browsing /uploads/basics_products/).
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Force HTTPS on the live site. Skipped on localhost so XAMPP keeps
+  # working over plain http, and honours X-Forwarded-Proto for hosts that
+  # terminate SSL at a proxy.
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Server-side folders and dotfiles are never served directly.
+  RewriteRule ^(database|theme)(/|$) - [F,L]
+  RewriteRule (^|/)\.(?!well-known/) - [F,L]
+</IfModule>

@@ -296,14 +296,7 @@ if ($member['is_community_partner']) {
     $untagged_members = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-$doc_labels = [
-    'valid_id_1' => 'Valid ID #1',
-    'valid_id_2' => 'Valid ID #2',
-    'barangay_clearance' => 'Barangay Clearance',
-    'membership_application_form' => 'Membership Application Form (signed) - Front Page',
-    'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
-    'certificate_of_employment' => 'Certificate of Employment / Work Clearance',
-];
+$doc_labels = tindago_kyc_doc_labels();
 
 $page_title = $member['full_name'];
 require __DIR__ . '/../../admin/includes/admin_header.php';
@@ -379,7 +372,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <p class="mb-1">Contact #: <?= sanitize($member['contact_number']) ?></p>
         <p class="mb-1">Address: <?= $member['address'] ? sanitize($member['address']) : '—' ?></p>
         <p class="mb-1">Birthday: <?= $member['birthdate'] ? date('M j, Y', strtotime($member['birthdate'])) : '—' ?></p>
-        <p class="mb-1">Employer: <?= sanitize($member['employer_name']) ?></p>
+        <p class="mb-1">Store: <?= sanitize($member['employer_name']) ?></p>
         <p class="mb-0">Application: <span class="pill pill-<?= ['approved' => 'approved', 'denied' => 'rejected'][$member['application_status']] ?? 'pending' ?>"><?= sanitize($member['application_status']) ?></span></p>
       </div>
       <?php endif; ?>
@@ -686,6 +679,13 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
       <?php endif; ?>
 
+      <div class="panel-card mt-4">
+        <h2 class="h6">Store Partner Application</h2>
+        <?php $sp_row = $member; require __DIR__ . '/includes/store_profile_view.php'; ?>
+        <?php if ($member['assigned_agent'] || $member['territory']): ?>
+          <p class="small mb-0 mt-2">Agent: <?= sanitize($member['assigned_agent'] ?: '—') ?> &middot; Territory: <?= sanitize($member['territory'] ?: '—') ?></p>
+        <?php endif; ?>
+      </div>
       <div class="panel-card mt-4">
         <h2 class="h6">Submitted Documents</h2>
         <?php if ($documents->num_rows === 0): ?>

@@ -80,7 +80,7 @@ require __DIR__ . '/../includes/navbar.php';
           </div>
           <button type="submit" class="btn-red w-100 justify-content-center"><i class="fas fa-right-to-bracket"></i>Login</button>
         </form>
-        <p class="text-center mt-3 small mb-0">No account yet? <a href="<?= BASICS_URL ?>/apply.php">Apply for Membership</a></p>
+        <p class="text-center mt-3 small mb-0">No account yet? <a href="<?= BASICS_URL ?>/apply.php">Become a Store Partner</a></p>
       </div>
     </div>
   </div>

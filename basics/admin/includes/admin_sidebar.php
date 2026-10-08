@@ -54,7 +54,7 @@ $nav_groups = [
                 '/basics/admin/applications.php' => ['icon' => 'fa-file-signature', 'label' => 'Applications', 'badge' => $pending_basics_count],
                 '/basics/admin/members.php'      => ['icon' => 'fa-address-card',   'label' => 'Members'],
                 '/basics/admin/users.php'        => ['icon' => 'fa-address-book',   'label' => 'Users'],
-                '/basics/admin/register_member.php' => ['icon' => 'fa-user-plus',   'label' => 'Register Member'],
+                '/basics/admin/register_member.php' => ['icon' => 'fa-user-plus',   'label' => 'Register Store Partner'],
             ],
         ],
         '/basics/admin/products.php'    => ['icon' => 'fa-box',            'label' => 'Manage Products'],

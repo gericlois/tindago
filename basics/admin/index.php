@@ -213,7 +213,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <h2 class="h6 mb-3">Recent Applications</h2>
     <div class="table-responsive mb-4">
       <table class="table-theme">
-        <thead><tr><th>Applicant</th><th>Employer</th><th>Applied</th><th class="no-print"></th></tr></thead>
+        <thead><tr><th>Applicant</th><th>Store</th><th>Applied</th><th class="no-print"></th></tr></thead>
         <tbody>
         <?php while ($ba = $recent_basics_applications->fetch_assoc()): ?>
           <tr>

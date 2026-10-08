@@ -22,7 +22,7 @@
       <?php if (empty($submissions)): ?>
         <tr><td colspan="<?= $ai_allowed ? 12 : 11 ?>" class="text-muted">No submissions.</td></tr>
       <?php endif; ?>
-      <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
+      <?php $for_labels = ['grocery' => 'Order', 'loan' => 'Loan', 'other' => 'Other']; ?>
       <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
       <?php foreach ($submissions as $s): ?>
         <?php

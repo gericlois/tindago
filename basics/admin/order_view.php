@@ -265,7 +265,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
         <h2 class="h6">Order Details</h2>
         <p class="mb-1">Member: <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
         <?php $delivery_addr = $order['delivery_address'] !== '' ? $order['delivery_address'] : $order['address']; ?>
-        <p class="mb-1">Delivery Address (<?= $order['delivery_location'] === 'company' ? 'Company' : 'Home' ?>): <?= $delivery_addr ? sanitize($delivery_addr) : '—' ?></p>
+        <p class="mb-1">Delivery Address (<?= $order['delivery_location'] === 'company' ? 'Other Address' : 'Store' ?>): <?= $delivery_addr ? sanitize($delivery_addr) : '—' ?></p>
         <p class="mb-1">Order Date: <?= $order['placed_at'] ? date('M j, Y', strtotime($order['placed_at'])) : '—' ?></p>
         <p class="mb-1">Delivery Date: <?= $order['delivered_at'] ? date('M j, Y', strtotime($order['delivered_at'])) : 'Not yet delivered' ?></p>
         <?php if ($order['status'] === 'cancelled' && $order['cancel_reason']): ?>

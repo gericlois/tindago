@@ -1,7 +1,11 @@
 <?php
-require_once __DIR__ . '/../config/sms.php';
-require_once __DIR__ . '/../config/email.php';
-require_once __DIR__ . '/../config/gemini.php';
+// Real keys live in gitignored config/*.php files created on each server.
+// Until one exists, its committed .example.php (all keys blank) is loaded
+// instead, which just leaves that feature off rather than breaking the site.
+foreach (['sms', 'email', 'gemini'] as $config_name) {
+    $config_file = __DIR__ . '/../config/' . $config_name . '.php';
+    require_once is_file($config_file) ? $config_file : __DIR__ . '/../config/' . $config_name . '.example.php';
+}
 // Optional — backups stay server-only until this file is created on the server.
 if (is_file(__DIR__ . '/../config/gdrive.php')) {
     require_once __DIR__ . '/../config/gdrive.php';
@@ -245,8 +249,13 @@ function smtp_open() {
 // $to/$subject must already be cleaned.
 function smtp_deliver($socket, $to, $subject, $body) {
     // Appended to every notification email, so callers don't each need to
-    // remember to add it.
-    $full_body = $body . "\r\n\r\nFor questions and concerns please call +63 917 323 8153.";
+    // remember to add it. Uses the company email from Admin > Settings, and
+    // is left off while that isn't set.
+    global $conn;
+    $contact_email = ($conn instanceof mysqli) ? setting($conn, 'company_email', '') : '';
+    $full_body = $contact_email !== ''
+        ? $body . "\r\n\r\nFor questions and concerns please email " . $contact_email . '.'
+        : $body;
 
     @fwrite($socket, 'MAIL FROM:<' . GMAIL_SMTP_USERNAME . ">\r\n");
     smtp_read_response($socket);
@@ -581,6 +590,12 @@ function write_database_backup($conn) {
     $backup_dir = __DIR__ . '/../database/backups';
     if (!is_dir($backup_dir)) {
         mkdir($backup_dir, 0755, true);
+    }
+    // The folder sits inside the web root and the dump holds every member's
+    // data, so it must never be downloadable. Written here rather than
+    // committed because the deploy never uploads database/.
+    if (!is_file($backup_dir . '/.htaccess')) {
+        file_put_contents($backup_dir . '/.htaccess', "Require all denied\n");
     }
     $log_path = $backup_dir . '/last_run.txt';
 

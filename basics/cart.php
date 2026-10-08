@@ -120,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $order) {
         } elseif ($order['total_amount'] < $minimum_order) {
             $errors[] = 'This order (' . format_price($order['total_amount']) . ') is below the minimum order of ' . format_price($minimum_order) . '.';
         } elseif ($delivery_location === 'company' && $delivery_address === '') {
-            $errors[] = 'You don\'t have an employer/office address on file. Add one in My Account, or choose Home delivery.';
+            $errors[] = 'You don\'t have another delivery address on file. Add one in My Account, or deliver to your store address.';
         } else {
             $available = basics_credit_available($conn, $member);
             if ($member['membership_status'] !== 'active') {
@@ -227,17 +227,17 @@ require __DIR__ . '/../includes/navbar.php';
           <div class="form-check">
             <input class="form-check-input" type="radio" name="delivery_location" id="deliverHome" value="home" checked>
             <label class="form-check-label" for="deliverHome">
-              Home Address — <?= $member['address'] ? sanitize($member['address']) : '—' ?>
+              Store Address — <?= $member['address'] ? sanitize($member['address']) : '—' ?>
             </label>
           </div>
           <div class="form-check">
             <input class="form-check-input" type="radio" name="delivery_location" id="deliverCompany" value="company" <?= empty($member['employer_address']) ? 'disabled' : '' ?>>
             <label class="form-check-label" for="deliverCompany">
-              Company Address — <?= $member['employer_address'] ? sanitize($member['employer_address']) : 'Not on file' ?>
+              Other Address — <?= $member['employer_address'] ? sanitize($member['employer_address']) : 'Not on file' ?>
             </label>
           </div>
           <?php if (empty($member['employer_address'])): ?>
-            <p class="text-muted small mb-0 mt-1">Add an employer/office address in <a href="<?= BASICS_URL ?>/account.php">My Account</a> to enable company delivery.</p>
+            <p class="text-muted small mb-0 mt-1">Add another delivery address in <a href="<?= BASICS_URL ?>/account.php">My Account</a> if you want orders sent somewhere other than your store.</p>
           <?php endif; ?>
         </div>
 

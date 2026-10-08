@@ -7,41 +7,41 @@ require __DIR__ . '/../includes/functions.php';
 
 require_basics_admin_role(['super_admin', 'admin', 'staff_registration']);
 
+// Staff entry of a paper Store Partner Application Form
+// (assets/img/form.jpg) — same sections as basics/apply.php, except the
+// account gets a generated temporary password.
 $errors = [];
-$text_fields = ['first_name', 'middle_name', 'last_name', 'address_line', 'barangay', 'city', 'province',
-                'birthdate', 'contact_number', 'email', 'username', 'employer_name', 'employer_contact', 'position'];
+$text_fields = ['store_name', 'first_name', 'middle_name', 'last_name', 'contact_number', 'alt_contact_number',
+                'address_line', 'barangay', 'city', 'province', 'birthdate', 'email', 'username'];
 $old = array_fill_keys($text_fields, '');
+$sp = tindago_store_profile_defaults();
+$declaration = false;
 
-$doc_fields = [
-    'valid_id_1' => 'Valid ID #1',
-    'valid_id_2' => 'Valid ID #2',
-    'barangay_clearance' => 'Barangay Clearance',
-    'membership_application_form' => 'Membership Application Form (signed) - Front Page',
-    'membership_application_form_back' => 'Membership Application Form (signed) - Back Page',
-    'certificate_of_employment' => 'Certificate of Employment / Company Work Clearance',
-];
-// Barangay Clearance is optional — everything else is still required.
-$optional_doc_fields = ['barangay_clearance'];
+$doc_types = tindago_kyc_doc_types();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($text_fields as $field) {
         $old[$field] = trim($_POST[$field] ?? '');
     }
     extract($old);
+    $declaration = !empty($_POST['declaration']);
 
-    if ($first_name === '') $errors[] = 'First name is required.';
-    if ($last_name === '') $errors[] = 'Last name is required.';
-    if ($address_line === '') $errors[] = 'House #/Street is required.';
+    if ($store_name === '') $errors[] = 'Store / business name is required.';
+    if ($first_name === '') $errors[] = "Store owner's first name is required.";
+    if ($last_name === '') $errors[] = "Store owner's surname is required.";
+    if ($contact_number === '') $errors[] = 'Mobile number is required.';
+    if ($address_line === '') $errors[] = 'Complete store address is required.';
     if ($barangay === '') $errors[] = 'Barangay is required.';
-    if ($city === '') $errors[] = 'City/Municipality is required.';
+    if ($city === '') $errors[] = 'Municipality/City is required.';
     if ($province === '') $errors[] = 'Province is required.';
-    if ($birthdate === '' || !DateTime::createFromFormat('Y-m-d', $birthdate)) $errors[] = 'A valid birthdate is required.';
-    if ($contact_number === '') $errors[] = 'Contact number is required.';
+
+    [$sp, $sp_errors] = tindago_store_profile_from_post($_POST);
+    $errors = array_merge($errors, $sp_errors);
+
+    if ($birthdate === '' || !DateTime::createFromFormat('Y-m-d', $birthdate)) $errors[] = "A valid birthdate for the store owner is required.";
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'That email address doesn\'t look valid.';
     if ($username === '') $errors[] = 'Username is required.';
-    if ($employer_name === '') $errors[] = 'Employer name is required.';
-    if ($employer_contact === '') $errors[] = 'Employer contact is required.';
-    if ($position === '') $errors[] = 'Position is required.';
+    if (!$declaration) $errors[] = 'Confirm the applicant has signed the declaration on the paper form.';
 
     if (empty($errors)) {
         $stmt = $conn->prepare("SELECT id FROM basics_users WHERE username = ?");
@@ -59,12 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    foreach ($doc_fields as $field => $label) {
-        if (in_array($field, $optional_doc_fields, true)) {
-            continue;
-        }
-        if (empty($_FILES[$field]['name'])) {
-            $errors[] = $label . ' is required.';
+    foreach ($doc_types as $field => $doc) {
+        if ($doc['required'] && empty($_FILES[$field]['name'])) {
+            $errors[] = $doc['label'] . ' is required.';
         }
     }
 
@@ -90,21 +87,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_id = $stmt->insert_id;
             $stmt->close();
 
-            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position) VALUES (?, ?, ?, ?)");
-            $stmt->bind_param('isss', $user_id, $employer_name, $employer_contact, $position);
+            // employer_name / employer_contact / position hold the store
+            // name, alternative contact number, and the applicant's role.
+            $alt_contact_to_store = $alt_contact_number !== '' ? $alt_contact_number : null;
+            $position = 'Owner / Proprietor';
+            $stmt = $conn->prepare("INSERT INTO basics_members (user_id, employer_name, employer_contact, position, declaration_accepted_at)
+                                     VALUES (?, ?, ?, ?, NOW())");
+            $stmt->bind_param('isss', $user_id, $store_name, $alt_contact_to_store, $position);
             $stmt->execute();
             $member_id = $stmt->insert_id;
             $stmt->close();
 
-            foreach ($doc_fields as $field => $label) {
+            tindago_store_profile_save($conn, $member_id, $sp);
+
+            foreach ($doc_types as $field => $doc) {
                 // Skip entirely if an optional doc was left blank — no row,
                 // no upload attempt, not just a suppressed error.
-                if (in_array($field, $optional_doc_fields, true) && empty($_FILES[$field]['name'])) {
+                if (!$doc['required'] && empty($_FILES[$field]['name'])) {
                     continue;
                 }
                 [$filename, $upload_error] = handle_kyc_document_upload($field);
                 if ($upload_error) {
-                    throw new Exception($label . ': ' . $upload_error);
+                    throw new Exception($doc['label'] . ': ' . $upload_error);
                 }
                 $stmt = $conn->prepare("INSERT INTO basics_kyc_documents (member_id, doc_type, file_path) VALUES (?, ?, ?)");
                 $stmt->bind_param('iss', $member_id, $field, $filename);
@@ -114,8 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $conn->commit();
 
-            log_activity($conn, 'register_basics_member', 'Registered member "' . $full_name . '" (' . $username . ') — application #' . $member_id . ' pending approval');
-            send_sms($contact_number, "Hi $full_name, we've received your TindaGo membership application. It's now under review for processing and approval. - TindaGo");
+            log_activity($conn, 'register_basics_member', 'Registered Store Partner "' . $store_name . '" — ' . $full_name . ' (' . $username . '), application #' . $member_id . ' pending approval');
+            send_sms($contact_number, "Hi $full_name, we've received your TindaGo Store Partner application for $store_name. It's now under review for processing and approval. - TindaGo");
 
             $_SESSION['flash_registered'] = [
                 'member_id' => $member_id,
@@ -137,13 +141,13 @@ if (isset($_SESSION['flash_registered'])) {
     unset($_SESSION['flash_registered']);
 }
 
-$page_title = 'Register Member';
+$page_title = 'Register Store Partner';
 require __DIR__ . '/../../admin/includes/admin_header.php';
 require __DIR__ . '/includes/admin_sidebar.php';
 ?>
 <div class="inner-hero">
   <div class="container">
-    <h1 class="stitle" style="font-size:2rem;">Register Member</h1>
+    <h1 class="stitle" style="font-size:2rem;">Register Store Partner</h1>
   </div>
 </div>
 
@@ -154,7 +158,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <p class="mb-1">Username: <strong><?= sanitize($registered['username']) ?></strong></p>
       <p class="mb-1">Temporary password: <span style="font-size:1.2rem;font-family:monospace;"><?= sanitize($registered['password']) ?></span></p>
       <p class="mb-2 small">Copy this now and give it to the member — it will not be shown again. They'll be asked to choose their own password at first login.</p>
-      <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $registered['member_id'] ?>" class="btn-chip btn-chip-outline">View profile</a>
+      <a href="<?= BASE_URL ?>/basics/admin/application_view.php?id=<?= (int) $registered['member_id'] ?>" class="btn-chip btn-chip-outline">Review application</a>
     </div>
   <?php endif; ?>
   <?php if ($errors): ?>
@@ -166,90 +170,99 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="row justify-content-center">
     <div class="col-12 col-xl-9">
       <div class="panel-card">
-        <p class="text-muted small">Registers a member on their behalf. The application goes to an admin for approval — purchase limit and activation are set there, not here.</p>
+        <p class="text-muted small">Enter a paper Store Partner Application Form on the applicant's behalf. The application goes to an admin for approval — the credit line, agent and territory are set on the review page, not here.</p>
         <form method="post" enctype="multipart/form-data">
-          <h2 class="h6 mb-3">Member Details</h2>
-          <div class="row">
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">First Name</label>
-              <input type="text" name="first_name" class="fctrl" value="<?= sanitize($old['first_name']) ?>" required>
-            </div>
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">Middle Name</label>
-              <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($old['middle_name']) ?>">
-            </div>
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">Surname</label>
-              <input type="text" name="last_name" class="fctrl" value="<?= sanitize($old['last_name']) ?>" required>
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="flbl">House #/Street</label>
-            <input type="text" name="address_line" class="fctrl" value="<?= sanitize($old['address_line']) ?>" required>
-          </div>
-          <div class="row">
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">Barangay</label>
-              <input type="text" name="barangay" class="fctrl" value="<?= sanitize($old['barangay']) ?>" required>
-            </div>
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">City/Municipality</label>
-              <input type="text" name="city" class="fctrl" value="<?= sanitize($old['city']) ?>" required>
-            </div>
-            <div class="col-sm-4 mb-3">
-              <label class="flbl">Province</label>
-              <input type="text" name="province" class="fctrl" value="<?= sanitize($old['province']) ?>" required>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Birthdate</label>
-              <input type="date" name="birthdate" class="fctrl" value="<?= sanitize($old['birthdate']) ?>" required>
-            </div>
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Contact Number</label>
-              <input type="text" name="contact_number" class="fctrl" value="<?= sanitize($old['contact_number']) ?>" required>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Email Address (optional)</label>
-              <input type="email" name="email" class="fctrl" value="<?= sanitize($old['email']) ?>">
-            </div>
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Username</label>
-              <input type="text" name="username" class="fctrl" value="<?= sanitize($old['username']) ?>" required>
-              <div class="form-text">A temporary password is generated after you submit.</div>
-            </div>
-          </div>
-
-          <h2 class="h6 mb-3 mt-2">Employer Information</h2>
-          <div class="mb-3">
-            <label class="flbl">Employer / Company Name</label>
-            <input type="text" name="employer_name" class="fctrl" value="<?= sanitize($old['employer_name']) ?>" required>
-          </div>
-          <div class="row">
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Employer Contact</label>
-              <input type="text" name="employer_contact" class="fctrl" value="<?= sanitize($old['employer_contact']) ?>" required>
-            </div>
-            <div class="col-sm-6 mb-3">
-              <label class="flbl">Position</label>
-              <input type="text" name="position" class="fctrl" value="<?= sanitize($old['position']) ?>" required>
-            </div>
-          </div>
-
-          <h2 class="h6 mb-3 mt-2">Required Documents</h2>
-          <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
-          <?php foreach ($doc_fields as $field => $label): ?>
-            <?php $is_optional_doc = in_array($field, $optional_doc_fields, true); ?>
+          <div class="form-section">
+            <h2 class="form-section-title"><span>1</span>Store Information</h2>
             <div class="mb-3">
-              <label class="flbl"><?= sanitize($label) ?><?= $is_optional_doc ? ' (optional)' : '' ?></label>
-              <input type="file" name="<?= $field ?>" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf" <?= $is_optional_doc ? '' : 'required' ?>>
+              <label class="flbl">Store / Business Name</label>
+              <input type="text" name="store_name" class="fctrl" value="<?= sanitize($old['store_name']) ?>" required>
             </div>
-          <?php endforeach; ?>
+            <label class="flbl">Store Owner / Proprietor</label>
+            <div class="row">
+              <div class="col-sm-4 mb-3">
+                <input type="text" name="first_name" class="fctrl" value="<?= sanitize($old['first_name']) ?>" placeholder="First name" aria-label="First name" required>
+              </div>
+              <div class="col-sm-4 mb-3">
+                <input type="text" name="middle_name" class="fctrl" value="<?= sanitize($old['middle_name']) ?>" placeholder="Middle name" aria-label="Middle name">
+              </div>
+              <div class="col-sm-4 mb-3">
+                <input type="text" name="last_name" class="fctrl" value="<?= sanitize($old['last_name']) ?>" placeholder="Surname" aria-label="Surname" required>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-6 mb-3">
+                <label class="flbl">Mobile Number</label>
+                <input type="tel" name="contact_number" class="fctrl" value="<?= sanitize($old['contact_number']) ?>" required>
+              </div>
+              <div class="col-sm-6 mb-3">
+                <label class="flbl">Alternative Contact Number (optional)</label>
+                <input type="tel" name="alt_contact_number" class="fctrl" value="<?= sanitize($old['alt_contact_number']) ?>">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="flbl">Complete Store Address</label>
+              <input type="text" name="address_line" class="fctrl" value="<?= sanitize($old['address_line']) ?>" required>
+            </div>
+            <div class="row">
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Barangay</label>
+                <input type="text" name="barangay" class="fctrl" value="<?= sanitize($old['barangay']) ?>" required>
+              </div>
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Municipality/City</label>
+                <input type="text" name="city" class="fctrl" value="<?= sanitize($old['city']) ?>" required>
+              </div>
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Province</label>
+                <input type="text" name="province" class="fctrl" value="<?= sanitize($old['province']) ?>" required>
+              </div>
+            </div>
+          </div>
 
-          <button type="submit" class="btn-red"><i class="fas fa-user-plus"></i>Register Member</button>
+          <?php require __DIR__ . '/../includes/store_profile_fields.php'; ?>
+
+          <div class="form-section">
+            <h2 class="form-section-title"><span>7</span>TindaGo Account Details</h2>
+            <div class="row">
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Store Owner's Birthdate</label>
+                <input type="date" name="birthdate" class="fctrl" value="<?= sanitize($old['birthdate']) ?>" required>
+              </div>
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Email Address (optional)</label>
+                <input type="email" name="email" class="fctrl" value="<?= sanitize($old['email']) ?>">
+              </div>
+              <div class="col-sm-4 mb-3">
+                <label class="flbl">Username</label>
+                <input type="text" name="username" class="fctrl" value="<?= sanitize($old['username']) ?>" required>
+                <div class="form-text">A temporary password is generated after you submit.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h2 class="form-section-title"><span>8</span>Required Documents</h2>
+            <div class="form-text mb-3">JPG, PNG, WEBP, or PDF — max 5MB each.</div>
+            <div class="row">
+              <?php foreach ($doc_types as $field => $doc): ?>
+                <div class="col-md-6 mb-3">
+                  <label class="flbl"><?= sanitize($doc['label']) ?><?= $doc['required'] ? '' : ' (optional)' ?></label>
+                  <input type="file" name="<?= $field ?>" class="fctrl" accept=".jpg,.jpeg,.png,.webp,.pdf"<?= $doc['required'] ? ' required' : '' ?>>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h2 class="form-section-title"><span>9</span>Declaration</h2>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="declaration" id="declaration" value="1"<?= $declaration ? ' checked' : '' ?> required>
+              <label class="form-check-label" for="declaration">The applicant has signed the declaration on the paper application form.</label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-red"><i class="fas fa-user-plus"></i>Register Store Partner</button>
         </form>
       </div>
     </div>

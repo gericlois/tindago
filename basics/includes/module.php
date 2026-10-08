@@ -6,7 +6,7 @@ $module_name = 'TindaGo';
 $module_logo_url = BASE_URL . '/assets/img/basics/logo.jpg';
 $module_home_url = BASICS_URL . '/index.php';
 $module_register_url = BASICS_URL . '/apply.php';
-$module_footer_desc = 'A weekly grocery purchase line for employees of partner companies. Basic needs, everyday, for every family.';
+$module_footer_desc = 'Digital wholesale marketplace para sa mga tindahan. Mas Mura. Mas Madali. Mas Malaki ang Kita.';
 // TindaGo blue + orange (from the logo) — re-themes every shared button/badge/card component for
 // every page via the CSS variable override in includes/header.php.
 $module_primary_color = '#003fab';

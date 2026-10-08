@@ -1,8 +1,19 @@
-name: Deploy to iFastnet
+name: Deploy to cPanel
 
 # Pushes to main deploy automatically. Run it by hand from the Actions tab
 # ("Run workflow") to deploy any branch — manual runs default to a dry run,
 # which only lists what WOULD be uploaded.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   FTP_SERVER      FTP host from cPanel > FTP Accounts ("FTP Server"), e.g. ftp.yourdomain.com
+#   FTP_USERNAME    the FTP account's full username, e.g. deploy@yourdomain.com
+#   FTP_PASSWORD    that account's password
+#   FTP_SERVER_DIR  optional — folder to upload into, relative to where the FTP
+#                   account lands. Defaults to public_html/ (right for the main
+#                   cPanel account). Use / for an FTP account whose directory
+#                   is already public_html.
+#   FTP_PROTOCOL    optional — ftps (default, encrypted) or ftp if your host
+#                   doesn't support FTPS.
 on:
   push:
     branches: [main]
@@ -14,7 +25,7 @@ on:
         default: true
 
 concurrency:
-  group: deploy-ifastnet
+  group: deploy-cpanel
   cancel-in-progress: false
 
 jobs:
@@ -39,12 +50,15 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
           port: 21
           local-dir: ./
-          server-dir: /
+          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
           # Setting `exclude` replaces the action's defaults, so those are repeated first.
+          # Real config files (gitignored anyway) are created on the server by
+          # hand; the committed config/*.example.php files ARE uploaded, since
+          # includes/functions.php falls back to them until then.
           exclude: |
             **/.git*
             **/.git*/**
@@ -59,6 +73,4 @@ jobs:
             config/email.php
             config/gemini.php
             config/gdrive.php
-            config/*.example.php
-            uploads/products/**
             uploads/basics_products/**

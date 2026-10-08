@@ -10,108 +10,6 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE `login_attempts` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `scope` varchar(20) NOT NULL,
-  `identifier` varchar(150) NOT NULL,
-  `ip` varchar(45) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_scope_identifier` (`scope`,`identifier`,`created_at`),
-  KEY `idx_ip` (`ip`,`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `orders` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `product_id` int(11) NOT NULL,
-  `quantity` int(11) NOT NULL DEFAULT 1,
-  `unit_price` decimal(10,2) NOT NULL,
-  `total_amount` decimal(10,2) NOT NULL,
-  `payment_method` enum('wallet','bank_transfer','cod') NOT NULL,
-  `payment_reference` varchar(100) DEFAULT NULL,
-  `status` enum('pending','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
-  `archived_at` timestamp NULL DEFAULT NULL,
-  `confirmed_at` timestamp NULL DEFAULT NULL,
-  `confirmed_by` int(11) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `product_id` (`product_id`),
-  KEY `confirmed_by` (`confirmed_by`),
-  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
-  CONSTRAINT `orders_ibfk_3` FOREIGN KEY (`confirmed_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `product_images` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `product_id` int(11) NOT NULL,
-  `image` varchar(255) NOT NULL,
-  `sort_order` int(11) NOT NULL DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `product_id` (`product_id`),
-  CONSTRAINT `product_images_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `products` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(150) NOT NULL,
-  `description` text DEFAULT NULL,
-  `srp` decimal(10,2) NOT NULL DEFAULT 210.00,
-  `image` varchar(255) DEFAULT NULL,
-  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `settings` (
-  `setting_key` varchar(100) NOT NULL,
-  `setting_value` varchar(255) NOT NULL,
-  PRIMARY KEY (`setting_key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `referral_code` varchar(20) NOT NULL,
-  `referred_by` int(11) DEFAULT NULL,
-  `full_name` varchar(150) NOT NULL,
-  `address` varchar(255) NOT NULL,
-  `birthdate` date NOT NULL,
-  `contact_number` varchar(30) NOT NULL,
-  `email` varchar(190) DEFAULT NULL,
-  `username` varchar(100) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `must_change_password` tinyint(1) NOT NULL DEFAULT 1,
-  `status` enum('pending','active','suspended') NOT NULL DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `referral_code` (`referral_code`),
-  UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email_unique` (`email`),
-  KEY `referred_by` (`referred_by`),
-  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`referred_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `wallet_transactions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `type` enum('personal_rebate','referral_override','purchase_wallet_debit','purchase_refund','cashout','cashout_reversal') NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `reference_order_id` int(11) DEFAULT NULL,
-  `reference_cashout_id` int(11) DEFAULT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `reference_order_id` (`reference_order_id`),
-  KEY `reference_cashout_id` (`reference_cashout_id`),
-  CONSTRAINT `wallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `wallet_transactions_ibfk_2` FOREIGN KEY (`reference_order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `wallet_transactions_ibfk_3` FOREIGN KEY (`reference_cashout_id`) REFERENCES `cashouts` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 
 CREATE TABLE `activity_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -232,7 +130,7 @@ CREATE TABLE `basics_emergency_credit_requests` (
 CREATE TABLE `basics_kyc_documents` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
-  `doc_type` enum('valid_id_1','valid_id_2','barangay_clearance','membership_application_form','membership_application_form_back','certificate_of_employment') NOT NULL,
+  `doc_type` enum('valid_id_1','valid_id_2','barangay_clearance','membership_application_form','membership_application_form_back','certificate_of_employment','store_photo_front','store_photo_inside') NOT NULL,
   `file_path` varchar(255) NOT NULL,
   `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `ai_analyzed_at` timestamp NULL DEFAULT NULL,
@@ -248,6 +146,25 @@ CREATE TABLE `basics_members` (
   `employer_contact` varchar(100) DEFAULT NULL,
   `position` varchar(100) DEFAULT NULL,
   `employer_address` varchar(255) DEFAULT NULL,
+  `store_type` varchar(30) DEFAULT NULL,
+  `store_type_other` varchar(100) DEFAULT NULL,
+  `years_in_business` varchar(20) DEFAULT NULL,
+  `store_hours_open` time DEFAULT NULL,
+  `store_hours_close` time DEFAULT NULL,
+  `est_daily_sales` varchar(20) DEFAULT NULL,
+  `est_monthly_purchases` varchar(20) DEFAULT NULL,
+  `current_suppliers` varchar(255) DEFAULT NULL,
+  `ordering_method` varchar(30) DEFAULT NULL,
+  `ordering_method_other` varchar(100) DEFAULT NULL,
+  `products_interested` varchar(500) DEFAULT NULL,
+  `products_interested_other` varchar(150) DEFAULT NULL,
+  `top_products` varchar(600) DEFAULT NULL,
+  `delivery_days` varchar(100) DEFAULT NULL,
+  `preferred_payment_method` varchar(30) DEFAULT NULL,
+  `preferred_payment_other` varchar(100) DEFAULT NULL,
+  `assigned_agent` varchar(150) DEFAULT NULL,
+  `territory` varchar(150) DEFAULT NULL,
+  `declaration_accepted_at` timestamp NULL DEFAULT NULL,
   `application_status` enum('pending','approved','denied') NOT NULL DEFAULT 'pending',
   `membership_status` enum('active','suspended','dormant','terminated') NOT NULL DEFAULT 'active',
   `is_community_partner` tinyint(1) NOT NULL DEFAULT 0,
@@ -500,6 +417,101 @@ CREATE TABLE `communication_log` (
   `admin_name` varchar(150) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `login_attempts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `scope` varchar(20) NOT NULL,
+  `identifier` varchar(150) NOT NULL,
+  `ip` varchar(45) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_scope_identifier` (`scope`,`identifier`,`created_at`),
+  KEY `idx_ip` (`ip`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `orders` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(10,2) NOT NULL,
+  `total_amount` decimal(10,2) NOT NULL,
+  `payment_method` enum('wallet','bank_transfer','cod') NOT NULL,
+  `payment_reference` varchar(100) DEFAULT NULL,
+  `status` enum('pending','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
+  `archived_at` timestamp NULL DEFAULT NULL,
+  `confirmed_at` timestamp NULL DEFAULT NULL,
+  `confirmed_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `product_id` (`product_id`),
+  KEY `confirmed_by` (`confirmed_by`),
+  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
+  CONSTRAINT `orders_ibfk_3` FOREIGN KEY (`confirmed_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `product_images` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `product_id` int(11) NOT NULL,
+  `image` varchar(255) NOT NULL,
+  `sort_order` int(11) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `product_id` (`product_id`),
+  CONSTRAINT `product_images_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `products` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(150) NOT NULL,
+  `description` text DEFAULT NULL,
+  `srp` decimal(10,2) NOT NULL DEFAULT 210.00,
+  `image` varchar(255) DEFAULT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `settings` (
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value` varchar(255) NOT NULL,
+  PRIMARY KEY (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `referral_code` varchar(20) NOT NULL,
+  `referred_by` int(11) DEFAULT NULL,
+  `full_name` varchar(150) NOT NULL,
+  `address` varchar(255) NOT NULL,
+  `birthdate` date NOT NULL,
+  `contact_number` varchar(30) NOT NULL,
+  `email` varchar(190) DEFAULT NULL,
+  `username` varchar(100) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `must_change_password` tinyint(1) NOT NULL DEFAULT 1,
+  `status` enum('pending','active','suspended') NOT NULL DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `referral_code` (`referral_code`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email_unique` (`email`),
+  KEY `referred_by` (`referred_by`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`referred_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+CREATE TABLE `wallet_transactions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `type` enum('personal_rebate','referral_override','purchase_wallet_debit','purchase_refund','cashout','cashout_reversal') NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `reference_order_id` int(11) DEFAULT NULL,
+  `reference_cashout_id` int(11) DEFAULT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `reference_order_id` (`reference_order_id`),
+  KEY `reference_cashout_id` (`reference_cashout_id`),
+  CONSTRAINT `wallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `wallet_transactions_ibfk_2` FOREIGN KEY (`reference_order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `wallet_transactions_ibfk_3` FOREIGN KEY (`reference_cashout_id`) REFERENCES `cashouts` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 

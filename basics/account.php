@@ -135,9 +135,9 @@ require __DIR__ . '/../includes/navbar.php';
             <p class="text-muted small mb-3">Your name is locked to match your verified ID on file. Contact support if it needs to be corrected.</p>
           <?php endif; ?>
 
-          <h2 class="h6 mb-3 mt-2">Address</h2>
+          <h2 class="h6 mb-3 mt-2">Store Address</h2>
           <div class="mb-3">
-            <label class="flbl">House #/Street</label>
+            <label class="flbl">Complete Store Address</label>
             <input type="text" name="address_line" class="fctrl" value="<?= sanitize($user['address_line'] ?? '') ?>" required>
           </div>
           <div class="row">
@@ -168,10 +168,10 @@ require __DIR__ . '/../includes/navbar.php';
             <input type="email" name="email" class="fctrl" value="<?= sanitize($user['email']) ?>">
           </div>
 
-          <h2 class="h6 mb-3 mt-2">Employer / Office (optional)</h2>
+          <h2 class="h6 mb-3 mt-2">Other Delivery Address (optional)</h2>
           <div class="mb-3">
-            <label class="flbl">Employer / Office Address</label>
-            <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($user['employer_address'] ?? '') ?>" placeholder="Lets you choose company delivery at checkout">
+            <label class="flbl">Other Address</label>
+            <input type="text" name="employer_address" class="fctrl" value="<?= sanitize($user['employer_address'] ?? '') ?>" placeholder="Lets you choose a different delivery address at checkout">
           </div>
 
           <div class="row">

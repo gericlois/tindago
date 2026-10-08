@@ -29,9 +29,26 @@ order groceries online and settle after delivery. PHP + MySQL, runs on XAMPP.
 - `assets/img/tindago.jpg` — master logo; `assets/img/basics/` holds the
   resized logo and app icons generated from it.
 
-## Deploying
+## Deploying (cPanel)
 
-`.github/workflows/deploy.yml.disabled` is an FTP deploy workflow. Before
-enabling it (rename back to `deploy.yml`), point this repo at TindaGo's own
-GitHub repository, add TindaGo's FTP secrets, and fill in the live database
-credentials in `config/database.php` on the server.
+Every push to `main` runs `.github/workflows/deploy.yml`, which lints the PHP
+and uploads changed files over FTPS to `public_html/`.
+
+One-time setup:
+
+1. **GitHub secrets** (repo > Settings > Secrets and variables > Actions):
+   `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` — from cPanel > FTP Accounts.
+   Optional: `FTP_SERVER_DIR` (default `public_html/`; use `/` if the FTP
+   account's directory is already `public_html`) and `FTP_PROTOCOL`
+   (default `ftps`; set `ftp` only if the host has no FTPS).
+2. **Database**: cPanel > MySQL Databases — create a database and a user,
+   add the user to the database with ALL PRIVILEGES, then import
+   `database/tindago_schema.sql` in phpMyAdmin.
+3. **Server config**: in cPanel File Manager, create
+   `public_html/config/database.php` (copy `config/database.example.php`) and
+   fill in the live database name, user and password. It's never uploaded by
+   the deploy and never committed. Optionally create `email.php`, `sms.php`,
+   `gemini.php`, `gdrive.php` the same way; until then those features are
+   simply off.
+4. **SSL**: cPanel > SSL/TLS Status — run AutoSSL for the domain. The root
+   `.htaccess` redirects all traffic to HTTPS.

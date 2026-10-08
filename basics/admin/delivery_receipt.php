@@ -52,7 +52,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     <div class="d-flex justify-content-between align-items-start mb-4">
       <div>
         <h2 class="h6 mb-1">TindaGo</h2>
-        <p class="text-muted small mb-0">Weekly Grocery Purchase Line</p>
+        <p class="text-muted small mb-0">Wholesale Marketplace para sa mga Tindahan</p>
       </div>
       <div class="text-end">
         <p class="mb-1"><strong>Order #<?= (int) $order['id'] ?></strong></p>
@@ -65,7 +65,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
       <div class="col-12 col-md-6">
         <p class="mb-1"><strong>Member:</strong> <a href="<?= BASE_URL ?>/basics/admin/member_view.php?id=<?= (int) $order['member_id'] ?>"><?= sanitize($order['full_name']) ?></a> (<?= sanitize($order['username']) ?>)</p>
         <p class="mb-1"><strong>Contact #:</strong> <?= sanitize($order['contact_number']) ?></p>
-        <p class="mb-0"><strong>Deliver To (<?= $order['delivery_location'] === 'company' ? 'Company' : 'Home' ?>):</strong> <?= sanitize($order['delivery_address'] !== '' ? $order['delivery_address'] : $order['address']) ?></p>
+        <p class="mb-0"><strong>Deliver To (<?= $order['delivery_location'] === 'company' ? 'Other Address' : 'Store' ?>):</strong> <?= sanitize($order['delivery_address'] !== '' ? $order['delivery_address'] : $order['address']) ?></p>
       </div>
       <div class="col-12 col-md-6 text-md-end">
         <p class="mb-1"><strong>Order Status:</strong> <?= basics_order_status_label($order['status']) ?></p>

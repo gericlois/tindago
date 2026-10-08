@@ -242,7 +242,7 @@ require __DIR__ . '/../includes/navbar.php';
           <label class="flbl">What are you paying for?</label>
           <select name="payment_for" id="payment_for" class="fctrl" required>
             <option value="">Select...</option>
-            <option value="grocery"<?= empty($awaiting_list) ? ' disabled' : '' ?>>Grocery Order<?= empty($awaiting_list) ? ' (no unpaid orders)' : '' ?></option>
+            <option value="grocery"<?= empty($awaiting_list) ? ' disabled' : '' ?>>Product Order<?= empty($awaiting_list) ? ' (no unpaid orders)' : '' ?></option>
             <option value="loan"<?= empty($outstanding_loans_list) ? ' disabled' : '' ?>>Emergency Cash Loan<?= empty($outstanding_loans_list) ? ' (nothing outstanding)' : '' ?></option>
             <option value="other">Other</option>
           </select>
@@ -335,7 +335,7 @@ require __DIR__ . '/../includes/navbar.php';
         <?php if ($submissions->num_rows === 0): ?>
           <tr><td colspan="4" class="text-muted">No submissions yet.</td></tr>
         <?php endif; ?>
-        <?php $for_labels = ['grocery' => 'Grocery', 'loan' => 'Loan', 'other' => 'Other']; ?>
+        <?php $for_labels = ['grocery' => 'Order', 'loan' => 'Loan', 'other' => 'Other']; ?>
         <?php $status_pill = ['pending' => 'pending', 'confirmed' => 'approved', 'rejected' => 'rejected']; ?>
         <?php while ($s = $submissions->fetch_assoc()): ?>
           <?php $is_order_paid = $s['order_id'] && $s['order_amount_paid'] >= $s['order_total']; ?>

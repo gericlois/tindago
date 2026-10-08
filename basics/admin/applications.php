@@ -64,7 +64,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 
   <div class="table-responsive">
     <table class="table-theme">
-      <thead><tr><th>Applicant</th><th>Employer</th><th>Status</th><th>Applied</th><?php if ($ai_allowed): ?><th class="no-print">AI Doc Check</th><?php endif; ?><th class="no-print"></th></tr></thead>
+      <thead><tr><th>Applicant</th><th>Store</th><th>Status</th><th>Applied</th><?php if ($ai_allowed): ?><th class="no-print">AI Doc Check</th><?php endif; ?><th class="no-print"></th></tr></thead>
       <tbody>
       <?php if ($applications->num_rows === 0): ?>
         <tr><td colspan="<?= $ai_allowed ? 6 : 5 ?>" class="text-muted">No applications found.</td></tr>
