@@ -12,6 +12,10 @@ name: Deploy to cPanel
 #                   account lands. Defaults to public_html/ (right for the main
 #                   cPanel account). Use / for an FTP account whose directory
 #                   is already public_html.
+#   FTP_SECURITY    optional — strict (default) checks the FTPS certificate;
+#                   set loose when FTP_SERVER is the server IP (e.g. GoDaddy
+#                   cPanel before the domain resolves), since the certificate
+#                   is issued to the host's server name, not the IP.
 #   FTP_PROTOCOL    optional — ftps (default, encrypted) or ftp if your host
 #                   doesn't support FTPS.
 on:
@@ -51,6 +55,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          security: ${{ secrets.FTP_SECURITY || 'strict' }}
           port: 21
           local-dir: ./
           server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
