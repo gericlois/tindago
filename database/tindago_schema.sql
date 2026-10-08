@@ -1,15 +1,16 @@
 -- =====================================================================
 -- TindaGo — database schema (structure only, no member data)
--- Import into an empty database (local: `tindago`) via phpMyAdmin or:
---   mysql -uroot tindago < database/tindago_schema.sql
+-- Import into an EMPTY database (phpMyAdmin > Import, or locally:
+--   mysql -uroot tindago < database/tindago_schema.sql).
+-- Tables are created first and their foreign keys added at the end, so the
+-- import works whatever order or foreign-key-check setting is used.
 -- Seeds: default business-rule settings, product categories, and one
 -- super admin (username: admin / password: ChangeMe123!) — change that
--- password from Basics Admin > Admins right after the first login.
+-- password from Admin > Admins right after the first login.
 -- =====================================================================
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
-
 
 CREATE TABLE `activity_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -23,15 +24,7 @@ CREATE TABLE `activity_log` (
   PRIMARY KEY (`id`),
   KEY `admin_id` (`admin_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `admins` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `username` varchar(100) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `name` varchar(150) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_admins` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `username` varchar(100) NOT NULL,
@@ -42,6 +35,7 @@ CREATE TABLE `basics_admins` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_benefit_documents` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `request_id` int(11) NOT NULL,
@@ -49,13 +43,13 @@ CREATE TABLE `basics_benefit_documents` (
   `file_path` varchar(255) NOT NULL,
   `uploaded_at` timestamp NULL DEFAULT current_timestamp(),
   `ai_analyzed_at` timestamp NULL DEFAULT NULL,
-  `ai_result` text DEFAULT NULL,
-  `ocr_text` mediumtext DEFAULT NULL,
+  `ai_result` mediumtext DEFAULT NULL,
+  `ocr_text` longtext DEFAULT NULL,
   `ocr_at` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `request_id` (`request_id`),
-  CONSTRAINT `basics_benefit_documents_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `basics_benefit_requests` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  KEY `request_id` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_benefit_requests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -72,10 +66,9 @@ CREATE TABLE `basics_benefit_requests` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `member_id` (`member_id`),
-  KEY `basics_benefit_requests_ibfk_2` (`reviewed_by`),
-  CONSTRAINT `basics_benefit_requests_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_benefit_requests_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  KEY `basics_benefit_requests_ibfk_2` (`reviewed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_birthday_gifts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -86,10 +79,9 @@ CREATE TABLE `basics_birthday_gifts` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `member_year` (`member_id`,`birthday_year`),
-  KEY `fk_basics_birthday_gifts_order_id` (`order_id`),
-  CONSTRAINT `basics_birthday_gifts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_basics_birthday_gifts_order_id` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE SET NULL
+  KEY `fk_basics_birthday_gifts_order_id` (`order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_cashouts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -104,9 +96,9 @@ CREATE TABLE `basics_cashouts` (
   `processed_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `basics_cashouts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
+  KEY `member_id` (`member_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_emergency_credit_requests` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -120,13 +112,12 @@ CREATE TABLE `basics_emergency_credit_requests` (
   `admin_notes` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `ai_analyzed_at` timestamp NULL DEFAULT NULL,
-  `ai_result` text DEFAULT NULL,
+  `ai_result` mediumtext DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `member_id` (`member_id`),
-  KEY `basics_emergency_credit_requests_ibfk_2` (`reviewed_by`),
-  CONSTRAINT `basics_emergency_credit_requests_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_emergency_credit_requests_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  KEY `basics_emergency_credit_requests_ibfk_2` (`reviewed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_kyc_documents` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -136,9 +127,9 @@ CREATE TABLE `basics_kyc_documents` (
   `ai_analyzed_at` timestamp NULL DEFAULT NULL,
   `ai_result` text DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `basics_kyc_documents_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
+  KEY `member_id` (`member_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_members` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) NOT NULL,
@@ -185,11 +176,9 @@ CREATE TABLE `basics_members` (
   UNIQUE KEY `user_id` (`user_id`),
   UNIQUE KEY `referral_code` (`referral_code`),
   KEY `reviewed_by` (`reviewed_by`),
-  KEY `fk_basics_members_referred_by` (`referred_by`),
-  CONSTRAINT `basics_members_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `basics_users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_members_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `fk_basics_members_referred_by` FOREIGN KEY (`referred_by`) REFERENCES `basics_members` (`id`) ON DELETE SET NULL
+  KEY `fk_basics_members_referred_by` (`referred_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_notifications` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -201,9 +190,9 @@ CREATE TABLE `basics_notifications` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `member_unread` (`member_id`,`read_at`),
-  KEY `member_created` (`member_id`,`created_at`),
-  CONSTRAINT `basics_notifications_member` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
+  KEY `member_created` (`member_id`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_order_items` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_id` int(11) NOT NULL,
@@ -213,10 +202,9 @@ CREATE TABLE `basics_order_items` (
   `line_total` decimal(10,2) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `order_id` (`order_id`),
-  KEY `product_id` (`product_id`),
-  CONSTRAINT `basics_order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_order_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `basics_products` (`id`)
+  KEY `product_id` (`product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_order_status_history` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_id` int(11) NOT NULL,
@@ -225,9 +213,9 @@ CREATE TABLE `basics_order_status_history` (
   `note` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `order_id` (`order_id`),
-  CONSTRAINT `basics_order_status_history_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE
+  KEY `order_id` (`order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_orders` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -244,9 +232,9 @@ CREATE TABLE `basics_orders` (
   `delivered_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `basics_orders_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
+  KEY `member_id` (`member_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_payment_banks` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -258,6 +246,7 @@ CREATE TABLE `basics_payment_banks` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_payment_submissions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -283,12 +272,9 @@ CREATE TABLE `basics_payment_submissions` (
   KEY `member_id` (`member_id`),
   KEY `order_id` (`order_id`),
   KEY `loan_request_id` (`loan_request_id`),
-  KEY `basics_payment_submissions_ibfk_4` (`reviewed_by`),
-  CONSTRAINT `basics_payment_submissions_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_payment_submissions_ibfk_2` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `basics_payment_submissions_ibfk_3` FOREIGN KEY (`loan_request_id`) REFERENCES `basics_emergency_credit_requests` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `basics_payment_submissions_ibfk_4` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  KEY `basics_payment_submissions_ibfk_4` (`reviewed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_payments` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `order_id` int(11) NOT NULL,
@@ -307,11 +293,9 @@ CREATE TABLE `basics_payments` (
   PRIMARY KEY (`id`),
   KEY `order_id` (`order_id`),
   KEY `member_id` (`member_id`),
-  KEY `recorded_by` (`recorded_by`),
-  CONSTRAINT `basics_payments_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_payments_ibfk_2` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `basics_payments_ibfk_3` FOREIGN KEY (`recorded_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL
+  KEY `recorded_by` (`recorded_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_payout_accounts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -321,9 +305,9 @@ CREATE TABLE `basics_payout_accounts` (
   `account_number` varchar(50) NOT NULL,
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
-  UNIQUE KEY `member_id` (`member_id`),
-  CONSTRAINT `basics_payout_accounts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci;
+  UNIQUE KEY `member_id` (`member_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_product_categories` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
@@ -332,6 +316,7 @@ CREATE TABLE `basics_product_categories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_basics_product_category_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_products` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `sku` varchar(20) NOT NULL,
@@ -348,6 +333,7 @@ CREATE TABLE `basics_products` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `sku` (`sku`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_users` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `full_name` varchar(150) NOT NULL,
@@ -371,6 +357,7 @@ CREATE TABLE `basics_users` (
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `basics_wallet_transactions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `member_id` int(11) NOT NULL,
@@ -381,29 +368,9 @@ CREATE TABLE `basics_wallet_transactions` (
   `description` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `basics_wallet_transactions_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE
+  KEY `member_id` (`member_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `cashouts` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `bank_name` varchar(100) NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `fee_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `net_amount` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `account_number` varchar(50) NOT NULL,
-  `account_name` varchar(150) NOT NULL,
-  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-  `admin_notes` varchar(255) DEFAULT NULL,
-  `processed_by` int(11) DEFAULT NULL,
-  `processed_at` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `processed_by` (`processed_by`),
-  CONSTRAINT `cashouts_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `cashouts_ibfk_2` FOREIGN KEY (`processed_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `communication_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `channel` enum('sms','email') NOT NULL,
@@ -418,6 +385,7 @@ CREATE TABLE `communication_log` (
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `login_attempts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `scope` varchar(20) NOT NULL,
@@ -428,93 +396,40 @@ CREATE TABLE `login_attempts` (
   KEY `idx_scope_identifier` (`scope`,`identifier`,`created_at`),
   KEY `idx_ip` (`ip`,`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `orders` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `product_id` int(11) NOT NULL,
-  `quantity` int(11) NOT NULL DEFAULT 1,
-  `unit_price` decimal(10,2) NOT NULL,
-  `total_amount` decimal(10,2) NOT NULL,
-  `payment_method` enum('wallet','bank_transfer','cod') NOT NULL,
-  `payment_reference` varchar(100) DEFAULT NULL,
-  `status` enum('pending','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
-  `archived_at` timestamp NULL DEFAULT NULL,
-  `confirmed_at` timestamp NULL DEFAULT NULL,
-  `confirmed_by` int(11) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `product_id` (`product_id`),
-  KEY `confirmed_by` (`confirmed_by`),
-  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `orders_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`),
-  CONSTRAINT `orders_ibfk_3` FOREIGN KEY (`confirmed_by`) REFERENCES `admins` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `product_images` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `product_id` int(11) NOT NULL,
-  `image` varchar(255) NOT NULL,
-  `sort_order` int(11) NOT NULL DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `product_id` (`product_id`),
-  CONSTRAINT `product_images_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `products` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(150) NOT NULL,
-  `description` text DEFAULT NULL,
-  `srp` decimal(10,2) NOT NULL DEFAULT 210.00,
-  `image` varchar(255) DEFAULT NULL,
-  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `settings` (
   `setting_key` varchar(100) NOT NULL,
   `setting_value` varchar(255) NOT NULL,
   PRIMARY KEY (`setting_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `referral_code` varchar(20) NOT NULL,
-  `referred_by` int(11) DEFAULT NULL,
-  `full_name` varchar(150) NOT NULL,
-  `address` varchar(255) NOT NULL,
-  `birthdate` date NOT NULL,
-  `contact_number` varchar(30) NOT NULL,
-  `email` varchar(190) DEFAULT NULL,
-  `username` varchar(100) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
-  `must_change_password` tinyint(1) NOT NULL DEFAULT 1,
-  `status` enum('pending','active','suspended') NOT NULL DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `referral_code` (`referral_code`),
-  UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email_unique` (`email`),
-  KEY `referred_by` (`referred_by`),
-  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`referred_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-CREATE TABLE `wallet_transactions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `type` enum('personal_rebate','referral_override','purchase_wallet_debit','purchase_refund','cashout','cashout_reversal') NOT NULL,
-  `amount` decimal(10,2) NOT NULL,
-  `reference_order_id` int(11) DEFAULT NULL,
-  `reference_cashout_id` int(11) DEFAULT NULL,
-  `description` varchar(255) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  KEY `reference_order_id` (`reference_order_id`),
-  KEY `reference_cashout_id` (`reference_cashout_id`),
-  CONSTRAINT `wallet_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `wallet_transactions_ibfk_2` FOREIGN KEY (`reference_order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `wallet_transactions_ibfk_3` FOREIGN KEY (`reference_cashout_id`) REFERENCES `cashouts` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
+-- Foreign keys
+ALTER TABLE `basics_benefit_documents` ADD CONSTRAINT `basics_benefit_documents_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `basics_benefit_requests` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_benefit_requests` ADD CONSTRAINT `basics_benefit_requests_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_benefit_requests` ADD CONSTRAINT `basics_benefit_requests_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_birthday_gifts` ADD CONSTRAINT `basics_birthday_gifts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_birthday_gifts` ADD CONSTRAINT `fk_basics_birthday_gifts_order_id` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_cashouts` ADD CONSTRAINT `basics_cashouts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_emergency_credit_requests` ADD CONSTRAINT `basics_emergency_credit_requests_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_emergency_credit_requests` ADD CONSTRAINT `basics_emergency_credit_requests_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_kyc_documents` ADD CONSTRAINT `basics_kyc_documents_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_members` ADD CONSTRAINT `basics_members_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `basics_users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_members` ADD CONSTRAINT `basics_members_ibfk_2` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_members` ADD CONSTRAINT `fk_basics_members_referred_by` FOREIGN KEY (`referred_by`) REFERENCES `basics_members` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_notifications` ADD CONSTRAINT `basics_notifications_member` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_order_items` ADD CONSTRAINT `basics_order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_order_items` ADD CONSTRAINT `basics_order_items_ibfk_2` FOREIGN KEY (`product_id`) REFERENCES `basics_products` (`id`);
+ALTER TABLE `basics_order_status_history` ADD CONSTRAINT `basics_order_status_history_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_orders` ADD CONSTRAINT `basics_orders_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_payment_submissions` ADD CONSTRAINT `basics_payment_submissions_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_payment_submissions` ADD CONSTRAINT `basics_payment_submissions_ibfk_2` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_payment_submissions` ADD CONSTRAINT `basics_payment_submissions_ibfk_3` FOREIGN KEY (`loan_request_id`) REFERENCES `basics_emergency_credit_requests` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_payment_submissions` ADD CONSTRAINT `basics_payment_submissions_ibfk_4` FOREIGN KEY (`reviewed_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_payments` ADD CONSTRAINT `basics_payments_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `basics_orders` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_payments` ADD CONSTRAINT `basics_payments_ibfk_2` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_payments` ADD CONSTRAINT `basics_payments_ibfk_3` FOREIGN KEY (`recorded_by`) REFERENCES `basics_admins` (`id`) ON DELETE SET NULL;
+ALTER TABLE `basics_payout_accounts` ADD CONSTRAINT `basics_payout_accounts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
+ALTER TABLE `basics_wallet_transactions` ADD CONSTRAINT `basics_wallet_transactions_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `basics_members` (`id`) ON DELETE CASCADE;
 
 INSERT INTO `settings` (`setting_key`, `setting_value`) VALUES
 ('basics_dormancy_weeks', '3'),
