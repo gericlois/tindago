@@ -63,6 +63,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
 </div>
 
 <div class="container-fluid py-4">
+  <?php if (isset($_GET['imported'])): ?>
+    <div class="sucmsg is-visible"><p>Import done: <?= (int) $_GET['imported'] ?> product<?= (int) $_GET['imported'] === 1 ? '' : 's' ?> added, <?= (int) ($_GET['updated'] ?? 0) ?> updated.</p></div>
+  <?php endif; ?>
   <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div class="d-flex flex-wrap gap-2">
       <a href="<?= BASE_URL ?>/basics/admin/products.php" class="filter-pill <?= $category_filter === '' ? 'active' : '' ?>">All</a>
@@ -72,6 +75,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
     </div>
     <div class="d-flex gap-2">
       <button type="button" class="btn-outline-theme no-print" onclick="window.print()"><i class="fas fa-print"></i>Print</button>
+      <a href="<?= BASE_URL ?>/basics/admin/product_import.php" class="btn-outline-theme no-print"><i class="fas fa-file-import"></i>Import from Excel / Sheets</a>
       <a href="<?= BASE_URL ?>/basics/admin/product_edit.php" class="btn-red"><i class="fas fa-plus"></i>Add Product</a>
     </div>
   </div>

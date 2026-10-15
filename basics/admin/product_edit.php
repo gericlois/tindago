@@ -143,6 +143,9 @@ require __DIR__ . '/includes/admin_sidebar.php';
   <div class="container">
     <a href="<?= BASE_URL ?>/basics/admin/products.php" class="small">&larr; Back to Products</a>
     <h1 class="stitle" style="font-size:2rem;"><?= $id ? 'Edit Product' : 'Add Product' ?></h1>
+    <?php if (!$id): ?>
+      <p class="mb-0">Adding many products? <a href="<?= BASE_URL ?>/basics/admin/product_import.php">Import them from an Excel file or Google Sheet</a>.</p>
+    <?php endif; ?>
   </div>
 </div>
 
