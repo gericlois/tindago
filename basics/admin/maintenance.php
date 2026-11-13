@@ -7,6 +7,11 @@ require __DIR__ . '/../includes/functions.php';
 
 require_basics_admin_role(['super_admin']);
 
+if (isset($_GET['preview'])) {
+    require __DIR__ . '/../includes/404.php';
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'toggle') {
     $new_state = ($_POST['state'] ?? '') === 'on' ? '1' : '0';
     save_setting($conn, 'basics_maintenance_enabled', $new_state);
@@ -29,7 +34,7 @@ require __DIR__ . '/includes/admin_sidebar.php';
 <div class="container-fluid py-4">
   <div class="panel-card">
     <h2 class="h6">Member-Facing Site</h2>
-    <p class="text-muted small">When on, every member page (login, catalog, orders, etc.) shows a simple "under maintenance" notice instead of normal content. This admin panel keeps working the whole time so you can turn it back off.</p>
+    <p class="text-muted small">When on, every member page (login, catalog, orders, etc.) shows a plain "404 Page not found" screen (no TindaGo branding) instead of normal content. <a href="<?= BASE_URL ?>/basics/admin/maintenance.php?preview=1" target="_blank">Preview it</a>. This admin panel keeps working the whole time so you can turn it back off.</p>
     <p class="mb-3">Status: <span class="pill pill-<?= $maintenance_on ? 'rejected' : 'active' ?>"><?= $maintenance_on ? 'Maintenance ON' : 'Live' ?></span></p>
     <form method="post" onsubmit="return confirm('<?= $maintenance_on ? 'Turn maintenance mode off and bring the site back online?' : 'Turn maintenance mode on? Members will not be able to log in, browse, or order until you turn it back off.' ?>');">
       <input type="hidden" name="action" value="toggle">

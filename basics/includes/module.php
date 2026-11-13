@@ -59,21 +59,6 @@ if (isset($conn) && $conn instanceof mysqli && function_exists('basics_is_logged
 // page, so gating here blocks members site-wide while leaving the admin
 // panel (including the toggle itself) untouched.
 if (isset($conn) && $conn instanceof mysqli && setting($conn, 'basics_maintenance_enabled', '0') === '1') {
-    http_response_code(503);
-    $page_title = 'Under Maintenance';
-    require __DIR__ . '/../../includes/header.php';
-    ?>
-    <div class="container py-5 text-center" style="min-height:50vh;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-      <i class="fas fa-screwdriver-wrench mb-3" style="font-size:3rem;color:var(--primary);"></i>
-      <h1 class="stitle">We'll be right back</h1>
-      <p class="sdesc mb-3">TindaGo is temporarily down for maintenance. Please check back soon.</p>
-      <?php $maintenance_email = setting($conn, 'company_email', ''); ?>
-      <?php if ($maintenance_email !== ''): ?>
-        <p class="mb-0 small">For questions, email <a href="mailto:<?= sanitize($maintenance_email) ?>"><?= sanitize($maintenance_email) ?></a></p>
-      <?php endif; ?>
-    </div>
-    </body>
-    </html>
-    <?php
+    require __DIR__ . '/404.php';
     exit;
 }
