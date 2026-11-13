@@ -7,6 +7,11 @@ Options -Indexes
 # GoDaddy's home.html) left in the web root.
 DirectoryIndex index.php index.html
 
+# Missing pages get the app's plain 404 page — the same one the hidden admin
+# panel answers with (see config/admin_gate.example.php). On localhost the
+# app sits in /tindago, so this path only resolves on the live site.
+ErrorDocument 404 /404.php
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 

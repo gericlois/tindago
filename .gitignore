@@ -49,3 +49,7 @@ config/gdrive.php
 # Purchased/vendor template reference source — the app only uses the copy
 # baked into assets/css/theme.css, not these original template files
 theme/
+
+# Admin panel gate key (hides /basics/admin/) — never track this file.
+# See config/admin_gate.example.php for the structure to recreate it.
+config/admin_gate.php

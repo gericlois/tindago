@@ -78,4 +78,5 @@ jobs:
             config/email.php
             config/gemini.php
             config/gdrive.php
+            config/admin_gate.php
             uploads/basics_products/**

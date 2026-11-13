@@ -23,6 +23,40 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // ---------------------------------------------------------------
+// Hidden admin panel (config/admin_gate.php): while a key is set, every
+// /basics/admin/ page answers the same "404 Not Found" as a missing page,
+// unless this browser was let in via ?key=… (remembered in a cookie for a
+// year) or already has an admin session. Runs before the CSRF check so a
+// stray POST gets the 404 too, not a 403 that would give the panel away.
+// ---------------------------------------------------------------
+if (defined('ADMIN_GATE_KEY') && ADMIN_GATE_KEY !== ''
+    && strpos($_SERVER['SCRIPT_NAME'] ?? '', '/basics/admin/') !== false) {
+    // The cookie holds a value derived from the key, not the key itself,
+    // and stops working when the key is changed.
+    $admin_gate_value = hash_hmac('sha256', 'basics-admin-gate', ADMIN_GATE_KEY);
+    $admin_gate_open = isset($_SESSION['basics_admin_id'])
+        || hash_equals($admin_gate_value, (string) ($_COOKIE['tg_gate'] ?? ''));
+
+    if (!$admin_gate_open && is_string($_GET['key'] ?? null) && hash_equals(ADMIN_GATE_KEY, $_GET['key'])) {
+        setcookie('tg_gate', $admin_gate_value, [
+            'expires' => time() + 365 * 86400,
+            'path' => BASE_URL . '/basics/admin/',
+            'secure' => !empty($is_https),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+        // Drop the key from the address bar (and from browser history).
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
+    }
+    if (!$admin_gate_open) {
+        $status_code = 404;
+        require __DIR__ . '/../basics/includes/404.php';
+        exit;
+    }
+}
+
+// ---------------------------------------------------------------
 // CSRF protection for every form in the app, without touching each form:
 //  1. every POST must carry the session's token, or is rejected (403);
 //  2. the token is injected into every <form method="post"> in the page

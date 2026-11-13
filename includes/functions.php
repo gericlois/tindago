@@ -2,7 +2,7 @@
 // Real keys live in gitignored config/*.php files created on each server.
 // Until one exists, its committed .example.php (all keys blank) is loaded
 // instead, which just leaves that feature off rather than breaking the site.
-foreach (['sms', 'email', 'gemini'] as $config_name) {
+foreach (['sms', 'email', 'gemini', 'admin_gate'] as $config_name) {
     $config_file = __DIR__ . '/../config/' . $config_name . '.php';
     require_once is_file($config_file) ? $config_file : __DIR__ . '/../config/' . $config_name . '.example.php';
 }
