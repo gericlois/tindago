@@ -1,15 +1,11 @@
 <?php
-// A plain hosting-provider style "404 Not Found" page with no TindaGo
-// branding. Used for:
-//  - every member page while maintenance mode is on (module.php) — status
-//    503 + Retry-After so search engines treat it as temporary;
-//  - the hidden admin panel (includes/auth.php) and missing pages
-//    (/404.php, the ErrorDocument) — set $status_code = 404 first.
-$status_code = $status_code ?? 503;
-http_response_code($status_code);
-if ($status_code === 503) {
-    header('Retry-After: 3600');
-}
+// Shown in place of every member page while maintenance mode is on (see
+// module.php). Styled as a plain hosting-provider "404 Not Found" page with no
+// TindaGo branding, so the site simply looks unavailable. The status code is
+// still 503 + Retry-After so search engines treat it as temporary and keep
+// the site indexed.
+http_response_code(503);
+header('Retry-After: 3600');
 header('Cache-Control: no-store');
 header('X-Robots-Tag: noindex');
 ?>
